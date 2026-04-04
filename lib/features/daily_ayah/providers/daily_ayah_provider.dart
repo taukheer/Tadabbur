@@ -104,7 +104,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       final editorial = results[2] as EditorialContent?;
 
       // Build audio URL from CDN with selected reciter
-      final reciterPath = storage.notificationTime ?? 'Alafasy';
+      final reciterPath = storage.reciterPath;
       final parts = verseKey.split(':');
       final chapterPadded = parts[0].padLeft(3, '0');
       final versePadded = parts[1].padLeft(3, '0');

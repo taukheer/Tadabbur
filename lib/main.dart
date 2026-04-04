@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/router/app_router.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/services/notification_service.dart';
 import 'package:tadabbur/core/theme/app_theme.dart';
 
 void main() async {
@@ -15,6 +16,10 @@ void main() async {
 
   final localStorage = LocalStorageService();
   await localStorage.init();
+
+  // Initialize notifications
+  final notifService = NotificationService(localStorage);
+  await notifService.init();
 
   runApp(
     ProviderScope(

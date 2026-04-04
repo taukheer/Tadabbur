@@ -350,7 +350,7 @@ class _MotivationPage extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Begin with Al-Fatiha',
+                  'Continue',
                   style:
                       TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
@@ -466,9 +466,9 @@ class _StartingPointPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text(
-                'Begin my journey',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              child: Text(
+                'Begin with ${_selectedSurahName()}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 800.ms),
@@ -476,6 +476,19 @@ class _StartingPointPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _selectedSurahName() {
+    // Check presets first
+    for (final (key, name, _) in _presets) {
+      if (selected == key) return name;
+    }
+    // Check full surah list
+    final surahNum = int.tryParse(selected.split(':').first) ?? 1;
+    if (surahNum > 0 && surahNum <= _surahNames.length) {
+      return _surahNames[surahNum - 1];
+    }
+    return 'Surah $surahNum';
   }
 
   void _showSurahPicker(BuildContext context) {

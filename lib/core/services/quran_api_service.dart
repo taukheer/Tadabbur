@@ -359,10 +359,10 @@ class QuranApiService {
       // Strip HTML tags and footnote references from translation
       if (translationText != null) {
         translationText = translationText
-            .replaceAll(RegExp(r'<[^>]*>'), '')  // HTML tags
-            .replaceAll(RegExp(r',\d+$'), '')     // trailing ",1" footnote refs
-            .replaceAll(RegExp(r'\[\d+\]'), '')   // [1] style footnotes
-            .replaceAll(RegExp(r'\s+'), ' ')      // collapse whitespace
+            .replaceAll(RegExp(r'<[^>]*>'), '')    // HTML tags
+            .replaceAll(RegExp(r',\d+'), '')        // ",1" footnote refs anywhere
+            .replaceAll(RegExp(r'\[\d+\]'), '')     // [1] style footnotes
+            .replaceAll(RegExp(r'\s+'), ' ')        // collapse whitespace
             .trim();
       }
       translationAuthor = firstTranslation['resource_name'] as String?;

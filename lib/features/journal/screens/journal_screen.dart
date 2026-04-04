@@ -68,15 +68,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => context.go('/settings'),
-                      icon: Icon(
-                        Icons.settings_outlined,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.2),
-                        size: 22,
-                      ),
-                    ),
                   ],
                 ),
               ),

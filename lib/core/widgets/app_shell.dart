@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Minimal shell — just two destinations: Today's Ayah and Journal.
-/// Settings accessible from Journal screen via icon.
 class AppShell extends StatelessWidget {
   final Widget child;
 
@@ -32,13 +30,15 @@ class AppShell extends StatelessWidget {
           ),
         ),
         child: NavigationBar(
-          selectedIndex: index > 1 ? 1 : index, // Settings maps to journal tab
+          selectedIndex: index,
           onDestinationSelected: (i) {
             switch (i) {
               case 0:
                 context.go('/home');
               case 1:
                 context.go('/journal');
+              case 2:
+                context.go('/settings');
             }
           },
           backgroundColor: theme.colorScheme.surface,
@@ -68,6 +68,17 @@ class AppShell extends StatelessWidget {
                 color: theme.colorScheme.primary,
               ),
               label: 'Journal',
+            ),
+            NavigationDestination(
+              icon: Icon(
+                Icons.settings_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+              selectedIcon: Icon(
+                Icons.settings,
+                color: theme.colorScheme.primary,
+              ),
+              label: 'Settings',
             ),
           ],
         ),

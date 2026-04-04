@@ -1,5 +1,5 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart';
@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
@@ -69,15 +70,60 @@ class DailyAyahScreen extends ConsumerWidget {
     final words = state.words.where((w) => w.charTypeName == 'word').toList();
     final showTransliteration = profile?.needsTransliteration ?? false;
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
+    final arabicFontSize = ref.watch(arabicFontSizeProvider);
+    final arabicFontId = ref.watch(arabicFontProvider);
+    final reciterPath = ref.watch(reciterPathProvider);
+
+    // Build audio URL from Islamic Network CDN (uses absolute ayah number)
+    final absAyahNum = _absoluteAyahNumber(ayah.surahNumber, ayah.ayahNumber);
+    final bitrate = reciterPath == 'abdurrahmaansudais' ? '192' : '128';
+    final liveAudioUrl =
+        'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
 
     // Detect theme from translation for the hook line
     final ayahTheme = _detectTheme(ayah.translationText ?? '');
+
+    // Check if returning after a gap (no guilt, just welcome back)
+    final lastCompleted = progress.lastCompletedAt as DateTime?;
+    final daysSinceLastVisit = lastCompleted != null
+        ? DateTime.now().difference(lastCompleted).inDays
+        : 0;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
           const SizedBox(height: 12),
+
+          // === QUIET DAY COUNTER ===
+          if (progress.totalAyatCompleted > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Day ${progress.totalAyatCompleted + (state.todayCompleted ? 0 : 1)}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+
+          // === WELCOME BACK (after gap, no guilt) ===
+          if (daysSinceLastVisit >= 3 && progress.totalAyatCompleted > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 8, 32, 12),
+              child: Text(
+                'Welcome back. Pick up where you left off.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  fontStyle: FontStyle.italic,
+                ),
+              ).animate().fadeIn(duration: 800.ms),
+            ),
 
           // === SURAH PILL ===
           Container(
@@ -100,7 +146,7 @@ class DailyAyahScreen extends ConsumerWidget {
           if (ayahTheme != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Today\'s ayah speaks about $ayahTheme',
+              'Today\'s ayah invites you to reflect on $ayahTheme',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
                 fontStyle: FontStyle.italic,
@@ -118,12 +164,8 @@ class DailyAyahScreen extends ConsumerWidget {
               ayah.textUthmani,
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
-              style: const TextStyle(
-                fontFamily: 'AmiriQuran',
-                fontSize: 36,
-                color: Color(0xFF1A1A1A),
-                height: 2.2,
-              ),
+              style: ArabicFonts.getStyle(arabicFontId, fontSize: arabicFontSize)
+                  .copyWith(color: const Color(0xFF1A1A1A)),
             ),
           ).animate().fadeIn(duration: 1000.ms, delay: 200.ms),
 
@@ -147,15 +189,26 @@ class DailyAyahScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
-          // === LISTEN ===
-          _AudioButton(audioUrl: state.audioUrl, ref: ref)
-              .animate()
-              .fadeIn(duration: 500.ms, delay: 500.ms),
+          // === LISTEN — prominent, nudge above ===
+          Column(
+            children: [
+              Text(
+                'Start by listening',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _AudioButton(audioUrl: liveAudioUrl, ref: ref),
+            ],
+          ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
 
-          // === SALAH CONNECTION (for salah-motivated users) ===
+          // === SALAH CONNECTION ===
           if (isSalahMotivated && ayah.surahNumber == 1)
             Padding(
-              padding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
+              padding: const EdgeInsets.fromLTRB(32, 14, 32, 0),
               child: Text(
                 'You recite this in every rak\'ah of every prayer.',
                 textAlign: TextAlign.center,
@@ -164,10 +217,25 @@ class DailyAyahScreen extends ConsumerWidget {
                   fontStyle: FontStyle.italic,
                   fontSize: 12,
                 ),
-              ).animate().fadeIn(duration: 600.ms, delay: 600.ms),
+              ),
             ),
 
-          const SizedBox(height: 28),
+          // === SHORT MEANING — 2 lines, between audio and reflection ===
+          if (editorial != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
+              child: Text(
+                _shortMeaning(editorial.historicalContext),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  height: 1.5,
+                  fontSize: 13,
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          const SizedBox(height: 24),
 
           // === REFLECTION CTA — the core product ===
           if (!state.todayCompleted)
@@ -180,7 +248,6 @@ class DailyAyahScreen extends ConsumerWidget {
                 onFullReflection: () => _openReflection(context, state),
               ),
             )
-
           else
             _CompletedState(
               totalAyat: progress.totalAyatCompleted,
@@ -189,131 +256,6 @@ class DailyAyahScreen extends ConsumerWidget {
               isSalahMotivated: isSalahMotivated,
               theme: theme,
             ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(60, 24, 60, 0),
-            child: Divider(
-              color: const Color(0xFF1B5E20).withValues(alpha: 0.06),
-              thickness: 0.5,
-            ),
-          ),
-
-          // === WORD BY WORD — collapsed by default, tap to expand ===
-          if (words.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            _WordByWordSection(
-              words: words,
-              showTransliteration: showTransliteration,
-              isExpanded: state.showWordByWord,
-              onToggle: () =>
-                  ref.read(dailyAyahProvider.notifier).toggleWordByWord(),
-              theme: theme,
-            ),
-          ],
-
-          // === HISTORICAL CONTEXT ===
-          if (editorial != null) ...[
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'HISTORICAL CONTEXT',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.3),
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    editorial.historicalContext,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
-                      height: 1.7,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // === SCHOLAR'S REFLECTION ===
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F5F0),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFE8E0D4),
-                    width: 0.5,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.auto_stories_rounded,
-                            size: 16,
-                            color:
-                                const Color(0xFF8B7355).withValues(alpha: 0.5)),
-                        const SizedBox(width: 8),
-                        Text(
-                          'SCHOLAR\'S REFLECTION',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF8B7355),
-                            letterSpacing: 1,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '"${editorial.scholarReflection}"',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.65),
-                        height: 1.7,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '— ${editorial.scholarName}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF8B7355),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-
-          // === COMMUNITY — subtle, at the bottom ===
-          Padding(
-            padding: const EdgeInsets.only(top: 28),
-            child: Text(
-              '${1247 + (ayah.ayahNumber * 83) + Random(42).nextInt(500)} Muslims reflected on this ayah today',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
-                fontSize: 11,
-              ),
-            ),
-          ),
           // === BOTTOM SPACING ===
           const SizedBox(height: 40),
         ],
@@ -349,6 +291,36 @@ class DailyAyahScreen extends ConsumerWidget {
 
   static String _surahName(int num) =>
       num > 0 && num < _surahNames.length ? _surahNames[num] : 'Surah $num';
+
+  /// Extract first 1-2 sentences as a short meaning.
+  static String _shortMeaning(String context) {
+    final sentences = context.split(RegExp(r'(?<=[.!?])\s+'));
+    if (sentences.length <= 1) return context;
+    return sentences.take(2).join(' ');
+  }
+
+  /// Convert surah:ayah to absolute ayah number (1-6236).
+  static int _absoluteAyahNumber(int surah, int ayah) {
+    const verseCounts = [
+      0, 7, 286, 200, 176, 120, 165, 206, 75, 129, 109,
+      123, 111, 43, 52, 99, 128, 111, 110, 98, 135,
+      112, 78, 118, 64, 77, 227, 93, 88, 69, 60,
+      34, 30, 73, 54, 45, 83, 182, 88, 75, 85,
+      54, 53, 89, 59, 37, 35, 38, 29, 18, 45,
+      60, 49, 62, 55, 78, 96, 29, 22, 24, 13,
+      14, 11, 11, 18, 12, 12, 30, 52, 52, 44,
+      28, 28, 20, 56, 40, 31, 50, 40, 46, 42,
+      29, 19, 36, 25, 22, 17, 19, 26, 30, 20,
+      15, 21, 11, 8, 8, 19, 5, 8, 8, 11,
+      11, 8, 3, 9, 5, 4, 7, 3, 6, 3,
+      5, 4, 5, 6,
+    ];
+    int total = 0;
+    for (int i = 1; i < surah && i < verseCounts.length; i++) {
+      total += verseCounts[i];
+    }
+    return total + ayah;
+  }
 
   static String? _detectTheme(String translation) {
     final t = translation.toLowerCase();
@@ -407,84 +379,174 @@ class _InlineReflection extends ConsumerStatefulWidget {
 
 class _InlineReflectionState extends ConsumerState<_InlineReflection> {
   bool _saving = false;
+  bool _highlighted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-highlight "I felt this" after 5 seconds of inactivity
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted && !_saving) {
+        setState(() => _highlighted = true);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Use tier2 prompt for inline (shorter, more accessible)
+    final journal = ref.watch(journalProvider);
     final prompt = widget.editorial?.tier2Prompt as String? ??
-        'Pause for a moment with this ayah.';
+        'Sit with this for a moment.';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B5E20).withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            prompt,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
-              fontWeight: FontWeight.w500,
-              height: 1.5,
+    // Show a previous entry after Day 3 to build attachment
+    final previousEntry = journal.length >= 3 ? journal.last : null;
+
+    return Column(
+      children: [
+        // === PREVIOUS ENTRY MEMORY (after Day 3) ===
+        if (previousEntry != null) ...[
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F5F0),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFFE8E0D4).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'You wrote this ${_daysAgo(previousEntry.completedAt)}...',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  previousEntry.responseText ?? 'You felt this ayah.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    height: 1.5,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 600.ms),
+        ],
+
+        // === REFLECTION CTA ===
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
             ),
           ),
-          const SizedBox(height: 20),
-          // Two actions
-          Row(
+          child: Column(
             children: [
-              // "This spoke to me" — one tap
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _saving ? null : _acknowledge,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(
-                      color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'I felt this',
-                    style: TextStyle(
-                      color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  ),
+              Text(
+                prompt,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
                 ),
               ),
-              const SizedBox(width: 10),
-              // "Write back" — opens reflection
-              Expanded(
-                child: FilledButton(
-                  onPressed: widget.onFullReflection,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E3A2F),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  // "I felt this" — highlighted after 5s
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 600),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: _highlighted
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF1B5E20)
+                                      .withValues(alpha: 0.12),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : [],
+                      ),
+                      child: FilledButton(
+                        onPressed: _saving ? null : _acknowledge,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _highlighted
+                              ? const Color(0xFF1B5E20)
+                              : Colors.white,
+                          foregroundColor: _highlighted
+                              ? Colors.white
+                              : const Color(0xFF1B5E20).withValues(alpha: 0.6),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: _highlighted
+                              ? null
+                              : BorderSide(
+                                  color: const Color(0xFF1B5E20)
+                                      .withValues(alpha: 0.15),
+                                ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'I felt this',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text(
-                    'Reflect',
-                    style: TextStyle(fontSize: 13),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: widget.onFullReflection,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(
+                          color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Write one line',
+                        style: TextStyle(
+                          color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 600.ms, delay: 800.ms);
+        ).animate().fadeIn(duration: 600.ms, delay: 800.ms),
+      ],
+    );
+  }
+
+  String _daysAgo(DateTime date) {
+    final diff = DateTime.now().difference(date).inDays;
+    if (diff == 0) return 'earlier today';
+    if (diff == 1) return 'yesterday';
+    return '$diff days ago';
   }
 
   Future<void> _acknowledge() async {
@@ -499,6 +561,9 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
         completedAt: DateTime.now(),
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
       );
+      // Haptic feedback — the moment lands
+      HapticFeedback.mediumImpact();
+
       await ref.read(journalProvider.notifier).addEntry(entry);
       await ref
           .read(userProgressProvider.notifier)
@@ -515,6 +580,68 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
 }
 
 // === WORD BY WORD — collapsible ===
+
+// === TRUNCATED SCHOLAR TEXT — 2-3 sentences with "Read more" ===
+
+class _TruncatedScholarText extends StatefulWidget {
+  final String text;
+  final String scholarName;
+  final ThemeData theme;
+
+  const _TruncatedScholarText({
+    required this.text,
+    required this.scholarName,
+    required this.theme,
+  });
+
+  @override
+  State<_TruncatedScholarText> createState() => _TruncatedScholarTextState();
+}
+
+class _TruncatedScholarTextState extends State<_TruncatedScholarText> {
+  bool _expanded = false;
+
+  String get _shortText {
+    // Take first 2 sentences
+    final sentences = widget.text.split(RegExp(r'(?<=[.!?])\s+'));
+    if (sentences.length <= 2) return '"${widget.text}"';
+    return '"${sentences.take(2).join(' ')}..."';
+  }
+
+  bool get _isLong {
+    return widget.text.split(RegExp(r'(?<=[.!?])\s+')).length > 2;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _expanded ? '"${widget.text}"' : _shortText,
+          style: widget.theme.textTheme.bodyMedium?.copyWith(
+            color: widget.theme.colorScheme.onSurface.withValues(alpha: 0.65),
+            height: 1.7,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+        if (_isLong && !_expanded) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => setState(() => _expanded = true),
+            child: Text(
+              'Read more',
+              style: widget.theme.textTheme.labelSmall?.copyWith(
+                color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class _WordByWordSection extends StatelessWidget {
   final List<dynamic> words;
@@ -726,29 +853,65 @@ class _CompletedState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Salah bridge moment after completing Al-Fatiha (all 7 ayat)
     final completedFatiha = surahNumber == 2 && ayahNumber == 1 && totalAyat >= 7;
+    final milestone = _getMilestoneMessage(totalAyat);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         children: [
+          // Checkmark with scale animation
           Icon(
             Icons.check_rounded,
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.3),
-            size: 28,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'You have sat with $totalAyat ayat.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-            ),
-          ),
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+            size: 32,
+          )
+              .animate()
+              .scale(
+                begin: const Offset(0, 0),
+                end: const Offset(1, 1),
+                duration: 500.ms,
+                curve: Curves.elasticOut,
+              )
+              .fadeIn(duration: 300.ms),
 
-          // === THE SALAH BRIDGE — after completing Al-Fatiha ===
+          const SizedBox(height: 14),
+
+          // === "Day X complete" ===
+          Text(
+            'Day $totalAyat complete',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: const Color(0xFF1B5E20),
+              fontWeight: FontWeight.w600,
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
+
+          const SizedBox(height: 6),
+
+          // === Warm emotional line ===
+          Text(
+            milestone ?? 'You showed up today. This counts.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontStyle: FontStyle.italic,
+              height: 1.4,
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 400.ms),
+
+          // === Tomorrow anticipation ===
+          const SizedBox(height: 16),
+          Text(
+            'Come back tomorrow for your next ayah.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+              fontSize: 12,
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          // === SALAH BRIDGE — after completing Al-Fatiha ===
           if (completedFatiha && isSalahMotivated) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -759,7 +922,7 @@ class _CompletedState extends ConsumerWidget {
                 ),
               ),
               child: Text(
-                'You now understand every word of Al-Fatiha.\n\nYou will say it 17 times today in prayer. Listen for it. You will hear what you\'ve learned.',
+                'You now understand every word of Al-Fatiha.\n\nYou will say it 17 times today in prayer. Listen for it.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.7),
@@ -806,5 +969,17 @@ class _CompletedState extends ConsumerWidget {
         ],
       ).animate().fadeIn(duration: 800.ms),
     );
+  }
+
+  static String? _getMilestoneMessage(int total) {
+    if (total == 1) return 'Your first ayah. This is the beginning.';
+    if (total == 3) return 'Day 3. You\'re building something.';
+    if (total == 7) return 'One week. 7 ayat. You\'ve built something real.';
+    if (total == 14) return 'Two weeks. This is becoming part of you.';
+    if (total == 30) return 'Day 30. This is a habit now.';
+    if (total == 50) return '50 ayat. Your journal is growing.';
+    if (total == 100) return '100 ayat. You have built something no one can take from you.';
+    if (total == 365) return 'One year. 365 ayat. Your spiritual autobiography.';
+    return null;
   }
 }

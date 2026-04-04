@@ -8,6 +8,7 @@ import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
+import 'package:tadabbur/core/services/notification_service.dart';
 
 // --- Core Services ---
 
@@ -43,6 +44,10 @@ final audioServiceProvider = Provider<AudioService>((ref) {
   return service;
 });
 
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService(ref.watch(localStorageProvider));
+});
+
 // --- Auth State ---
 
 final isLoggedInProvider = StateProvider<bool>((ref) {
@@ -51,6 +56,20 @@ final isLoggedInProvider = StateProvider<bool>((ref) {
 
 final hasOnboardedProvider = StateProvider<bool>((ref) {
   return ref.watch(localStorageProvider).hasOnboarded;
+});
+
+// --- Display Preferences (reactive) ---
+
+final arabicFontProvider = StateProvider<String>((ref) {
+  return ref.watch(localStorageProvider).arabicFont;
+});
+
+final arabicFontSizeProvider = StateProvider<double>((ref) {
+  return ref.watch(localStorageProvider).arabicFontSize;
+});
+
+final reciterPathProvider = StateProvider<String>((ref) {
+  return ref.watch(localStorageProvider).reciterPath;
 });
 
 // --- User Profile ---

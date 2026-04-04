@@ -11,6 +11,8 @@ class LocalStorageService {
   static const _keyProfile = 'user_profile';
   static const _keyReciterId = 'preferred_reciter_id';
   static const _keyNotificationTime = 'notification_time';
+  static const _keyReciterPath = 'reciter_cdn_path';
+  static const _keyArabicFontSize = 'arabic_font_size';
   static const _keyTranslationId = 'translation_id';
   static const _keyAuthToken = 'auth_token';
   static const _keyRefreshToken = 'refresh_token';
@@ -91,6 +93,23 @@ class LocalStorageService {
 
   Future<void> setTranslationId(int id) =>
       _prefs.setInt(_keyTranslationId, id);
+
+  String get reciterPath => _prefs.getString(_keyReciterPath) ?? 'alafasy';
+
+  Future<void> setReciterPath(String path) =>
+      _prefs.setString(_keyReciterPath, path);
+
+  double get arabicFontSize => _prefs.getDouble(_keyArabicFontSize) ?? 36.0;
+
+  Future<void> setArabicFontSize(double size) =>
+      _prefs.setDouble(_keyArabicFontSize, size);
+
+  static const _keyArabicFont = 'arabic_font';
+
+  String get arabicFont => _prefs.getString(_keyArabicFont) ?? 'AmiriQuran';
+
+  Future<void> setArabicFont(String font) =>
+      _prefs.setString(_keyArabicFont, font);
 
   String? get notificationTime => _prefs.getString(_keyNotificationTime);
 

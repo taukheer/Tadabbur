@@ -25,6 +25,10 @@ dependencies:
   # Local Storage
   shared_preferences: ^2.3.4
 
+  # Notifications
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+
   # UI
   google_fonts: ^6.2.1
   flutter_svg: ^2.0.17
