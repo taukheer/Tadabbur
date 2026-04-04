@@ -1,0 +1,59 @@
+name: tadabbur
+description: "One Ayah. Every Day. For Life. Your spiritual autobiography through the Quran."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # Networking
+  dio: ^5.7.0
+
+  # Audio
+  just_audio: ^0.9.42
+
+  # Local Storage
+  shared_preferences: ^2.3.4
+
+  # UI
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.17
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  flutter_animate: ^4.5.2
+  smooth_page_indicator: ^1.2.0+3
+
+  # Utils
+  intl: ^0.19.0
+  uuid: ^4.5.1
+  url_launcher: ^6.3.1
+  hijri: ^3.0.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/data/
+
+  fonts:
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/AmiriQuran-Regular.ttf

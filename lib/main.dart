@@ -1,0 +1,45 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/router/app_router.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/theme/app_theme.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+
+  final localStorage = LocalStorageService();
+  await localStorage.init();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        localStorageProvider.overrideWithValue(localStorage),
+      ],
+      child: const TadabburApp(),
+    ),
+  );
+}
+
+class TadabburApp extends ConsumerWidget {
+  const TadabburApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
+      title: 'Tadabbur',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
+      routerConfig: router,
+    );
+  }
+}
