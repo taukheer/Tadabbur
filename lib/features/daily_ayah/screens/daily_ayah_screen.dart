@@ -105,7 +105,7 @@ class DailyAyahScreen extends ConsumerWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Day ${progress.totalAyatCompleted + (state.todayCompleted ? 0 : 1)}',
+                  'Day ${progress.dayNumber}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     fontSize: 11,
@@ -196,7 +196,7 @@ class DailyAyahScreen extends ConsumerWidget {
           Column(
             children: [
               Text(
-                t('start_listening'),
+                'Listen once before continuing',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
                   fontSize: 11,
@@ -231,8 +231,8 @@ class DailyAyahScreen extends ConsumerWidget {
                 _shortMeaning(editorial.historicalContext),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  height: 1.5,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  height: 1.7,
                   fontSize: 13,
                 ),
               ),
@@ -254,6 +254,7 @@ class DailyAyahScreen extends ConsumerWidget {
           else
             _CompletedState(
               totalAyat: progress.totalAyatCompleted,
+              dayNumber: progress.dayNumber,
               surahNumber: ayah.surahNumber,
               ayahNumber: ayah.ayahNumber,
               isSalahMotivated: isSalahMotivated,
@@ -293,13 +294,13 @@ class DailyAyahScreen extends ConsumerWidget {
   ];
 
   static String _surahName(int num) =>
-      num > 0 && num < _surahNames.length ? _surahNames[num] : 'Surah $num';
+      num > 0 && num < DailyAyahScreen._surahNames.length ? DailyAyahScreen._surahNames[num] : 'Surah $num';
 
   /// Extract first 1-2 sentences as a short meaning.
+  /// Extract first sentence only — keep it light.
   static String _shortMeaning(String context) {
     final sentences = context.split(RegExp(r'(?<=[.!?])\s+'));
-    if (sentences.length <= 1) return context;
-    return sentences.take(2).join(' ');
+    return sentences.first;
   }
 
   /// Convert surah:ayah to absolute ayah number (1-6236).
@@ -401,11 +402,20 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
     final journal = ref.watch(journalProvider);
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
-    final prompt = widget.editorial?.tier2Prompt as String? ??
-        t('sit_moment');
+    // Rotate between light prompts when no editorial content
+    final lightPrompts = [
+      'What stood out to you?',
+      'What stayed with you?',
+      t('sit_moment'),
+    ];
+    final fallbackPrompt = lightPrompts[
+        (widget.ayah.ayahNumber as int) % lightPrompts.length];
+    final prompt = widget.editorial?.tier2Prompt as String? ?? fallbackPrompt;
 
-    // Show a previous entry after Day 3 to build attachment
-    final previousEntry = journal.length >= 3 ? journal.last : null;
+    // Show a previous WRITTEN entry (not acknowledge-only) after 3+ entries
+    final writtenEntries =
+        journal.where((e) => e.responseText != null && e.responseText!.isNotEmpty).toList();
+    final previousEntry = writtenEntries.length >= 2 ? writtenEntries.last : null;
 
     return Column(
       children: [
@@ -425,7 +435,9 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
             child: Column(
               children: [
                 Text(
-                  'You wrote this ${_daysAgo(previousEntry.completedAt)}...',
+                  _daysAgo(previousEntry.completedAt) == 'earlier today'
+                      ? 'Earlier today, you paused with an ayah.'
+                      : 'You wrote this ${_daysAgo(previousEntry.completedAt)}...',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: const Color(0xFF8B7355).withValues(alpha: 0.6),
                     fontStyle: FontStyle.italic,
@@ -433,7 +445,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  previousEntry.responseText ?? 'You felt this ayah.',
+                  previousEntry.responseText!,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -845,6 +857,7 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
 
 class _CompletedState extends ConsumerWidget {
   final int totalAyat;
+  final int dayNumber;
   final int surahNumber;
   final int ayahNumber;
   final bool isSalahMotivated;
@@ -852,6 +865,7 @@ class _CompletedState extends ConsumerWidget {
 
   const _CompletedState({
     required this.totalAyat,
+    required this.dayNumber,
     required this.surahNumber,
     required this.ayahNumber,
     required this.isSalahMotivated,
@@ -863,18 +877,42 @@ class _CompletedState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final completedFatiha = surahNumber == 2 && ayahNumber == 1 && totalAyat >= 7;
-    final milestone = _getMilestoneMessage(totalAyat);
+    final progress = ref.watch(userProgressProvider);
+    final milestone = _getMilestoneMessage(dayNumber, totalAyat);
+
+    // Detect surah completion: current ayah is 1 means we just moved to a new surah
+    final currentAyahInProgress =
+        int.tryParse(progress.currentVerseKey.split(':').last) ?? 1;
+    final currentSurahInProgress =
+        int.tryParse(progress.currentVerseKey.split(':').first) ?? 1;
+    final justCompletedSurah = currentAyahInProgress == 1 && totalAyat > 0;
+    final completedSurahNumber =
+        justCompletedSurah ? currentSurahInProgress - 1 : null;
+    final completedSurahName = completedSurahNumber != null &&
+            completedSurahNumber > 0 &&
+            completedSurahNumber < DailyAyahScreen._surahNames.length
+        ? DailyAyahScreen._surahNames[completedSurahNumber]
+        : null;
+    final nextSurahName = currentSurahInProgress > 0 &&
+            currentSurahInProgress < DailyAyahScreen._surahNames.length
+        ? DailyAyahScreen._surahNames[currentSurahInProgress]
+        : null;
+
+    // Special: Al-Fatiha completion + salah bridge
+    final completedFatiha =
+        completedSurahNumber == 1 && isSalahMotivated;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         children: [
-          // Checkmark with scale animation
+          const SizedBox(height: 8),
+
+          // Checkmark — slightly larger, more space
           Icon(
             Icons.check_rounded,
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
-            size: 32,
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+            size: 36,
           )
               .animate()
               .scale(
@@ -885,20 +923,32 @@ class _CompletedState extends ConsumerWidget {
               )
               .fadeIn(duration: 300.ms),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
 
-          // === "Day X complete" ===
-          Text(
-            _t('day_complete', ref).replaceAll('{n}', '$totalAyat'),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: const Color(0xFF1B5E20),
-              fontWeight: FontWeight.w600,
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
+          // === SURAH COMPLETION MOMENT ===
+          if (justCompletedSurah && completedSurahName != null) ...[
+            Text(
+              'You have completed $completedSurahName',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: const Color(0xFF1B5E20),
+                fontWeight: FontWeight.w600,
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
+            const SizedBox(height: 6),
+            Text(
+              '$totalAyat ${_t('ayat', ref)} · Day $dayNumber',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 300.ms),
+          ] else ...[
+            // Just the warm line — no redundant count
+          ],
 
           const SizedBox(height: 6),
 
-          // === Warm emotional line ===
+          // Milestone or warm line
           Text(
             milestone ?? _t('showed_up', ref),
             textAlign: TextAlign.center,
@@ -909,18 +959,37 @@ class _CompletedState extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 400.ms),
 
-          // === Tomorrow anticipation ===
+          // Micro-action
           const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F5F0),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Try this today: carry this ayah with you quietly.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                fontStyle: FontStyle.italic,
+                fontSize: 12,
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+
+          // Continuity hint
+          const SizedBox(height: 12),
           Text(
-            'Come back tomorrow for your next ayah.',
+            'Continue, or return tomorrow.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
               fontSize: 12,
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
 
           // === SALAH BRIDGE — after completing Al-Fatiha ===
-          if (completedFatiha && isSalahMotivated) ...[
+          if (completedFatiha) ...[
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(20),
@@ -942,54 +1011,158 @@ class _CompletedState extends ConsumerWidget {
             ),
           ],
 
-          // === CONTINUE TO NEXT AYAH ===
           const SizedBox(height: 24),
-          TextButton(
-            onPressed: () {
-              ref.read(dailyAyahProvider.notifier).loadNextAyah();
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.12),
+
+          // === CONTINUE OPTIONS ===
+          if (justCompletedSurah && nextSurahName != null) ...[
+            // Primary: Continue to next surah
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  ref.read(dailyAyahProvider.notifier).loadNextAyah();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E3A2F),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Continue to $nextSurahName',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+            const SizedBox(height: 10),
+            // Secondary: Choose different surah
+            TextButton(
+              onPressed: () => _showSurahPicker(context, ref),
+              child: Text(
+                'Choose a different surah',
+                style: TextStyle(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                  fontSize: 13,
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
+          ] else ...[
+            // Regular continue
+            TextButton(
+              onPressed: () {
+                ref.read(dailyAyahProvider.notifier).loadNextAyah();
+              },
+              style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: const Color(0xFF1B5E20).withValues(alpha: 0.12),
+                  ),
+                ),
+              ),
+              child: Text(
+                'Next ayah →',
+                style: TextStyle(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
+                  fontSize: 14,
                 ),
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _t('continue_next', ref),
-                  style: TextStyle(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 16,
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
       ).animate().fadeIn(duration: 800.ms),
     );
   }
 
-  static String? _getMilestoneMessage(int total) {
-    if (total == 1) return 'Your first ayah. This is the beginning.';
-    if (total == 3) return 'Day 3. You\'re building something.';
-    if (total == 7) return 'One week. 7 ayat. You\'ve built something real.';
-    if (total == 14) return 'Two weeks. This is becoming part of you.';
-    if (total == 30) return 'Day 30. This is a habit now.';
-    if (total == 50) return '50 ayat. Your journal is growing.';
-    if (total == 100) return '100 ayat. You have built something no one can take from you.';
-    if (total == 365) return 'One year. 365 ayat. Your spiritual autobiography.';
+  void _showSurahPicker(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFFFEFDF8),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (ctx, controller) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Choose a surah',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                itemCount: 114,
+                itemBuilder: (context, index) {
+                  final surahNum = index + 1;
+                  final name = surahNum < DailyAyahScreen._surahNames.length
+                      ? DailyAyahScreen._surahNames[surahNum]
+                      : 'Surah $surahNum';
+                  return ListTile(
+                    leading: Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F0E8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text('$surahNum',
+                            style: const TextStyle(
+                              color: Color(0xFF8B7355),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            )),
+                      ),
+                    ),
+                    title: Text(name),
+                    onTap: () async {
+                      await ref
+                          .read(userProgressProvider.notifier)
+                          .setStartingVerse('$surahNum:1');
+                      ref.read(dailyAyahProvider.notifier).loadNextAyah();
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String? _getMilestoneMessage(int dayNum, int ayatCount) {
+    // Ayat-based milestones
+    if (ayatCount == 1) return 'Your first ayah. This is the beginning.';
+    if (ayatCount == 50) return '50 ayat. Your journal is growing.';
+    if (ayatCount == 100) return '100 ayat. Something no one can take from you.';
+
+    // Day-based milestones (only on actual calendar days)
+    if (dayNum == 3) return 'Day 3. You\'re building something.';
+    if (dayNum == 7) return 'One week. You\'ve built something real.';
+    if (dayNum == 14) return 'Two weeks. This is becoming part of you.';
+    if (dayNum == 30) return 'Day 30. This is a habit now.';
+    if (dayNum == 365) return 'One year. Your spiritual autobiography.';
+
     return null;
   }
 }

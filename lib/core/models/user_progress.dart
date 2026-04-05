@@ -6,6 +6,7 @@ class UserProgress {
   final int totalAyatCompleted;
   final int totalReflections;
   final DateTime? lastCompletedAt;
+  final DateTime? startedAt;
   final int streakFreezes;
   final bool isTravelMode;
 
@@ -17,9 +18,20 @@ class UserProgress {
     required this.totalAyatCompleted,
     required this.totalReflections,
     this.lastCompletedAt,
+    this.startedAt,
     required this.streakFreezes,
     required this.isTravelMode,
   });
+
+  /// Day number since user started (calendar days, not ayat count)
+  int get dayNumber {
+    if (startedAt == null) return 1;
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day)
+            .difference(DateTime(startedAt!.year, startedAt!.month, startedAt!.day))
+            .inDays +
+        1;
+  }
 
   factory UserProgress.fromJson(Map<String, dynamic> json) {
     return UserProgress(
@@ -31,6 +43,9 @@ class UserProgress {
       totalReflections: json['total_reflections'] as int,
       lastCompletedAt: json['last_completed_at'] != null
           ? DateTime.parse(json['last_completed_at'] as String)
+          : null,
+      startedAt: json['started_at'] != null
+          ? DateTime.parse(json['started_at'] as String)
           : null,
       streakFreezes: json['streak_freezes'] as int,
       isTravelMode: json['is_travel_mode'] as bool,
@@ -47,6 +62,8 @@ class UserProgress {
       'total_reflections': totalReflections,
       if (lastCompletedAt != null)
         'last_completed_at': lastCompletedAt!.toIso8601String(),
+      if (startedAt != null)
+        'started_at': startedAt!.toIso8601String(),
       'streak_freezes': streakFreezes,
       'is_travel_mode': isTravelMode,
     };
@@ -60,6 +77,7 @@ class UserProgress {
     int? totalAyatCompleted,
     int? totalReflections,
     DateTime? lastCompletedAt,
+    DateTime? startedAt,
     int? streakFreezes,
     bool? isTravelMode,
   }) {
@@ -71,6 +89,7 @@ class UserProgress {
       totalAyatCompleted: totalAyatCompleted ?? this.totalAyatCompleted,
       totalReflections: totalReflections ?? this.totalReflections,
       lastCompletedAt: lastCompletedAt ?? this.lastCompletedAt,
+      startedAt: startedAt ?? this.startedAt,
       streakFreezes: streakFreezes ?? this.streakFreezes,
       isTravelMode: isTravelMode ?? this.isTravelMode,
     );

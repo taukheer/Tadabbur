@@ -139,31 +139,47 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
       totalAyatCompleted: state.totalAyatCompleted + 1,
       totalReflections: state.totalReflections + 1,
       lastCompletedAt: now,
+      // Set startedAt on first completion
+      startedAt: state.startedAt ?? now,
     );
     await _storage.saveProgress(state);
   }
+
+  /// All 114 surah verse counts
+  static const _verseCounts = [
+    0, // index 0 unused
+    7, 286, 200, 176, 120, 165, 206, 75, 129, 109,     // 1-10
+    123, 111, 43, 52, 99, 128, 111, 110, 98, 135,       // 11-20
+    112, 78, 118, 64, 77, 227, 93, 88, 69, 60,          // 21-30
+    34, 30, 73, 54, 45, 83, 182, 88, 75, 85,            // 31-40
+    54, 53, 89, 59, 37, 35, 38, 29, 18, 45,             // 41-50
+    60, 49, 62, 55, 78, 96, 29, 22, 24, 13,             // 51-60
+    14, 11, 11, 18, 12, 12, 30, 52, 52, 44,             // 61-70
+    28, 28, 20, 56, 40, 31, 50, 40, 46, 42,             // 71-80
+    29, 19, 36, 25, 22, 17, 19, 26, 30, 20,             // 81-90
+    15, 21, 11, 8, 8, 19, 5, 8, 8, 11,                  // 91-100
+    11, 8, 3, 9, 5, 4, 7, 3, 6, 3,                      // 101-110
+    5, 4, 5, 6,                                           // 111-114
+  ];
+
+  /// Check if the given verse is the last ayah of its surah
+  static bool isLastAyahOfSurah(String verseKey) {
+    final parts = verseKey.split(':');
+    final surah = int.parse(parts[0]);
+    final ayah = int.parse(parts[1]);
+    if (surah < 1 || surah > 114) return false;
+    return ayah == _verseCounts[surah];
+  }
+
+  /// Get the surah number from a verse key
+  static int surahFromKey(String key) => int.parse(key.split(':').first);
 
   String _getNextVerseKey(String currentKey) {
     final parts = currentKey.split(':');
     final surah = int.parse(parts[0]);
     final ayah = int.parse(parts[1]);
 
-    // Total verses per surah (first 10 surahs for MVP)
-    const verseCounts = {
-      1: 7, 2: 286, 3: 200, 4: 176, 5: 120,
-      6: 165, 7: 206, 8: 75, 9: 129, 10: 109,
-      // ... continues for all 114 surahs
-      78: 40, 79: 46, 80: 42, 81: 29, 82: 19,
-      83: 36, 84: 25, 85: 22, 86: 17, 87: 19,
-      88: 26, 89: 30, 90: 20, 91: 15, 92: 21,
-      93: 11, 94: 8, 95: 8, 96: 19, 97: 5,
-      98: 8, 99: 8, 100: 11, 101: 11, 102: 8,
-      103: 3, 104: 9, 105: 5, 106: 4, 107: 7,
-      108: 3, 109: 6, 110: 3, 111: 5, 112: 4,
-      113: 5, 114: 6,
-    };
-
-    final maxAyah = verseCounts[surah] ?? 7;
+    final maxAyah = surah <= 114 ? _verseCounts[surah] : 7;
     if (ayah < maxAyah) {
       return '$surah:${ayah + 1}';
     } else if (surah < 114) {
