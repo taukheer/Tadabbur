@@ -44,6 +44,41 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  /// Save user profile and settings to Firestore.
+  Future<void> saveUserProfile({
+    String? name,
+    String? email,
+    String? photoUrl,
+    String? language,
+    String? arabicLevel,
+    String? understandingLevel,
+    String? motivation,
+    String? reciterPath,
+    String? arabicFont,
+    double? arabicFontSize,
+    String? currentVerseKey,
+  }) async {
+    if (_userId == null) return;
+
+    final data = <String, dynamic>{
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+
+    if (name != null) data['name'] = name;
+    if (email != null) data['email'] = email;
+    if (photoUrl != null) data['photo_url'] = photoUrl;
+    if (language != null) data['language'] = language;
+    if (arabicLevel != null) data['arabic_level'] = arabicLevel;
+    if (understandingLevel != null) data['understanding_level'] = understandingLevel;
+    if (motivation != null) data['motivation'] = motivation;
+    if (reciterPath != null) data['reciter'] = reciterPath;
+    if (arabicFont != null) data['arabic_font'] = arabicFont;
+    if (arabicFontSize != null) data['arabic_font_size'] = arabicFontSize;
+    if (currentVerseKey != null) data['current_verse_key'] = currentVerseKey;
+
+    await _db.collection('users').doc(_userId).set(data, SetOptions(merge: true));
+  }
+
   /// Load journal entries from Firestore.
   Future<List<JournalEntry>> loadJournalEntries() async {
     if (_userId == null) return [];

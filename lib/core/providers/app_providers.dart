@@ -105,14 +105,16 @@ final userProgressProvider =
     StateNotifierProvider<UserProgressNotifier, UserProgress>((ref) {
   final storage = ref.watch(localStorageProvider);
   final userApi = ref.watch(userApiProvider);
-  return UserProgressNotifier(storage, userApi);
+  final firestore = ref.watch(firestoreServiceProvider);
+  return UserProgressNotifier(storage, userApi, firestore);
 });
 
 class UserProgressNotifier extends StateNotifier<UserProgress> {
   final LocalStorageService _storage;
   final UserApiService _userApi;
+  final FirestoreService _firestore;
 
-  UserProgressNotifier(this._storage, this._userApi)
+  UserProgressNotifier(this._storage, this._userApi, this._firestore)
       : super(
           _storage.getProgress() ??
               UserProgress(
@@ -165,6 +167,9 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
 
     // Sync with QF User APIs (fire-and-forget, don't block UI)
     _syncWithQF(now);
+
+    // Sync progress to Firestore
+    _firestore.saveProgress(state.toJson()).catchError((_) {});
   }
 
   /// Sync activity with Quran Foundation APIs.

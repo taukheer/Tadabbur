@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
+import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -218,6 +219,9 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () async {
                       await storage.setReciterPath(r.cdnPath);
                       ref.read(reciterPathProvider.notifier).state = r.cdnPath;
+                      ref.read(firestoreServiceProvider)
+                          .saveUserProfile(reciterPath: r.cdnPath)
+                          .catchError((_) {});
                     },
                     theme: theme,
                   )),
@@ -245,6 +249,9 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () async {
                       await storage.setArabicFontSize(size);
                       ref.read(arabicFontSizeProvider.notifier).state = size;
+                      ref.read(firestoreServiceProvider)
+                          .saveUserProfile(arabicFontSize: size)
+                          .catchError((_) {});
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -291,6 +298,9 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () async {
                       await storage.setArabicFont(font.id);
                       ref.read(arabicFontProvider.notifier).state = font.id;
+                      ref.read(firestoreServiceProvider)
+                          .saveUserProfile(arabicFont: font.id)
+                          .catchError((_) {});
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -464,6 +474,9 @@ class SettingsScreen extends ConsumerWidget {
                     onTap: () async {
                       await storage.setLanguage(lang.code);
                       ref.read(languageProvider.notifier).state = lang.code;
+                      ref.read(firestoreServiceProvider)
+                          .saveUserProfile(language: lang.code)
+                          .catchError((_) {});
                       // Reload ayah with new translation
                       ref.invalidate(dailyAyahProvider);
                       if (ctx.mounted) Navigator.of(ctx).pop();

@@ -187,6 +187,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref.read(hasOnboardedProvider.notifier).state = true;
     ref.read(isLoggedInProvider.notifier).state = true;
 
+    // Sync profile to Firestore (fire-and-forget)
+    final firestore = ref.read(firestoreServiceProvider);
+    if (firestore.hasUser) {
+      final authUser = ref.read(authUserProvider);
+      firestore.saveUserProfile(
+        name: authUser?.name,
+        email: authUser?.email,
+        photoUrl: authUser?.photoUrl,
+        language: _selectedLanguage ?? 'en',
+        arabicLevel: _arabicLevel?.name,
+        understandingLevel: _understandingLevel?.name,
+        motivation: _motivation?.name,
+        currentVerseKey: _startingVerseKey,
+        reciterPath: storage.reciterPath,
+        arabicFont: storage.arabicFont,
+        arabicFontSize: storage.arabicFontSize,
+      ).catchError((_) {});
+    }
+
     if (mounted) context.go('/home');
   }
 }
