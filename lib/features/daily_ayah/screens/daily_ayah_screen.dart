@@ -100,14 +100,14 @@ class DailyAyahScreen extends ConsumerWidget {
         children: [
           const SizedBox(height: 12),
 
-          // === QUIET DAY COUNTER ===
+          // === QUIET DAY COUNTER with time greeting ===
           if (progress.totalAyatCompleted > 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  'Day ${progress.dayNumber}',
+                  '${progress.dayNumber} ${t('days_with_quran')}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     fontSize: 11,
