@@ -281,31 +281,37 @@ class DailyAyahScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => _openFeelingMode(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F5F0),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🤲', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 10),
-                    Text(
-                      t('explore_feeling'),
-                      style: TextStyle(
-                        color: const Color(0xFF8B7355).withValues(alpha: 0.7),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: GestureDetector(
+                onTap: () => _openFeelingMode(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F5F0),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🤲', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          t('explore_feeling'),
+                          style: TextStyle(
+                            color: const Color(0xFF8B7355).withValues(alpha: 0.7),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 2,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 300.ms),
+            ),
           ],
           // === BOTTOM SPACING ===
           const SizedBox(height: 40),
@@ -1134,40 +1140,6 @@ class _CompletedState extends ConsumerWidget {
               ),
             ),
           ],
-          // === EXPLORE BY FEELING ===
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-            ),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () => _openFeelings(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F5F0),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🤲', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 10),
-                  Text(
-                    _t('explore_feeling', ref),
-                    style: TextStyle(
-                      color: const Color(0xFF8B7355).withValues(alpha: 0.7),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 800.ms),
         ],
       ).animate().fadeIn(duration: 800.ms),
     );
