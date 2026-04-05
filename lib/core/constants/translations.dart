@@ -64,6 +64,9 @@ class AppTranslations {
       'listen_before': 'Listen once before continuing',
       'what_stood_out': 'What stood out to you?',
       'what_stayed': 'What stayed with you?',
+      'sat_with_ayat': 'You have sat with {n} ayat.',
+      'next_ready': 'Your next ayah will be ready tomorrow.',
+      'return_btn': 'Return',
     },
     'ar': {
       'welcome_line': 'ستون ثانية مع القرآن.\nكل صباح.\nوفي يوم ما، ستتغير\nصلاتك.',
@@ -121,6 +124,9 @@ class AppTranslations {
       'listen_before': 'استمع مرة قبل المتابعة',
       'what_stood_out': 'ما الذي لفت انتباهك؟',
       'what_stayed': 'ما الذي بقي معك؟',
+      'sat_with_ayat': 'جلست مع {n} آيات.',
+      'next_ready': 'آيتك القادمة ستكون جاهزة غداً.',
+      'return_btn': 'رجوع',
     },
     'ur': {
       'welcome_line': 'قرآن کے ساتھ ساٹھ سیکنڈ۔\nہر صبح۔\nاور ایک دن، آپ کی نماز\nبدل جائے گی۔',
@@ -178,6 +184,9 @@ class AppTranslations {
       'listen_before': 'آگے بڑھنے سے پہلے ایک بار سنیں',
       'what_stood_out': 'کیا چیز نمایاں رہی؟',
       'what_stayed': 'کیا بات دل میں رہی؟',
+      'sat_with_ayat': '{n} آیات کے ساتھ بیٹھے۔',
+      'next_ready': 'آپ کی اگلی آیت کل تیار ہوگی۔',
+      'return_btn': 'واپسی',
     },
     'ta': {
       'welcome_line': 'குர்ஆனுடன் அறுபது வினாடிகள்.\nஒவ்வொரு காலையும்.\nஒரு நாள், உங்கள் தொழுகை\nமாறும்.',
@@ -235,6 +244,9 @@ class AppTranslations {
       'listen_before': 'தொடர்வதற்கு முன் ஒருமுறை கேளுங்கள்',
       'what_stood_out': 'உங்களுக்கு என்ன தெரிந்தது?',
       'what_stayed': 'உங்களிடம் என்ன நின்றது?',
+      'sat_with_ayat': '{n} ஆயத்துகளுடன் அமர்ந்தீர்கள்.',
+      'next_ready': 'உங்கள் அடுத்த ஆயத் நாளை தயாராகும்.',
+      'return_btn': 'திரும்பு',
     },
     'ml': {
       'welcome_line': 'ഖുർആനുമായി അറുപത് സെക്കൻഡ്.\nഎല്ലാ രാവിലെയും.\nഒരു ദിവസം, നിങ്ങളുടെ നമസ്കാരം\nമാറും.',
@@ -285,6 +297,9 @@ class AppTranslations {
       'listen_before': 'തുടരുന്നതിന് മുമ്പ് ഒരിക്കൽ കേൾക്കൂ',
       'what_stood_out': 'എന്താണ് നിങ്ങളെ ആകർഷിച്ചത്?',
       'what_stayed': 'എന്താണ് മനസ്സിൽ നിന്നത്?',
+      'sat_with_ayat': '{n} ആയത്തുകളോടൊപ്പം ഇരുന്നു.',
+      'next_ready': 'നിങ്ങളുടെ അടുത്ത ആയത്ത് നാളെ തയ്യാറാകും.',
+      'return_btn': 'മടങ്ങുക',
     },
     'fr': {
       'welcome_line': 'Soixante secondes avec le Coran.\nChaque matin.\nEt un jour, votre prière\nchangera.',
@@ -342,6 +357,9 @@ class AppTranslations {
       'listen_before': 'Écoutez une fois avant de continuer',
       'what_stood_out': 'Qu\'est-ce qui vous a marqué ?',
       'what_stayed': 'Qu\'est-ce qui est resté en vous ?',
+      'sat_with_ayat': 'Vous avez médité sur {n} versets.',
+      'next_ready': 'Votre prochain verset sera prêt demain.',
+      'return_btn': 'Retour',
     },
     'es': {
       'welcome_line': 'Sesenta segundos con el Corán.\nCada mañana.\nY un día, tu oración\ncambiará.',
@@ -396,6 +414,9 @@ class AppTranslations {
       'listen_before': 'Escucha una vez antes de continuar',
       'what_stood_out': '¿Qué te llamó la atención?',
       'what_stayed': '¿Qué se quedó contigo?',
+      'sat_with_ayat': 'Has meditado sobre {n} aleyas.',
+      'next_ready': 'Tu próxima aleya estará lista mañana.',
+      'return_btn': 'Volver',
     },
     'tr': {
       'welcome_line': 'Kur\'an ile altmış saniye.\nHer sabah.\nVe bir gün, namazın\ndeğişecek.',
@@ -450,6 +471,9 @@ class AppTranslations {
       'listen_before': 'Devam etmeden önce bir kez dinle',
       'what_stood_out': 'Dikkatini ne çekti?',
       'what_stayed': 'Aklında ne kaldı?',
+      'sat_with_ayat': '{n} ayetle oturdunuz.',
+      'next_ready': 'Bir sonraki ayetiniz yarın hazır olacak.',
+      'return_btn': 'Geri dön',
     },
     'id': {
       'welcome_line': 'Enam puluh detik bersama Al-Quran.\nSetiap pagi.\nDan suatu hari, shalatmu\nakan berubah.',
@@ -504,6 +528,9 @@ class AppTranslations {
       'listen_before': 'Dengarkan sekali sebelum melanjutkan',
       'what_stood_out': 'Apa yang menarik perhatian Anda?',
       'what_stayed': 'Apa yang tinggal di hati Anda?',
+      'sat_with_ayat': 'Anda telah merenungkan {n} ayat.',
+      'next_ready': 'Ayat berikutnya akan siap besok.',
+      'return_btn': 'Kembali',
     },
     'hi': {
       'welcome_line': 'कुरआन के साथ साठ सेकंड।\nहर सुबह।\nऔर एक दिन, आपकी नमाज़\nबदल जाएगी।',
@@ -558,6 +585,9 @@ class AppTranslations {
       'listen_before': 'आगे बढ़ने से पहले एक बार सुनें',
       'what_stood_out': 'क्या बात ध्यान में आई?',
       'what_stayed': 'क्या बात दिल में रही?',
+      'sat_with_ayat': '{n} आयतों के साथ बैठे।',
+      'next_ready': 'आपकी अगली आयत कल तैयार होगी।',
+      'return_btn': 'वापस',
     },
     'bn': {
       'welcome_line': 'কুরআনের সাথে ষাট সেকেন্ড।\nপ্রতিটি সকালে।\nএবং একদিন, আপনার নামাজ\nবদলে যাবে।',
@@ -612,6 +642,9 @@ class AppTranslations {
       'listen_before': 'এগিয়ে যাওয়ার আগে একবার শুনুন',
       'what_stood_out': 'কী আপনার নজর কেড়েছে?',
       'what_stayed': 'কী মনে রয়ে গেল?',
+      'sat_with_ayat': '{n} আয়াতের সাথে বসেছেন।',
+      'next_ready': 'আপনার পরবর্তী আয়াত আগামীকাল প্রস্তুত হবে।',
+      'return_btn': 'ফিরুন',
     },
   };
 }

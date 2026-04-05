@@ -358,7 +358,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 const SizedBox(height: 32),
 
                 Text(
-                  'You have sat with ${progress.totalAyatCompleted} ayat.',
+                  _t('sat_with_ayat').replaceAll('{n}', '${progress.totalAyatCompleted}'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -369,7 +369,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 const SizedBox(height: 8),
 
                 Text(
-                  'Your next ayah will be ready tomorrow.',
+                  _t('next_ready'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
@@ -381,7 +381,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'Return',
+                    _t('return_btn'),
                     style: TextStyle(
                       color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
                     ),
