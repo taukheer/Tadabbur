@@ -229,11 +229,11 @@ class _SignInPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         children: [
-          const Spacer(flex: 3),
+          const SizedBox(height: 60),
 
           Icon(
             Icons.cloud_done_outlined,
@@ -282,7 +282,7 @@ class _SignInPage extends StatelessWidget {
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 400.ms),
 
-          const Spacer(flex: 2),
+          const SizedBox(height: 32),
 
           // Google Sign-In
           SizedBox(
@@ -348,7 +348,7 @@ class _SignInPage extends StatelessWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
 
-          const Spacer(),
+          const SizedBox(height: 40),
         ],
       ),
     );
@@ -751,11 +751,11 @@ class _StartingPointPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         children: [
-          const Spacer(flex: 2),
+          const SizedBox(height: 40),
           Text(
             t('where_begin'),
             textAlign: TextAlign.center,
@@ -811,7 +811,7 @@ class _StartingPointPage extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             height: 54,
@@ -826,6 +826,7 @@ class _StartingPointPage extends StatelessWidget {
               child: Text(
                 '${t('begin_with')} ${_selectedSurahName()}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ).animate().fadeIn(duration: 400.ms, delay: 800.ms),
