@@ -140,6 +140,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     if (user != null) {
       ref.read(authUserProvider.notifier).state = user;
+      // Set Firestore user ID for cloud sync
+      ref.read(firestoreServiceProvider).setUser(user.id);
       await _completeOnboarding(asGuest: false);
     } else {
       // Sign in cancelled or failed — continue as guest

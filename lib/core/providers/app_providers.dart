@@ -234,20 +234,25 @@ final journalProvider =
     StateNotifierProvider<JournalNotifier, List<JournalEntry>>((ref) {
   final storage = ref.watch(localStorageProvider);
   final userApi = ref.watch(userApiProvider);
-  return JournalNotifier(storage, userApi);
+  final firestore = ref.watch(firestoreServiceProvider);
+  return JournalNotifier(storage, userApi, firestore);
 });
 
 class JournalNotifier extends StateNotifier<List<JournalEntry>> {
   final LocalStorageService _storage;
   final UserApiService _userApi;
+  final FirestoreService _firestore;
 
-  JournalNotifier(this._storage, this._userApi)
+  JournalNotifier(this._storage, this._userApi, this._firestore)
       : super(_storage.getJournalEntries());
 
   Future<void> addEntry(JournalEntry entry) async {
     // Save locally first (always works)
     state = [entry, ...state];
     await _storage.saveJournalEntries(state);
+
+    // Sync to Firestore (fire-and-forget)
+    _firestore.saveJournalEntry(entry).catchError((_) {});
 
     // Sync to QF Post API (fire-and-forget)
     _syncReflectionToQF(entry);
