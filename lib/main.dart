@@ -17,9 +17,10 @@ void main() async {
   final localStorage = LocalStorageService();
   await localStorage.init();
 
-  // Initialize notifications
+  // Initialize notifications and request permission upfront
   final notifService = NotificationService(localStorage);
   await notifService.init();
+  await notifService.requestPermission();
 
   runApp(
     ProviderScope(

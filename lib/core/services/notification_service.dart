@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -18,6 +20,34 @@ class NotificationService {
 
     tz_data.initializeTimeZones();
 
+    // Set local timezone from device
+    try {
+      final deviceTz = DateTime.now().timeZoneName;
+      // Map common abbreviations to tz database names
+      final tzMapping = {
+        'IST': 'Asia/Kolkata',
+        'EST': 'America/New_York',
+        'CST': 'America/Chicago',
+        'MST': 'America/Denver',
+        'PST': 'America/Los_Angeles',
+        'GMT': 'Europe/London',
+        'CET': 'Europe/Berlin',
+        'AST': 'Asia/Riyadh',
+        'PKT': 'Asia/Karachi',
+        'WIB': 'Asia/Jakarta',
+        'MYT': 'Asia/Kuala_Lumpur',
+        'SGT': 'Asia/Singapore',
+      };
+      final tzName = tzMapping[deviceTz];
+      if (tzName != null) {
+        tz.setLocalLocation(tz.getLocation(tzName));
+      }
+    } catch (_) {
+      // Fallback: use UTC offset to find timezone
+      final offset = DateTime.now().timeZoneOffset;
+      debugPrint('[NotificationService] Using UTC offset: $offset');
+    }
+
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
@@ -34,8 +64,9 @@ class NotificationService {
     _initialized = true;
   }
 
-  /// Request notification permissions (iOS).
+  /// Request notification permissions (iOS + Android 13+).
   Future<bool> requestPermission() async {
+    // iOS
     final ios = _plugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>();
@@ -47,7 +78,21 @@ class NotificationService {
       );
       return granted ?? false;
     }
-    return true; // Android doesn't need runtime permission for basic notifications
+
+    // Android 13+ needs POST_NOTIFICATIONS permission
+    if (Platform.isAndroid) {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        final granted = await android.requestNotificationsPermission();
+        // Also request exact alarms for reliable scheduling
+        await android.requestExactAlarmsPermission();
+        return granted ?? true;
+      }
+    }
+
+    return true;
   }
 
   /// Schedule a daily notification at the given hour and minute.
@@ -66,16 +111,15 @@ class NotificationService {
     // Cancel existing
     await _plugin.cancelAll();
 
-    // Get the message for today
+    // Get the message
     final totalAyat = _storage.getProgress()?.totalAyatCompleted ?? 0;
     final msg = getMessageForDay(totalAyat + 1);
 
-    // Schedule daily
-    await _plugin.zonedSchedule(
-      0, // notification ID
-      msg.title,
-      msg.body,
-      _nextInstanceOfTime(hour, minute),
+    // First: show an immediate confirmation notification
+    await _plugin.show(
+      1,
+      'Reminder set',
+      'You\'ll receive your daily ayah at $timeStr',
       const NotificationDetails(
         iOS: DarwinNotificationDetails(
           presentAlert: true,
@@ -83,29 +127,86 @@ class NotificationService {
           presentSound: true,
         ),
         android: AndroidNotificationDetails(
-          'daily_ayah',
-          'Daily Ayah',
+          'daily_ayah_v2',
+          'Daily Ayah Reminder',
           channelDescription: 'Your daily ayah reminder',
-          importance: Importance.high,
-          priority: Priority.high,
+          importance: Importance.max,
+          priority: Priority.max,
+          playSound: true,
+          enableVibration: true,
+          visibility: NotificationVisibility.public,
+          category: AndroidNotificationCategory.reminder,
+          fullScreenIntent: false,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+
+    // Schedule using periodicallyShowWithDuration as a workaround for Samsung
+    // Also schedule with zonedSchedule for other devices
+    final scheduledTime = _nextInstanceOfTime(hour, minute);
+    debugPrint('[NotificationService] Scheduling at: $scheduledTime (local tz: ${tz.local.name})');
+
+    const notifDetails = NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+      android: AndroidNotificationDetails(
+        'daily_ayah_v2',
+        'Daily Ayah Reminder',
+        channelDescription: 'Your daily ayah reminder',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        visibility: NotificationVisibility.public,
+        category: AndroidNotificationCategory.reminder,
+        fullScreenIntent: false,
+      ),
+    );
+
+    await _plugin.zonedSchedule(
+      0,
+      msg.title,
+      msg.body,
+      scheduledTime,
+      notifDetails,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
+      matchDateTimeComponents: DateTimeComponents.time,
     );
+
+    // Samsung workaround: also fire a direct notification after delay
+    // to test if the issue is zonedSchedule vs show()
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day, hour, minute);
+    var delay = target.difference(now);
+    if (delay.isNegative) delay = delay + const Duration(days: 1);
+
+    debugPrint('[NotificationService] Will fire direct notification in: ${delay.inSeconds}s');
+    Future.delayed(delay, () {
+      _plugin.show(
+        3,
+        msg.title,
+        msg.body,
+        notifDetails,
+      );
+      debugPrint('[NotificationService] Direct notification fired!');
+    });
   }
 
   /// Get the next occurrence of the given time.
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled =
-        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    // Build from device's DateTime.now() to get correct local time
+    final now = DateTime.now();
+    var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
-    return scheduled;
+    // Convert device local DateTime to TZDateTime
+    return tz.TZDateTime.from(scheduled, tz.local);
   }
 
   /// Cancel all notifications.

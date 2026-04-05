@@ -87,13 +87,15 @@ final userProfileProvider = StateProvider<UserProfile?>((ref) {
 final userProgressProvider =
     StateNotifierProvider<UserProgressNotifier, UserProgress>((ref) {
   final storage = ref.watch(localStorageProvider);
-  return UserProgressNotifier(storage);
+  final userApi = ref.watch(userApiProvider);
+  return UserProgressNotifier(storage, userApi);
 });
 
 class UserProgressNotifier extends StateNotifier<UserProgress> {
   final LocalStorageService _storage;
+  final UserApiService _userApi;
 
-  UserProgressNotifier(this._storage)
+  UserProgressNotifier(this._storage, this._userApi)
       : super(
           _storage.getProgress() ??
               UserProgress(
@@ -143,6 +145,18 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
       startedAt: state.startedAt ?? now,
     );
     await _storage.saveProgress(state);
+
+    // Sync with QF User APIs (fire-and-forget, don't block UI)
+    _syncWithQF(now);
+  }
+
+  /// Sync activity with Quran Foundation APIs.
+  /// Non-blocking — failures are silently ignored so the app works offline.
+  void _syncWithQF(DateTime now) {
+    // Update streak on QF
+    _userApi.updateStreak().catchError((_) {});
+    // Log activity day on QF
+    _userApi.logActivityDay(now).catchError((_) {});
   }
 
   /// All 114 surah verse counts
@@ -207,17 +221,40 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
 final journalProvider =
     StateNotifierProvider<JournalNotifier, List<JournalEntry>>((ref) {
   final storage = ref.watch(localStorageProvider);
-  return JournalNotifier(storage);
+  final userApi = ref.watch(userApiProvider);
+  return JournalNotifier(storage, userApi);
 });
 
 class JournalNotifier extends StateNotifier<List<JournalEntry>> {
   final LocalStorageService _storage;
+  final UserApiService _userApi;
 
-  JournalNotifier(this._storage) : super(_storage.getJournalEntries());
+  JournalNotifier(this._storage, this._userApi)
+      : super(_storage.getJournalEntries());
 
   Future<void> addEntry(JournalEntry entry) async {
+    // Save locally first (always works)
     state = [entry, ...state];
     await _storage.saveJournalEntries(state);
+
+    // Sync to QF Post API (fire-and-forget)
+    _syncReflectionToQF(entry);
+  }
+
+  /// Save reflection to QF Post API.
+  /// Non-blocking — failures silently ignored for offline support.
+  void _syncReflectionToQF(JournalEntry entry) {
+    final body = entry.responseText ?? 'Acknowledged: ${entry.verseKey}';
+    _userApi
+        .saveReflection(
+          entry.verseKey,
+          body,
+          metadata: {
+            'tier': entry.tier.name,
+            'app': 'tadabbur',
+          },
+        )
+        .catchError((_) {});
   }
 
   List<JournalEntry> filterBySurah(int surahNumber) {
