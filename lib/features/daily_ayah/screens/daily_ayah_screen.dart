@@ -253,7 +253,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 onFullReflection: () => _openReflection(context, state),
               ),
             )
-          else
+          else ...[
             _CompletedState(
               totalAyat: progress.totalAyatCompleted,
               dayNumber: progress.dayNumber,
@@ -262,6 +262,41 @@ class DailyAyahScreen extends ConsumerWidget {
               isSalahMotivated: isSalahMotivated,
               theme: theme,
             ),
+            // === EXPLORE BY FEELING (after completion) ===
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Divider(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+              ),
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: () => _openFeelingMode(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F5F0),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🤲', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Text(
+                      t('explore_feeling'),
+                      style: TextStyle(
+                        color: const Color(0xFF8B7355).withValues(alpha: 0.7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 300.ms),
+          ],
           // === BOTTOM SPACING ===
           const SizedBox(height: 40),
         ],
@@ -346,6 +381,20 @@ class DailyAyahScreen extends ConsumerWidget {
     if (t.contains('family') || t.contains('parent') || t.contains('child')) return 'family';
     if (t.contains('creation') || t.contains('created') || t.contains('heaven')) return 'creation';
     return null;
+  }
+
+  void _openFeelingMode(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const FeelingsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   void _openReflection(BuildContext context, DailyAyahState state) {
