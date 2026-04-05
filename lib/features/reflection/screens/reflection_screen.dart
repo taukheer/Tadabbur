@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
@@ -36,6 +37,9 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
   }
 
   @override
+  String _t(String key) =>
+      AppTranslations.get(key, ref.watch(languageProvider));
+
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -120,7 +124,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
                 child: Text(
                   widget.editorial?.tier3Question ??
-                      'What does this ayah say to you today?',
+                      _t('what_ayah_say'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
@@ -208,9 +212,9 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
-                                'Save Reflection',
-                                style: TextStyle(
+                            : Text(
+                                _t('save_reflection'),
+                                style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -235,7 +239,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                           ),
                         ),
                         child: Text(
-                          'This spoke to me today',
+                          _t('this_spoke'),
                           style: TextStyle(
                             color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
                             fontSize: 14,

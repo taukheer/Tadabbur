@@ -196,7 +196,7 @@ class DailyAyahScreen extends ConsumerWidget {
           Column(
             children: [
               Text(
-                'Listen once before continuing',
+                t('listen_before'),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
                   fontSize: 11,
@@ -404,8 +404,8 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
     String t(String key) => AppTranslations.get(key, lang);
     // Rotate between light prompts when no editorial content
     final lightPrompts = [
-      'What stood out to you?',
-      'What stayed with you?',
+      t('what_stood_out'),
+      t('what_stayed'),
       t('sit_moment'),
     ];
     final fallbackPrompt = lightPrompts[
@@ -980,7 +980,7 @@ class _CompletedState extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Keep this ayah with you today.',
+              _t('keep_ayah', ref),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: const Color(0xFF8B7355).withValues(alpha: 0.8),
@@ -993,7 +993,7 @@ class _CompletedState extends ConsumerWidget {
           // Continuity hint
           const SizedBox(height: 12),
           Text(
-            'Continue, or return tomorrow.',
+            _t('continue_return', ref),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
               fontSize: 12,
@@ -1076,7 +1076,7 @@ class _CompletedState extends ConsumerWidget {
                 ),
               ),
               child: Text(
-                'Next ayah →',
+                _t('next_ayah', ref),
                 style: TextStyle(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
                   fontSize: 14,
