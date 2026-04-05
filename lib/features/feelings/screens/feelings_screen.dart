@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:tadabbur/core/constants/feelings.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
@@ -214,23 +215,9 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
 
           const SizedBox(height: 24),
 
-          // Listen
-          FilledButton.icon(
-            onPressed: () async {
-              final audioService = ref.read(audioServiceProvider);
-              await audioService.playAyah(audioUrl);
-            },
-            icon: const Icon(Icons.play_arrow_rounded, size: 20),
-            label: Text(t('listen')),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2E3A2F),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 400.ms),
+          // Listen — reactive play/pause
+          _FeelingAudioButton(audioUrl: audioUrl, lang: lang)
+              .animate().fadeIn(duration: 500.ms, delay: 400.ms),
 
           // Why this ayah?
           const SizedBox(height: 20),
@@ -327,3 +314,60 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
     return total + ayah;
   }
 }
+
+/// Reactive audio button — same play/pause behavior as daily ayah screen
+class _FeelingAudioButton extends ConsumerWidget {
+  final String audioUrl;
+  final String lang;
+
+  const _FeelingAudioButton({required this.audioUrl, required this.lang});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioService = ref.read(audioServiceProvider);
+
+    return StreamBuilder<PlayerState>(
+      stream: audioService.playerStateStream,
+      builder: (context, snapshot) {
+        final playerState = snapshot.data;
+        final isPlaying = playerState?.playing ?? false;
+        final isLoading =
+            playerState?.processingState == ProcessingState.loading ||
+            playerState?.processingState == ProcessingState.buffering;
+
+        return FilledButton.icon(
+          onPressed: () async {
+            if (isPlaying) {
+              await audioService.pause();
+            } else {
+              await audioService.playAyah(audioUrl);
+            }
+          },
+          icon: isLoading
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: Colors.white,
+                  ),
+                )
+              : Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  size: 20,
+                ),
+          label: Text(isPlaying
+              ? AppTranslations.get('pause', lang)
+              : AppTranslations.get('listen', lang)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF2E3A2F),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
