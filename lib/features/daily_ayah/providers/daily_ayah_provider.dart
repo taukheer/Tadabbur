@@ -102,7 +102,9 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
 
       final ayah = results[0] as Ayah;
       final words = results[1] as List<Word>;
-      final editorial = results[2] as EditorialContent?;
+      // Only show English editorial content when language is English
+      final rawEditorial = results[2] as EditorialContent?;
+      final editorial = storage.language == 'en' ? rawEditorial : null;
 
       // Build audio URL from CDN with selected reciter
       final reciterPath = storage.reciterPath;
