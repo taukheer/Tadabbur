@@ -149,7 +149,10 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   (context, index) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: _JournalCard(entry: entries[index], lang: lang)
+                      child: GestureDetector(
+                        onTap: () => _openEntryDetail(context, entries[index], ref),
+                        child: _JournalCard(entry: entries[index], lang: lang),
+                      )
                           .animate()
                           .fadeIn(
                             duration: 500.ms,
@@ -167,6 +170,141 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
       ),
     );
   }
+}
+
+void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
+  final theme = Theme.of(context);
+  final lang = ref.read(languageProvider);
+  final arabicFont = ref.read(arabicFontProvider);
+  final arabicFontSize = ref.read(arabicFontSizeProvider);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFFFEFDF8),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (ctx, controller) => SingleChildScrollView(
+        controller: controller,
+        padding: const EdgeInsets.fromLTRB(28, 16, 28, 40),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Date
+            Text(
+              DateFormat('EEEE, MMMM d, yyyy').format(entry.completedAt),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Arabic text — full, not truncated
+            Text(
+              entry.arabicText,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
+                fontSize: arabicFontSize * 0.85,
+                color: const Color(0xFF1A1A1A),
+                height: 2.2,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Translation — full
+            Text(
+              '"${entry.translationText}"',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontStyle: FontStyle.italic,
+                height: 1.6,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Verse reference
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F0E8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                entry.verseKey,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: const Color(0xFF8B7355),
+                ),
+              ),
+            ),
+
+            // Reflection
+            if (entry.responseText != null && entry.responseText!.isNotEmpty) ...[
+              const SizedBox(height: 24),
+
+              Divider(color: theme.colorScheme.onSurface.withValues(alpha: 0.06)),
+
+              const SizedBox(height: 16),
+
+              // Prompt
+              if (entry.promptText != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    '"${entry.promptText!}"',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFB8860B),
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+
+              // User's words
+              Text(
+                entry.responseText!,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                  height: 1.8,
+                  fontSize: 16,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 20),
+              Text(
+                AppTranslations.get('i_felt_this', lang),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _JournalCard extends StatelessWidget {
