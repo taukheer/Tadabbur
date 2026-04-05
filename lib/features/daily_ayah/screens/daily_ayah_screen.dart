@@ -169,7 +169,13 @@ class DailyAyahScreen extends ConsumerWidget {
               ayah.textUthmani,
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
-              style: ArabicFonts.getStyle(arabicFontId, fontSize: arabicFontSize)
+              // Scale down font for long ayat to prevent screen overflow
+              style: ArabicFonts.getStyle(arabicFontId,
+                      fontSize: ayah.textUthmani.length > 100
+                          ? arabicFontSize * 0.65
+                          : ayah.textUthmani.length > 50
+                              ? arabicFontSize * 0.8
+                              : arabicFontSize)
                   .copyWith(color: const Color(0xFF1A1A1A)),
             ),
           ).animate().fadeIn(duration: 1000.ms, delay: 200.ms),

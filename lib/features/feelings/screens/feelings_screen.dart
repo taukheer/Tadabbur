@@ -77,7 +77,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
                 crossAxisCount: 2,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 2.2,
+                childAspectRatio: 2.0,
               ),
               itemCount: Feelings.all.length,
               itemBuilder: (context, index) {
@@ -98,21 +98,28 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
                         width: _selected?.id == feeling.id ? 1.5 : 0.5,
                       ),
                     ),
-                    child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(feeling.emoji, style: const TextStyle(fontSize: 22)),
-                          const SizedBox(width: 8),
-                          Text(
-                            t(feeling.labelKey),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: _selected?.id == feeling.id
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: _selected?.id == feeling.id
-                                  ? const Color(0xFF1B5E20)
-                                  : const Color(0xFF1A1A1A),
+                          Text(feeling.emoji, style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              t(feeling.labelKey),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: _selected?.id == feeling.id
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: _selected?.id == feeling.id
+                                    ? const Color(0xFF1B5E20)
+                                    : const Color(0xFF1A1A1A),
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ],
