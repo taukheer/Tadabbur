@@ -173,5 +173,24 @@ class Feelings {
         '16:9',   // And upon Allah is the direction of the path
       ],
     ),
+
+    // === JUST EXPLORING ===
+    FeelingAyah(
+      id: 'exploring',
+      emoji: '✨',
+      labelKey: 'feeling_exploring',
+      verseKeys: [
+        '55:13',  // So which of the favors of your Lord would you deny?
+        '51:56',  // I did not create jinn and mankind except to worship Me
+        '2:255',  // Ayat al-Kursi — Allah, there is no deity except Him
+        '24:35',  // Allah is the Light of the heavens and the earth
+        '59:22',  // He is Allah — there is no deity except Him, Knower of the unseen and witnessed
+        '112:1',  // Say: He is Allah, the One
+        '3:190',  // In the creation of the heavens and earth are signs for those of understanding
+        '31:27',  // If all the trees on earth were pens and the sea were ink
+        '57:3',   // He is the First and the Last, the Manifest and the Hidden
+        '36:82',  // His command is only when He intends a thing — He says "Be" and it is
+      ],
+    ),
   ];
 }
