@@ -414,10 +414,22 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
         (widget.ayah.ayahNumber as int) % lightPrompts.length];
     final prompt = widget.editorial?.tier2Prompt as String? ?? fallbackPrompt;
 
-    // Show a previous WRITTEN entry (not acknowledge-only) after 3+ entries
-    final writtenEntries =
-        journal.where((e) => e.responseText != null && e.responseText!.isNotEmpty).toList();
-    final previousEntry = writtenEntries.length >= 2 ? writtenEntries.last : null;
+    // Show a previous reflection only:
+    // - If there are 5+ written entries (meaningful history)
+    // - Only on the first ayah of the day (not on every continue)
+    // - Pick one from at least 3 days ago (not recent)
+    final writtenEntries = journal
+        .where((e) =>
+            e.responseText != null &&
+            e.responseText!.isNotEmpty &&
+            DateTime.now().difference(e.completedAt).inDays >= 3)
+        .toList();
+    final showMemory = writtenEntries.length >= 3 &&
+        journal.length >= 5 &&
+        (journal.length % 5 == 0); // Show every 5th ayah
+    final previousEntry = showMemory
+        ? writtenEntries[DateTime.now().day % writtenEntries.length]
+        : null;
 
     return Column(
       children: [
