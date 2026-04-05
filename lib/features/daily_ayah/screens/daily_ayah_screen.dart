@@ -98,12 +98,12 @@ class DailyAyahScreen extends ConsumerWidget {
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
 
-          // === QUIET DAY COUNTER with time greeting ===
+          // === QUIET DAY COUNTER ===
           if (progress.totalAyatCompleted > 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Text(
@@ -131,6 +131,8 @@ class DailyAyahScreen extends ConsumerWidget {
                 ),
               ).animate().fadeIn(duration: 800.ms),
             ),
+
+          const SizedBox(height: 12),
 
           // === SURAH PILL ===
           Container(
