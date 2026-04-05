@@ -72,7 +72,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   }
 
   Future<void> loadDailyAyah() async {
-    state = state.copyWith(loadingState: AyahLoadingState.loading);
+    state = const DailyAyahState(loadingState: AyahLoadingState.loading);
 
     try {
       final progress = _ref.read(userProgressProvider);

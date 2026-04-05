@@ -16,18 +16,22 @@ void main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase (non-blocking — app works without it)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (_) {}
 
   final localStorage = LocalStorageService();
   await localStorage.init();
 
-  // Initialize notifications and request permission upfront
-  final notifService = NotificationService(localStorage);
-  await notifService.init();
-  await notifService.requestPermission();
+  // Initialize notifications (non-blocking)
+  try {
+    final notifService = NotificationService(localStorage);
+    await notifService.init();
+    notifService.requestPermission(); // fire-and-forget
+  } catch (_) {}
 
   runApp(
     ProviderScope(
