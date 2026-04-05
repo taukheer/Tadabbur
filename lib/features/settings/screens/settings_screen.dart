@@ -173,26 +173,32 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      Text(
-                        AppLanguages.getByCode(
-                                ref.watch(languageProvider))
-                            .nativeName,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppLanguages.getByCode(
+                                      ref.watch(languageProvider))
+                                  .nativeName,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              AppLanguages.getByCode(
+                                      ref.watch(languageProvider))
+                                  .name,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        AppLanguages.getByCode(
-                                ref.watch(languageProvider))
-                            .name,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.4),
-                        ),
-                      ),
-                      const Spacer(),
                       Text('Change',
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: const Color(0xFF1B5E20)
