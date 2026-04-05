@@ -8,6 +8,8 @@ import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
+import 'package:tadabbur/core/services/auth_service.dart';
+import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
 
 // --- Core Services ---
@@ -46,6 +48,16 @@ final audioServiceProvider = Provider<AudioService>((ref) {
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref.watch(localStorageProvider));
+});
+
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(ref.watch(localStorageProvider));
+});
+
+final authUserProvider = StateProvider<AuthUser?>((ref) => null);
+
+final firestoreServiceProvider = Provider<FirestoreService>((ref) {
+  return FirestoreService();
 });
 
 // --- Auth State ---

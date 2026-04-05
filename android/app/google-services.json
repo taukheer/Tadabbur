@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "636345975934",
+    "project_id": "tadabbur-492408",
+    "storage_bucket": "tadabbur-492408.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:636345975934:android:3366271a73de5e6299042f",
+        "android_client_info": {
+          "package_name": "com.tadabbur.tadabbur"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQxyXZiEbw5SzXLhtJ262oXHviNIJc0OM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

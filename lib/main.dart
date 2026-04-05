@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/router/app_router.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
 import 'package:tadabbur/core/theme/app_theme.dart';
+import 'package:tadabbur/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +15,11 @@ void main() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   final localStorage = LocalStorageService();
   await localStorage.init();

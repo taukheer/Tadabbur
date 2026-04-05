@@ -6,6 +6,7 @@ import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/auth_service.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -26,7 +27,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String _startingVerseKey = '1:1';
 
   void _nextPage() {
-    if (_currentPage < 5) {
+    if (_currentPage < 6) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -51,7 +52,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
-                children: List.generate(6, (i) {
+                children: List.generate(7, (i) {
                   return Expanded(
                     child: Container(
                       height: 3,
@@ -116,7 +117,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     onSelect: (v) {
                       setState(() => _startingVerseKey = v);
                     },
-                    onBegin: _completeOnboarding,
+                    onBegin: _nextPage,
+                  ),
+                  // Page 6: Sign in
+                  _SignInPage(
+                    lang: _selectedLanguage ?? 'en',
+                    onGoogleSignIn: _signInWithGoogle,
+                    onGuest: () => _completeOnboarding(asGuest: true),
                   ),
                 ],
               ),
@@ -127,7 +134,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Future<void> _completeOnboarding() async {
+  Future<void> _signInWithGoogle() async {
+    final authService = ref.read(authServiceProvider);
+    final user = await authService.signInWithGoogle();
+
+    if (user != null) {
+      ref.read(authUserProvider.notifier).state = user;
+      await _completeOnboarding(asGuest: false);
+    } else {
+      // Sign in cancelled or failed — continue as guest
+      await _completeOnboarding(asGuest: true);
+    }
+  }
+
+  Future<void> _completeOnboarding({bool asGuest = true}) async {
     if (_arabicLevel == null ||
         _understandingLevel == null ||
         _motivation == null) return;
@@ -141,10 +161,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final storage = ref.read(localStorageProvider);
     await storage.saveProfile(profile);
     await storage.setOnboarded(true);
-    await storage.setAuthToken('guest');
-    await storage.setUserId('guest');
 
-    // Set starting position via notifier so the provider state updates
+    if (asGuest) {
+      await storage.setAuthToken('guest');
+      await storage.setUserId('guest');
+    }
+
+    // Set starting position
     await ref
         .read(userProgressProvider.notifier)
         .setStartingVerse(_startingVerseKey);
@@ -154,6 +177,153 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref.read(isLoggedInProvider.notifier).state = true;
 
     if (mounted) context.go('/home');
+  }
+}
+
+// === PAGE 6: SIGN IN ===
+
+class _SignInPage extends StatelessWidget {
+  final String lang;
+  final VoidCallback onGoogleSignIn;
+  final VoidCallback onGuest;
+
+  const _SignInPage({
+    required this.lang,
+    required this.onGoogleSignIn,
+    required this.onGuest,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const Spacer(flex: 3),
+
+          Icon(
+            Icons.cloud_done_outlined,
+            size: 48,
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+          ).animate().fadeIn(duration: 600.ms),
+
+          const SizedBox(height: 24),
+
+          Text(
+            'Save your journey',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1A1A1A),
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
+
+          const SizedBox(height: 12),
+
+          Text(
+            'Sign in to keep your reflections safe and sync across devices.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              height: 1.5,
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 300.ms),
+
+          const SizedBox(height: 12),
+
+          // What you lose as guest
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F5F0),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                _BenefitRow(icon: Icons.sync_rounded, text: 'Sync across devices'),
+                const SizedBox(height: 8),
+                _BenefitRow(icon: Icons.backup_rounded, text: 'Journal backed up safely'),
+                const SizedBox(height: 8),
+                _BenefitRow(icon: Icons.devices_rounded, text: 'Continue on any phone'),
+              ],
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 400.ms),
+
+          const Spacer(flex: 2),
+
+          // Google Sign-In
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: OutlinedButton.icon(
+              onPressed: onGoogleSignIn,
+              icon: Image.network(
+                'https://www.google.com/favicon.ico',
+                width: 20,
+                height: 20,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.g_mobiledata, size: 24),
+              ),
+              label: const Text(
+                'Sign in with Google',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF1A1A1A),
+                side: const BorderSide(color: Color(0xFFE8E0D4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          const SizedBox(height: 12),
+
+          // Guest mode with clear callout
+          TextButton(
+            onPressed: onGuest,
+            child: Text(
+              'Continue as guest (data stays on this device only)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                fontSize: 13,
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
+
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+}
+
+class _BenefitRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _BenefitRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon,
+            size: 18,
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.5)),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: const Color(0xFF8B7355).withValues(alpha: 0.7),
+                fontSize: 13,
+              ),
+        ),
+      ],
+    );
   }
 }
 

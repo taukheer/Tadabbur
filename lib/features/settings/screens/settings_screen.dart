@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/languages.dart';
+import 'package:tadabbur/core/services/auth_service.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -84,6 +85,13 @@ class SettingsScreen extends ConsumerWidget {
                       ?.copyWith(fontWeight: FontWeight.w700)),
 
               const SizedBox(height: 24),
+
+              // === ACCOUNT ===
+              _SectionLabel('ACCOUNT', theme),
+              const SizedBox(height: 10),
+              _AccountTile(ref: ref, theme: theme),
+
+              const SizedBox(height: 28),
 
               // === CURRENT POSITION — tap to change ===
               _SectionLabel('CURRENT POSITION', theme),
@@ -690,6 +698,127 @@ class _NotificationTile extends StatelessWidget {
         ref.invalidate(notificationServiceProvider);
       }
     }
+  }
+}
+
+class _AccountTile extends StatelessWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+
+  const _AccountTile({required this.ref, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    final authUser = ref.watch(authUserProvider);
+    final isGuest = authUser == null;
+
+    if (isGuest) {
+      return GestureDetector(
+        onTap: () async {
+          final authService = ref.read(authServiceProvider);
+          final user = await authService.signInWithGoogle();
+          if (user != null) {
+            ref.read(authUserProvider.notifier).state = user;
+          }
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8E0D4), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.person_outline,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  size: 22),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Guest mode',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w500)),
+                    Text('Sign in to save your journey',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.35),
+                            fontSize: 12)),
+                  ],
+                ),
+              ),
+              Text('Sign in',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFF1B5E20).withValues(alpha: 0.6))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B5E20).withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: const Color(0xFF1B5E20).withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor:
+                const Color(0xFF1B5E20).withValues(alpha: 0.1),
+            backgroundImage: authUser.photoUrl != null
+                ? NetworkImage(authUser.photoUrl!)
+                : null,
+            child: authUser.photoUrl == null
+                ? Text(
+                    authUser.name[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Color(0xFF1B5E20),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(authUser.name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF1B5E20),
+                    )),
+                Text(authUser.email,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.35),
+                        fontSize: 12)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () async {
+              final authService = ref.read(authServiceProvider);
+              await authService.signOut();
+              ref.read(authUserProvider.notifier).state = null;
+            },
+            child: Text('Sign out',
+                style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.35))),
+          ),
+        ],
+      ),
+    );
   }
 }
 
