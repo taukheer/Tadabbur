@@ -153,15 +153,7 @@ assets/
   images/         — App icon
 ```
 
-## Hackathon Submission
-
-**Quran Foundation Hackathon 2026** — Provision Launch x Quran Foundation
-
-- **Deadline:** April 20, 2026
-- **Prize Pool:** $10,000 across 7 winners
-- **Judging:** Impact (30), UX (20), Technical (20), Innovation (15), API Use (15)
-
-### What Makes Tadabbur Different
+## What Makes Tadabbur Different
 
 Most apps help you **read** the Quran. Tadabbur helps you **live** it.
 
