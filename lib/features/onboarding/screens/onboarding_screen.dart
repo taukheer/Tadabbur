@@ -225,6 +225,8 @@ class _SignInPage extends StatelessWidget {
     this.onQuranComSignIn,
   });
 
+  String t(String key) => AppTranslations.get(key, lang);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -244,7 +246,7 @@ class _SignInPage extends StatelessWidget {
           const SizedBox(height: 24),
 
           Text(
-            'Save your journey',
+            t('save_journey'),
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: const Color(0xFF1A1A1A),
@@ -254,7 +256,7 @@ class _SignInPage extends StatelessWidget {
           const SizedBox(height: 12),
 
           Text(
-            'Sign in to keep your reflections safe and sync across devices.',
+            t('sign_in_sync'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -297,9 +299,9 @@ class _SignInPage extends StatelessWidget {
                 errorBuilder: (_, __, ___) =>
                     const Icon(Icons.g_mobiledata, size: 24),
               ),
-              label: const Text(
-                'Sign in with Google',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              label: Text(
+                t('sign_google'),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF1A1A1A),
@@ -320,9 +322,9 @@ class _SignInPage extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onQuranComSignIn ?? onGuest,
               icon: const Icon(Icons.menu_book_rounded, size: 20),
-              label: const Text(
-                'Sign in with Quran.com',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              label: Text(
+                t('sign_quran'),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2E3A2F),
@@ -339,7 +341,7 @@ class _SignInPage extends StatelessWidget {
           TextButton(
             onPressed: onGuest,
             child: Text(
-              'Continue as guest (data stays on this device only)',
+              t('guest_mode'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
@@ -408,7 +410,7 @@ class _LanguagePage extends StatelessWidget {
           ).animate().fadeIn(duration: 600.ms),
           const SizedBox(height: 12),
           Text(
-            'Choose your language',
+            AppTranslations.get('choose_language', 'en'),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: const Color(0xFF1A1A1A),
@@ -877,7 +879,7 @@ class _StartingPointPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Choose a Surah',
+                t('choose_different'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

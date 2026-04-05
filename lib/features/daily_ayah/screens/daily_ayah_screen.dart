@@ -40,18 +40,19 @@ class DailyAyahScreen extends ConsumerWidget {
   }
 
   Widget _buildError(ThemeData theme, String? message, WidgetRef ref) {
+    final lang = ref.watch(languageProvider);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Could not load today\'s ayah',
+          Text(AppTranslations.get('could_not_load', lang),
               style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
           const SizedBox(height: 16),
           TextButton(
             onPressed: () =>
                 ref.read(dailyAyahProvider.notifier).loadDailyAyah(),
-            child: const Text('Try again'),
+            child: Text(AppTranslations.get('try_again', lang)),
           ),
         ],
       ),
@@ -119,7 +120,7 @@ class DailyAyahScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 8, 32, 12),
               child: Text(
-                'Welcome back. Pick up where you left off.',
+                t('welcome_back'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
@@ -213,7 +214,7 @@ class DailyAyahScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 14, 32, 0),
               child: Text(
-                'You recite this in every rak\'ah of every prayer.',
+                t('recite_every'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
@@ -577,11 +578,13 @@ class _TruncatedScholarText extends StatefulWidget {
   final String text;
   final String scholarName;
   final ThemeData theme;
+  final String readMoreLabel;
 
   const _TruncatedScholarText({
     required this.text,
     required this.scholarName,
     required this.theme,
+    this.readMoreLabel = 'Read more',
   });
 
   @override
@@ -620,7 +623,7 @@ class _TruncatedScholarTextState extends State<_TruncatedScholarText> {
           GestureDetector(
             onTap: () => setState(() => _expanded = true),
             child: Text(
-              'Read more',
+              widget.readMoreLabel,
               style: widget.theme.textTheme.labelSmall?.copyWith(
                 color: const Color(0xFF8B7355).withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
@@ -639,6 +642,7 @@ class _WordByWordSection extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
   final ThemeData theme;
+  final String wordByWordLabel;
 
   const _WordByWordSection({
     required this.words,
@@ -646,6 +650,7 @@ class _WordByWordSection extends StatelessWidget {
     required this.isExpanded,
     required this.onToggle,
     required this.theme,
+    required this.wordByWordLabel,
   });
 
   @override
@@ -671,7 +676,7 @@ class _WordByWordSection extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Word by word',
+                    wordByWordLabel,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: const Color(0xFF8B7355).withValues(alpha: 0.7),
                       fontWeight: FontWeight.w500,
@@ -901,7 +906,7 @@ class _CompletedState extends ConsumerWidget {
           // === SURAH COMPLETION MOMENT ===
           if (justCompletedSurah && completedSurahName != null) ...[
             Text(
-              'You have completed $completedSurahName',
+              '${_t("completed_surah", ref)} $completedSurahName',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: const Color(0xFF1B5E20),
@@ -936,7 +941,7 @@ class _CompletedState extends ConsumerWidget {
           if (dayNumber > 1) ...[
             const SizedBox(height: 14),
             Text(
-              '$dayNumber days with the Qur\'an',
+              '$dayNumber ${_t("days_with_quran", ref)}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                 fontSize: 11,
@@ -1025,7 +1030,7 @@ class _CompletedState extends ConsumerWidget {
             TextButton(
               onPressed: () => _showSurahPicker(context, ref),
               child: Text(
-                'Choose a different surah',
+                _t('choose_different', ref),
                 style: TextStyle(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
                   fontSize: 13,
@@ -1088,7 +1093,7 @@ class _CompletedState extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Choose a surah',
+              child: Text(_t('choose_different', ref),
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontWeight: FontWeight.w600)),
             ),

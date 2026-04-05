@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:go_router/go_router.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 
@@ -27,6 +28,8 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   Widget build(BuildContext context) {
     final allEntries = ref.watch(journalProvider);
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     List<JournalEntry> entries = _searchQuery.isEmpty
         ? allEntries
@@ -49,7 +52,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Your Journal',
+                            t('your_journal'),
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF1A1A1A),
@@ -58,8 +61,8 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           const SizedBox(height: 2),
                           Text(
                             allEntries.isEmpty
-                                ? 'Your spiritual autobiography'
-                                : '${allEntries.length} ${allEntries.length == 1 ? 'entry' : 'entries'}  ·  Your spiritual autobiography',
+                                ? t('spiritual_auto')
+                                : '${allEntries.length} ${allEntries.length == 1 ? t('entry') : t('entries')}  ·  ${t('spiritual_auto')}',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.35),
@@ -83,7 +86,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                     onChanged: (v) => setState(() => _searchQuery = v),
                     style: theme.textTheme.bodyMedium,
                     decoration: InputDecoration(
-                      hintText: 'Search your reflections...',
+                      hintText: t('search_reflections'),
                       hintStyle: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface
                             .withValues(alpha: 0.25),
@@ -127,8 +130,8 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                         const SizedBox(height: 16),
                         Text(
                           allEntries.isEmpty
-                              ? 'Your journal begins with your first ayah.'
-                              : 'No reflections match your search.',
+                              ? t('journal_begins')
+                              : t('no_match'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface
@@ -146,7 +149,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   (context, index) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: _JournalCard(entry: entries[index])
+                      child: _JournalCard(entry: entries[index], lang: lang)
                           .animate()
                           .fadeIn(
                             duration: 500.ms,
@@ -168,17 +171,18 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
 
 class _JournalCard extends StatelessWidget {
   final JournalEntry entry;
+  final String lang;
 
-  const _JournalCard({required this.entry});
+  const _JournalCard({required this.entry, required this.lang});
 
   String get _tierLabel {
     switch (entry.tier) {
       case ReflectionTier.acknowledge:
-        return 'Acknowledged';
+        return AppTranslations.get('acknowledged', lang);
       case ReflectionTier.respond:
-        return 'Responded';
+        return AppTranslations.get('responded', lang);
       case ReflectionTier.reflect:
-        return 'Reflected';
+        return AppTranslations.get('reflected', lang);
     }
   }
 
