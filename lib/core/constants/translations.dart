@@ -94,7 +94,6 @@ class AppTranslations {
       'read_more': 'Read more',
       'completed_surah': 'You have completed',
       'choose_different': 'Choose a different surah',
-      'day_with_quran': 'day with the Qur\'an',
       'days_with_quran': 'days with the Qur\'an',
       'recite_every': 'You recite this in every rak\'ah of every prayer.',
       'save_journey': 'Save your journey',

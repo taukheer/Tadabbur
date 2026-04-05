@@ -107,8 +107,8 @@ class DailyAyahScreen extends ConsumerWidget {
               child: Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  progress.dayNumber == 1
-                      ? '${progress.dayNumber} ${t('day_with_quran')}'
+                  progress.dayNumber == 1 && lang == 'en'
+                      ? '1 day with the Qur\'an'
                       : '${progress.dayNumber} ${t('days_with_quran')}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
