@@ -482,75 +482,50 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  // "I felt this" — highlighted after 5s
-                  Expanded(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 600),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: _highlighted
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF1B5E20)
-                                      .withValues(alpha: 0.12),
-                                  blurRadius: 12,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : [],
-                      ),
-                      child: FilledButton(
-                        onPressed: _saving ? null : _acknowledge,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _highlighted
-                              ? const Color(0xFF1B5E20)
-                              : Colors.white,
-                          foregroundColor: _highlighted
-                              ? Colors.white
-                              : const Color(0xFF1B5E20).withValues(alpha: 0.6),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: _highlighted
-                              ? null
-                              : BorderSide(
-                                  color: const Color(0xFF1B5E20)
-                                      .withValues(alpha: 0.15),
-                                ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          t('i_felt_this'),
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
+              // Full-width stacked buttons — works for all languages
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: _saving ? null : _acknowledge,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B5E20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: widget.onFullReflection,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: BorderSide(
-                          color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        t('write_one_line'),
-                        style: TextStyle(
-                          color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
-                          fontSize: 13,
-                        ),
-                      ),
+                  child: Text(
+                    t('i_felt_this'),
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: widget.onFullReflection,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    side: BorderSide(
+                      color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                ],
+                  child: Text(
+                    t('write_one_line'),
+                    style: TextStyle(
+                      color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
             ],
           ),
