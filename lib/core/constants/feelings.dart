@@ -6,12 +6,14 @@ class FeelingAyah {
   final String id;
   final String emoji;
   final String labelKey;
+  final String contextKey; // "Why this ayah?" explanation
   final List<String> verseKeys;
 
   const FeelingAyah({
     required this.id,
     required this.emoji,
     required this.labelKey,
+    required this.contextKey,
     required this.verseKeys,
   });
 
@@ -27,6 +29,7 @@ class Feelings {
       id: 'low',
       emoji: '😔',
       labelKey: 'feeling_low',
+      contextKey: 'context_low',
       verseKeys: [
         '93:3',   // Your Lord has not abandoned you, nor has He become hateful
         '93:4',   // And the Hereafter is better for you than the present
@@ -46,6 +49,7 @@ class Feelings {
       id: 'anxious',
       emoji: '😰',
       labelKey: 'feeling_anxious',
+      contextKey: 'context_anxious',
       verseKeys: [
         '13:28',  // In the remembrance of Allah do hearts find rest
         '2:286',  // Allah does not burden a soul beyond its capacity
@@ -65,6 +69,7 @@ class Feelings {
       id: 'angry',
       emoji: '😤',
       labelKey: 'feeling_angry',
+      contextKey: 'context_angry',
       verseKeys: [
         '3:134',  // Who restrain anger and pardon people
         '42:37',  // Who avoid major sins and when they are angry, they forgive
@@ -84,6 +89,7 @@ class Feelings {
       id: 'grateful',
       emoji: '🤲',
       labelKey: 'feeling_grateful',
+      contextKey: 'context_grateful',
       verseKeys: [
         '14:7',   // If you are grateful, I will surely increase you
         '55:13',  // So which of the favors of your Lord would you deny?
@@ -103,6 +109,7 @@ class Feelings {
       id: 'confused',
       emoji: '🤔',
       labelKey: 'feeling_confused',
+      contextKey: 'context_confused',
       verseKeys: [
         '2:286',  // Allah does not burden a soul beyond that it can bear
         '94:5',   // Indeed, with hardship comes ease
@@ -122,6 +129,7 @@ class Feelings {
       id: 'lonely',
       emoji: '💔',
       labelKey: 'feeling_lonely',
+      contextKey: 'context_lonely',
       verseKeys: [
         '2:186',  // I am near. I respond to the call of the caller when he calls
         '50:16',  // We are closer to him than his jugular vein
@@ -141,6 +149,7 @@ class Feelings {
       id: 'hopeful',
       emoji: '🌅',
       labelKey: 'feeling_hopeful',
+      contextKey: 'context_hopeful',
       verseKeys: [
         '94:6',   // Indeed, with hardship comes ease
         '2:216',  // Perhaps you dislike something which is good for you
@@ -160,6 +169,7 @@ class Feelings {
       id: 'lost',
       emoji: '🧭',
       labelKey: 'feeling_lost',
+      contextKey: 'context_lost',
       verseKeys: [
         '1:6',    // Guide us to the straight path
         '6:125',  // Whomever Allah wills to guide — He expands his breast to Islam
@@ -179,6 +189,7 @@ class Feelings {
       id: 'exploring',
       emoji: '✨',
       labelKey: 'feeling_exploring',
+      contextKey: 'context_exploring',
       verseKeys: [
         '55:13',  // So which of the favors of your Lord would you deny?
         '51:56',  // I did not create jinn and mankind except to worship Me

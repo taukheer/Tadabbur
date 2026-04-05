@@ -232,19 +232,19 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 400.ms),
 
-          const SizedBox(height: 32),
-
-          // Prompt
-          Text(
-            t('sit_moment'),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF1A1A1A).withValues(alpha: 0.6),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
+          // Why this ayah?
           const SizedBox(height: 20),
+          Text(
+            t(_selected!.contextKey),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontStyle: FontStyle.italic,
+              height: 1.5,
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+
+          const SizedBox(height: 28),
 
           // I felt this
           SizedBox(
@@ -261,6 +261,32 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
               child: Text(t('i_felt_this')),
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+
+          const SizedBox(height: 12),
+
+          // Show another ayah
+          TextButton(
+            onPressed: () => _selectFeeling(_selected!),
+            child: Text(
+              t('try_another'),
+              style: TextStyle(
+                color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                fontSize: 13,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Take a moment for dua
+          Text(
+            t('make_dua'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: const Color(0xFF8B7355).withValues(alpha: 0.5),
+              fontStyle: FontStyle.italic,
+              fontSize: 12,
+            ),
+          ),
 
           const SizedBox(height: 40),
         ],
