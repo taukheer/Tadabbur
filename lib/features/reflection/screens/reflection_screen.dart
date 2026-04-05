@@ -153,7 +153,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Write freely...',
+                    hintText: _t('write_freely'),
                     hintStyle: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     ),
