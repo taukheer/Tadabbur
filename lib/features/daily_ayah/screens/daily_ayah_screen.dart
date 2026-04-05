@@ -959,8 +959,20 @@ class _CompletedState extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 400.ms),
 
+          // Day identity
+          if (dayNumber > 1) ...[
+            const SizedBox(height: 14),
+            Text(
+              '$dayNumber days with the Qur\'an',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                fontSize: 11,
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+          ],
+
           // Micro-action
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
@@ -968,12 +980,12 @@ class _CompletedState extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Try this today: carry this ayah with you quietly.',
+              'Keep this ayah with you today.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF8B7355).withValues(alpha: 0.6),
-                fontStyle: FontStyle.italic,
-                fontSize: 12,
+                color: const Color(0xFF8B7355).withValues(alpha: 0.8),
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
               ),
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
