@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -133,6 +134,61 @@ class SettingsScreen extends ConsumerWidget {
                               .withValues(alpha: 0.5),
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18,
+                          color: const Color(0xFF1B5E20)
+                              .withValues(alpha: 0.3)),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // === LANGUAGE ===
+              _SectionLabel('LANGUAGE', theme),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _showLanguagePicker(context, ref, storage),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFE8E0D4),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        AppLanguages.getByCode(
+                                ref.watch(languageProvider))
+                            .nativeName,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        AppLanguages.getByCode(
+                                ref.watch(languageProvider))
+                            .name,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.4),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text('Change',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: const Color(0xFF1B5E20)
+                                .withValues(alpha: 0.5),
+                          )),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded,
                           size: 18,
@@ -319,6 +375,96 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showLanguagePicker(
+      BuildContext context, WidgetRef ref, dynamic storage) {
+    final theme = Theme.of(context);
+    final currentLang = ref.read(languageProvider);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFFFEFDF8),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.85,
+        minChildSize: 0.3,
+        expand: false,
+        builder: (ctx, controller) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('Translation Language',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                itemCount: AppLanguages.supported.length,
+                itemBuilder: (context, index) {
+                  final lang = AppLanguages.supported[index];
+                  final isCurrent = currentLang == lang.code;
+                  return ListTile(
+                    title: Row(
+                      children: [
+                        Text(lang.nativeName,
+                            style: TextStyle(
+                              fontWeight: isCurrent
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isCurrent
+                                  ? const Color(0xFF1B5E20)
+                                  : null,
+                              fontSize: 16,
+                            )),
+                        const SizedBox(width: 10),
+                        Text(lang.name,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.35),
+                            )),
+                      ],
+                    ),
+                    subtitle: lang.code != 'ar'
+                        ? Text(lang.translationAuthor,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.25),
+                              fontSize: 11,
+                            ))
+                        : null,
+                    trailing: isCurrent
+                        ? const Icon(Icons.check_circle_rounded,
+                            color: Color(0xFF1B5E20), size: 20)
+                        : null,
+                    onTap: () async {
+                      await storage.setLanguage(lang.code);
+                      ref.read(languageProvider.notifier).state = lang.code;
+                      // Reload ayah with new translation
+                      ref.invalidate(dailyAyahProvider);
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

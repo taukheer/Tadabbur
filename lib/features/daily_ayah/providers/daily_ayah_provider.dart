@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/word.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
@@ -94,7 +95,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       // Fetch ayah data, words, and editorial in parallel
       final results = await Future.wait([
         quranApi.getVerseByKey(verseKey,
-            translationId: storage.translationId.toString()),
+            translationId: AppLanguages.getByCode(storage.language).translationId.toString()),
         quranApi.getWordsByVerse(verseKey),
         editorialService.getEditorialContent(verseKey),
       ]);

@@ -105,11 +105,17 @@ class LocalStorageService {
       _prefs.setDouble(_keyArabicFontSize, size);
 
   static const _keyArabicFont = 'arabic_font';
+  static const _keyLanguage = 'user_language';
 
   String get arabicFont => _prefs.getString(_keyArabicFont) ?? 'AmiriQuran';
 
   Future<void> setArabicFont(String font) =>
       _prefs.setString(_keyArabicFont, font);
+
+  String get language => _prefs.getString(_keyLanguage) ?? 'en';
+
+  Future<void> setLanguage(String lang) =>
+      _prefs.setString(_keyLanguage, lang);
 
   String? get notificationTime => _prefs.getString(_keyNotificationTime);
 

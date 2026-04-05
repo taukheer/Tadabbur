@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -73,6 +74,8 @@ class DailyAyahScreen extends ConsumerWidget {
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
     final reciterPath = ref.watch(reciterPathProvider);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     // Build audio URL from Islamic Network CDN (uses absolute ayah number)
     final absAyahNum = _absoluteAyahNumber(ayah.surahNumber, ayah.ayahNumber);
@@ -146,7 +149,7 @@ class DailyAyahScreen extends ConsumerWidget {
           if (ayahTheme != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Today\'s ayah invites you to reflect on $ayahTheme',
+              '${t('today_ayah_about')} $ayahTheme',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
                 fontStyle: FontStyle.italic,
@@ -193,7 +196,7 @@ class DailyAyahScreen extends ConsumerWidget {
           Column(
             children: [
               Text(
-                'Start by listening',
+                t('start_listening'),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
                   fontSize: 11,
@@ -396,8 +399,10 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final journal = ref.watch(journalProvider);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final prompt = widget.editorial?.tier2Prompt as String? ??
-        'Sit with this for a moment.';
+        t('sit_moment');
 
     // Show a previous entry after Day 3 to build attachment
     final previousEntry = journal.length >= 3 ? journal.last : null;
@@ -504,9 +509,9 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'I felt this',
-                          style: TextStyle(fontSize: 13),
+                        child: Text(
+                          t('i_felt_this'),
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ),
@@ -525,7 +530,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                         ),
                       ),
                       child: Text(
-                        'Write one line',
+                        t('write_one_line'),
                         style: TextStyle(
                           color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
                           fontSize: 13,
@@ -811,7 +816,9 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
                       : Icons.play_arrow_rounded,
                   size: 20,
                 ),
-          label: Text(isPlaying ? 'Pause' : 'Listen to Recitation'),
+          label: Text(isPlaying
+              ? AppTranslations.get('pause', ref.watch(languageProvider))
+              : AppTranslations.get('listen', ref.watch(languageProvider))),
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF2E3A2F),
             foregroundColor: Colors.white,
@@ -851,6 +858,9 @@ class _CompletedState extends ConsumerWidget {
     required this.theme,
   });
 
+  String _t(String key, WidgetRef ref) =>
+      AppTranslations.get(key, ref.watch(languageProvider));
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final completedFatiha = surahNumber == 2 && ayahNumber == 1 && totalAyat >= 7;
@@ -879,7 +889,7 @@ class _CompletedState extends ConsumerWidget {
 
           // === "Day X complete" ===
           Text(
-            'Day $totalAyat complete',
+            _t('day_complete', ref).replaceAll('{n}', '$totalAyat'),
             style: theme.textTheme.titleMedium?.copyWith(
               color: const Color(0xFF1B5E20),
               fontWeight: FontWeight.w600,
@@ -890,7 +900,7 @@ class _CompletedState extends ConsumerWidget {
 
           // === Warm emotional line ===
           Text(
-            milestone ?? 'You showed up today. This counts.',
+            milestone ?? _t('showed_up', ref),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
@@ -951,7 +961,7 @@ class _CompletedState extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Continue to next ayah',
+                  _t('continue_next', ref),
                   style: TextStyle(
                     color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
                     fontSize: 14,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tadabbur/core/constants/languages.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 
@@ -17,13 +19,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
 
   // User selections
+  String _selectedLanguage = 'en';
   ArabicLevel? _arabicLevel;
   UnderstandingLevel? _understandingLevel;
   Motivation? _motivation;
   String _startingVerseKey = '1:1';
 
   void _nextPage() {
-    if (_currentPage < 4) {
+    if (_currentPage < 5) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -48,7 +51,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
-                children: List.generate(5, (i) {
+                children: List.generate(6, (i) {
                   return Expanded(
                     child: Container(
                       height: 3,
@@ -72,9 +75,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
-                  _WelcomePage(onNext: _nextPage),
+                  _LanguagePage(
+                    selected: _selectedLanguage,
+                    onSelect: (v) {
+                      setState(() => _selectedLanguage = v);
+                      // Save immediately so rest of onboarding can use it
+                      ref.read(localStorageProvider).setLanguage(v);
+                      ref.read(languageProvider.notifier).state = v;
+                      Future.delayed(const Duration(milliseconds: 300), _nextPage);
+                    },
+                  ),
+                  _WelcomePage(onNext: _nextPage, lang: _selectedLanguage),
                   _ArabicLevelPage(
                     selected: _arabicLevel,
+                    lang: _selectedLanguage,
                     onSelect: (v) {
                       setState(() => _arabicLevel = v);
                       Future.delayed(const Duration(milliseconds: 300), _nextPage);
@@ -82,6 +96,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _UnderstandingPage(
                     selected: _understandingLevel,
+                    lang: _selectedLanguage,
                     onSelect: (v) {
                       setState(() => _understandingLevel = v);
                       Future.delayed(const Duration(milliseconds: 300), _nextPage);
@@ -89,6 +104,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _MotivationPage(
                     selected: _motivation,
+                    lang: _selectedLanguage,
                     onSelect: (v) {
                       setState(() => _motivation = v);
                     },
@@ -96,6 +112,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _StartingPointPage(
                     selected: _startingVerseKey,
+                    lang: _selectedLanguage,
                     onSelect: (v) {
                       setState(() => _startingVerseKey = v);
                     },
@@ -140,12 +157,118 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 }
 
-// === PAGE 0: WELCOME ===
+// === PAGE 0: LANGUAGE ===
+
+class _LanguagePage extends StatelessWidget {
+  final String selected;
+  final ValueChanged<String> onSelect;
+
+  const _LanguagePage({required this.selected, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Column(
+        children: [
+          const SizedBox(height: 24),
+          const Text(
+            'تدبر',
+            style: TextStyle(
+              fontFamily: 'AmiriQuran',
+              fontSize: 40,
+              color: Color(0xFF1B5E20),
+            ),
+          ).animate().fadeIn(duration: 600.ms),
+          const SizedBox(height: 12),
+          Text(
+            'Choose your language',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1A1A1A),
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView.builder(
+              itemCount: AppLanguages.supported.length,
+              itemBuilder: (context, index) {
+                final lang = AppLanguages.supported[index];
+                final isSelected = selected == lang.code;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: GestureDetector(
+                    onTap: () => onSelect(lang.code),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? const Color(0xFF1B5E20).withValues(alpha: 0.06)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? const Color(0xFF1B5E20)
+                                  .withValues(alpha: 0.3)
+                              : const Color(0xFFE8E0D4)
+                                  .withValues(alpha: 0.5),
+                          width: isSelected ? 1.5 : 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            lang.nativeName,
+                            style: TextStyle(
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: isSelected
+                                  ? const Color(0xFF1B5E20)
+                                  : const Color(0xFF1A1A1A),
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            lang.name,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.35),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (isSelected)
+                            const Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF1B5E20), size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// === PAGE 1: WELCOME ===
 
 class _WelcomePage extends StatelessWidget {
   final VoidCallback onNext;
+  final String lang;
 
-  const _WelcomePage({required this.onNext});
+  const _WelcomePage({required this.onNext, required this.lang});
+
+  String t(String key) => AppTranslations.get(key, lang);
 
   @override
   Widget build(BuildContext context) {
@@ -174,7 +297,7 @@ class _WelcomePage extends StatelessWidget {
               ),
           const SizedBox(height: 32),
           Text(
-            'Sixty seconds with the Quran.\nEvery morning.\nAnd one day, your prayer\nwill change.',
+            t('welcome_line'),
             textAlign: TextAlign.center,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
@@ -194,9 +317,9 @@ class _WelcomePage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text(
-                'Begin',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              child: Text(
+                t('begin'),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 1000.ms),
@@ -211,31 +334,33 @@ class _WelcomePage extends StatelessWidget {
 
 class _ArabicLevelPage extends StatelessWidget {
   final ArabicLevel? selected;
+  final String lang;
   final ValueChanged<ArabicLevel> onSelect;
 
-  const _ArabicLevelPage({this.selected, required this.onSelect});
+  const _ArabicLevelPage({this.selected, required this.lang, required this.onSelect});
+
+  String t(String key) => AppTranslations.get(key, lang);
 
   @override
   Widget build(BuildContext context) {
     return _QuestionPage(
-      question: 'How well do you\nread Arabic?',
-      subtitle: 'This helps us tailor your experience.',
+      question: t('how_read_arabic'),
       options: [
         _Option(
-          title: 'I read Arabic fluently',
-          subtitle: 'Comfortable with Uthmani script',
+          title: t('read_fluent'),
+          subtitle: t('read_fluent_sub'),
           isSelected: selected == ArabicLevel.fluent,
           onTap: () => onSelect(ArabicLevel.fluent),
         ),
         _Option(
-          title: 'I can read slowly',
-          subtitle: 'Learning or need practice',
+          title: t('read_slow'),
+          subtitle: t('read_slow_sub'),
           isSelected: selected == ArabicLevel.basic,
           onTap: () => onSelect(ArabicLevel.basic),
         ),
         _Option(
-          title: 'I cannot read Arabic',
-          subtitle: 'I\'ll need transliteration',
+          title: t('read_none'),
+          subtitle: t('read_none_sub'),
           isSelected: selected == ArabicLevel.none,
           onTap: () => onSelect(ArabicLevel.none),
         ),
@@ -248,31 +373,31 @@ class _ArabicLevelPage extends StatelessWidget {
 
 class _UnderstandingPage extends StatelessWidget {
   final UnderstandingLevel? selected;
+  final String lang;
   final ValueChanged<UnderstandingLevel> onSelect;
 
-  const _UnderstandingPage({this.selected, required this.onSelect});
+  const _UnderstandingPage({this.selected, required this.lang, required this.onSelect});
+
+  String t(String key) => AppTranslations.get(key, lang);
 
   @override
   Widget build(BuildContext context) {
     return _QuestionPage(
-      question: 'When you recite\nthe Quran in salah...',
-      subtitle: 'Be honest — this is between you and Allah.',
+      question: t('when_recite'),
+      subtitle: t('be_honest'),
       options: [
         _Option(
-          title: 'I understand most of it',
-          subtitle: 'I studied Arabic or tafsir',
+          title: t('understand_most'),
           isSelected: selected == UnderstandingLevel.most,
           onTap: () => onSelect(UnderstandingLevel.most),
         ),
         _Option(
-          title: 'I understand some words',
-          subtitle: 'I catch a few meanings',
+          title: t('understand_some'),
           isSelected: selected == UnderstandingLevel.some,
           onTap: () => onSelect(UnderstandingLevel.some),
         ),
         _Option(
-          title: 'I don\'t understand what I say',
-          subtitle: 'I recite but don\'t know the meaning',
+          title: t('understand_none'),
           isSelected: selected == UnderstandingLevel.none,
           onTap: () => onSelect(UnderstandingLevel.none),
         ),
@@ -285,14 +410,18 @@ class _UnderstandingPage extends StatelessWidget {
 
 class _MotivationPage extends StatelessWidget {
   final Motivation? selected;
+  final String lang;
   final ValueChanged<Motivation> onSelect;
   final VoidCallback onBegin;
 
   const _MotivationPage({
     this.selected,
+    required this.lang,
     required this.onSelect,
     required this.onBegin,
   });
+
+  String t(String key) => AppTranslations.get(key, lang);
 
   @override
   Widget build(BuildContext context) {
@@ -304,7 +433,7 @@ class _MotivationPage extends StatelessWidget {
         children: [
           const Spacer(flex: 2),
           Text(
-            'What brought\nyou here?',
+            t('what_brought'),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
@@ -314,25 +443,25 @@ class _MotivationPage extends StatelessWidget {
           ).animate().fadeIn(duration: 600.ms),
           const SizedBox(height: 28),
           _Option(
-            title: 'I want to understand what I say in salah',
+            title: t('motivation_salah'),
             isSelected: selected == Motivation.salah,
             onTap: () => onSelect(Motivation.salah),
           ),
           const SizedBox(height: 10),
           _Option(
-            title: 'I want a deeper connection with the Quran',
+            title: t('motivation_connection'),
             isSelected: selected == Motivation.connection,
             onTap: () => onSelect(Motivation.connection),
           ),
           const SizedBox(height: 10),
           _Option(
-            title: 'I want to build a daily Quran habit',
+            title: t('motivation_practice'),
             isSelected: selected == Motivation.practice,
             onTap: () => onSelect(Motivation.practice),
           ),
           const SizedBox(height: 10),
           _Option(
-            title: 'I\'m learning about Islam',
+            title: t('motivation_learning'),
             isSelected: selected == Motivation.learning,
             onTap: () => onSelect(Motivation.learning),
           ),
@@ -349,9 +478,9 @@ class _MotivationPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  'Continue',
-                  style:
+                child: Text(
+                  t('continue_btn'),
+                  style: const
                       TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ),
@@ -373,14 +502,18 @@ class _MotivationPage extends StatelessWidget {
 
 class _StartingPointPage extends StatelessWidget {
   final String selected;
+  final String lang;
   final ValueChanged<String> onSelect;
   final VoidCallback onBegin;
 
   const _StartingPointPage({
     required this.selected,
+    required this.lang,
     required this.onSelect,
     required this.onBegin,
   });
+
+  String t(String key) => AppTranslations.get(key, lang);
 
   static const _presets = [
     ('1:1', 'Al-Fatiha', 'The Opening — begin from the start'),
@@ -400,7 +533,7 @@ class _StartingPointPage extends StatelessWidget {
         children: [
           const Spacer(flex: 2),
           Text(
-            'Where would you\nlike to begin?',
+            t('where_begin'),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
@@ -410,7 +543,7 @@ class _StartingPointPage extends StatelessWidget {
           ).animate().fadeIn(duration: 600.ms),
           const SizedBox(height: 8),
           Text(
-            'You can always change this later.',
+            t('change_later'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
               fontStyle: FontStyle.italic,
@@ -446,7 +579,7 @@ class _StartingPointPage extends StatelessWidget {
             child: TextButton(
               onPressed: () => _showSurahPicker(context),
               child: Text(
-                'Browse all 114 surahs',
+                t('browse_surahs'),
                 style: TextStyle(
                   color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
                   fontSize: 13,
@@ -467,7 +600,7 @@ class _StartingPointPage extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Begin with ${_selectedSurahName()}',
+                '${t('begin_with')} ${_selectedSurahName()}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),

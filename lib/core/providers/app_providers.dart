@@ -72,6 +72,10 @@ final reciterPathProvider = StateProvider<String>((ref) {
   return ref.watch(localStorageProvider).reciterPath;
 });
 
+final languageProvider = StateProvider<String>((ref) {
+  return ref.watch(localStorageProvider).language;
+});
+
 // --- User Profile ---
 
 final userProfileProvider = StateProvider<UserProfile?>((ref) {

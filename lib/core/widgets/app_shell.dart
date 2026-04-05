@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/providers/app_providers.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   final Widget child;
 
   const AppShell({super.key, required this.child});
@@ -14,9 +17,11 @@ class AppShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final index = _currentIndex(context);
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     return Scaffold(
       body: child,
@@ -48,37 +53,25 @@ class AppShell extends StatelessWidget {
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
             NavigationDestination(
-              icon: Icon(
-                Icons.auto_stories_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-              selectedIcon: Icon(
-                Icons.auto_stories,
-                color: theme.colorScheme.primary,
-              ),
-              label: 'Today',
+              icon: Icon(Icons.auto_stories_outlined,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+              selectedIcon:
+                  Icon(Icons.auto_stories, color: theme.colorScheme.primary),
+              label: t('today'),
             ),
             NavigationDestination(
-              icon: Icon(
-                Icons.book_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-              selectedIcon: Icon(
-                Icons.book,
-                color: theme.colorScheme.primary,
-              ),
-              label: 'Journal',
+              icon: Icon(Icons.book_outlined,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+              selectedIcon:
+                  Icon(Icons.book, color: theme.colorScheme.primary),
+              label: t('journal'),
             ),
             NavigationDestination(
-              icon: Icon(
-                Icons.settings_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              ),
-              selectedIcon: Icon(
-                Icons.settings,
-                color: theme.colorScheme.primary,
-              ),
-              label: 'Settings',
+              icon: Icon(Icons.settings_outlined,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+              selectedIcon:
+                  Icon(Icons.settings, color: theme.colorScheme.primary),
+              label: t('settings'),
             ),
           ],
         ),
