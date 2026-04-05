@@ -273,7 +273,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
       final translationId =
           AppLanguages.getByCode(storage.language).translationId.toString();
       final ayah = await quranApi.getVerseByKey(
-        feeling.verseKey,
+        feeling.randomVerseKey,
         translationId: translationId,
       );
       if (mounted) {
