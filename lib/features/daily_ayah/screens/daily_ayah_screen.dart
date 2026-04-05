@@ -184,6 +184,26 @@ class DailyAyahScreen extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 1000.ms, delay: 200.ms),
 
+          // === TRANSLITERATION (optional) ===
+          if (ref.watch(showTransliterationProvider) && words.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 8, 32, 0),
+              child: Text(
+                words
+                    .where((w) => w.transliteration != null)
+                    .map((w) => w.transliteration!)
+                    .join(' '),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  fontStyle: FontStyle.italic,
+                  fontSize: 13,
+                  height: 1.6,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ).animate().fadeIn(duration: 600.ms, delay: 300.ms),
+
           const SizedBox(height: 20),
 
           // === TRANSLATION ===

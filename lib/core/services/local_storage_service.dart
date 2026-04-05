@@ -106,6 +106,7 @@ class LocalStorageService {
 
   static const _keyArabicFont = 'arabic_font';
   static const _keyLanguage = 'user_language';
+  static const _keyShowTransliteration = 'show_transliteration';
 
   String get arabicFont => _prefs.getString(_keyArabicFont) ?? 'AmiriQuran';
 
@@ -121,6 +122,12 @@ class LocalStorageService {
 
   Future<void> setNotificationTime(String time) =>
       _prefs.setString(_keyNotificationTime, time);
+
+  bool get showTransliteration =>
+      _prefs.getBool(_keyShowTransliteration) ?? false;
+
+  Future<void> setShowTransliteration(bool value) =>
+      _prefs.setBool(_keyShowTransliteration, value);
 
   // --- User Progress ---
 

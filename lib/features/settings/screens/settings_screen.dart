@@ -241,6 +241,49 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
+              // === TRANSLITERATION ===
+              _SectionLabel('TRANSLITERATION', theme),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFE8E0D4), width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Show transliteration',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w500)),
+                          Text('Roman script below Arabic text',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.35),
+                                  fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: ref.watch(showTransliterationProvider),
+                      activeColor: const Color(0xFF1B5E20),
+                      onChanged: (v) async {
+                        await storage.setShowTransliteration(v);
+                        ref.read(showTransliterationProvider.notifier).state = v;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
               // === ARABIC FONT SIZE ===
               _SectionLabel('ARABIC FONT SIZE', theme),
               const SizedBox(height: 12),

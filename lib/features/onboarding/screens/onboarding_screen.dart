@@ -173,6 +173,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await storage.saveProfile(profile);
     await storage.setOnboarded(true);
 
+    // Auto-enable transliteration for users who can't read Arabic
+    if (_arabicLevel == ArabicLevel.none) {
+      await storage.setShowTransliteration(true);
+      ref.read(showTransliterationProvider.notifier).state = true;
+    }
+
     if (asGuest) {
       await storage.setAuthToken('guest');
       await storage.setUserId('guest');

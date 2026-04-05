@@ -93,6 +93,10 @@ final languageProvider = StateProvider<String>((ref) {
   return ref.watch(localStorageProvider).language;
 });
 
+final showTransliterationProvider = StateProvider<bool>((ref) {
+  return ref.watch(localStorageProvider).showTransliteration;
+});
+
 // --- User Profile ---
 
 final userProfileProvider = StateProvider<UserProfile?>((ref) {
