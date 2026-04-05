@@ -435,9 +435,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
             child: Column(
               children: [
                 Text(
-                  _daysAgo(previousEntry.completedAt) == 'earlier today'
-                      ? 'Earlier today, you paused with an ayah.'
-                      : 'You wrote this ${_daysAgo(previousEntry.completedAt)}...',
+                  t('earlier_paused'),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: const Color(0xFF8B7355).withValues(alpha: 0.6),
                     fontStyle: FontStyle.italic,

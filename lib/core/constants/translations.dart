@@ -67,6 +67,7 @@ class AppTranslations {
       'sat_with_ayat': 'You have sat with {n} ayat.',
       'next_ready': 'Your next ayah will be ready tomorrow.',
       'return_btn': 'Return',
+      'earlier_paused': 'You reflected on this earlier...',
     },
     'ar': {
       'welcome_line': 'ستون ثانية مع القرآن.\nكل صباح.\nوفي يوم ما، ستتغير\nصلاتك.',
@@ -127,6 +128,7 @@ class AppTranslations {
       'sat_with_ayat': 'جلست مع {n} آيات.',
       'next_ready': 'آيتك القادمة ستكون جاهزة غداً.',
       'return_btn': 'رجوع',
+      'earlier_paused': 'تأملت في هذا سابقاً...',
     },
     'ur': {
       'welcome_line': 'قرآن کے ساتھ ساٹھ سیکنڈ۔\nہر صبح۔\nاور ایک دن، آپ کی نماز\nبدل جائے گی۔',
@@ -187,6 +189,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} آیات کے ساتھ بیٹھے۔',
       'next_ready': 'آپ کی اگلی آیت کل تیار ہوگی۔',
       'return_btn': 'واپسی',
+      'earlier_paused': 'آپ نے پہلے اس پر غور کیا...',
     },
     'ta': {
       'welcome_line': 'குர்ஆனுடன் அறுபது வினாடிகள்.\nஒவ்வொரு காலையும்.\nஒரு நாள், உங்கள் தொழுகை\nமாறும்.',
@@ -247,6 +250,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} ஆயத்துகளுடன் அமர்ந்தீர்கள்.',
       'next_ready': 'உங்கள் அடுத்த ஆயத் நாளை தயாராகும்.',
       'return_btn': 'திரும்பு',
+      'earlier_paused': 'நீங்கள் முன்பு இதைப் பற்றி சிந்தித்தீர்கள்...',
     },
     'ml': {
       'welcome_line': 'ഖുർആനുമായി അറുപത് സെക്കൻഡ്.\nഎല്ലാ രാവിലെയും.\nഒരു ദിവസം, നിങ്ങളുടെ നമസ്കാരം\nമാറും.',
@@ -300,6 +304,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} ആയത്തുകളോടൊപ്പം ഇരുന്നു.',
       'next_ready': 'നിങ്ങളുടെ അടുത്ത ആയത്ത് നാളെ തയ്യാറാകും.',
       'return_btn': 'മടങ്ങുക',
+      'earlier_paused': 'നിങ്ങൾ മുമ്പ് ഇതിനെക്കുറിച്ച് ചിന്തിച്ചു...',
     },
     'fr': {
       'welcome_line': 'Soixante secondes avec le Coran.\nChaque matin.\nEt un jour, votre prière\nchangera.',
@@ -360,6 +365,7 @@ class AppTranslations {
       'sat_with_ayat': 'Vous avez médité sur {n} versets.',
       'next_ready': 'Votre prochain verset sera prêt demain.',
       'return_btn': 'Retour',
+      'earlier_paused': 'Vous avez réfléchi à cela plus tôt...',
     },
     'es': {
       'welcome_line': 'Sesenta segundos con el Corán.\nCada mañana.\nY un día, tu oración\ncambiará.',
@@ -417,6 +423,7 @@ class AppTranslations {
       'sat_with_ayat': 'Has meditado sobre {n} aleyas.',
       'next_ready': 'Tu próxima aleya estará lista mañana.',
       'return_btn': 'Volver',
+      'earlier_paused': 'Reflexionaste sobre esto antes...',
     },
     'tr': {
       'welcome_line': 'Kur\'an ile altmış saniye.\nHer sabah.\nVe bir gün, namazın\ndeğişecek.',
@@ -474,6 +481,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} ayetle oturdunuz.',
       'next_ready': 'Bir sonraki ayetiniz yarın hazır olacak.',
       'return_btn': 'Geri dön',
+      'earlier_paused': 'Daha önce bunu düşündünüz...',
     },
     'id': {
       'welcome_line': 'Enam puluh detik bersama Al-Quran.\nSetiap pagi.\nDan suatu hari, shalatmu\nakan berubah.',
@@ -531,6 +539,7 @@ class AppTranslations {
       'sat_with_ayat': 'Anda telah merenungkan {n} ayat.',
       'next_ready': 'Ayat berikutnya akan siap besok.',
       'return_btn': 'Kembali',
+      'earlier_paused': 'Anda merenungkan ini sebelumnya...',
     },
     'hi': {
       'welcome_line': 'कुरआन के साथ साठ सेकंड।\nहर सुबह।\nऔर एक दिन, आपकी नमाज़\nबदल जाएगी।',
@@ -588,6 +597,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} आयतों के साथ बैठे।',
       'next_ready': 'आपकी अगली आयत कल तैयार होगी।',
       'return_btn': 'वापस',
+      'earlier_paused': 'आपने पहले इस पर विचार किया...',
     },
     'bn': {
       'welcome_line': 'কুরআনের সাথে ষাট সেকেন্ড।\nপ্রতিটি সকালে।\nএবং একদিন, আপনার নামাজ\nবদলে যাবে।',
@@ -645,6 +655,7 @@ class AppTranslations {
       'sat_with_ayat': '{n} আয়াতের সাথে বসেছেন।',
       'next_ready': 'আপনার পরবর্তী আয়াত আগামীকাল প্রস্তুত হবে।',
       'return_btn': 'ফিরুন',
+      'earlier_paused': 'আপনি আগে এটি নিয়ে ভেবেছেন...',
     },
   };
 }
