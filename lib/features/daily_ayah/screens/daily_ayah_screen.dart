@@ -10,6 +10,7 @@ import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
+import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
 class DailyAyahScreen extends ConsumerWidget {
@@ -1062,8 +1063,56 @@ class _CompletedState extends ConsumerWidget {
               ),
             ),
           ],
+          // === EXPLORE BY FEELING ===
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: () => _openFeelings(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F5F0),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🤲', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 10),
+                  Text(
+                    _t('explore_feeling', ref),
+                    style: TextStyle(
+                      color: const Color(0xFF8B7355).withValues(alpha: 0.7),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 800.ms),
         ],
       ).animate().fadeIn(duration: 800.ms),
+    );
+  }
+
+  void _openFeelings(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const FeelingsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(
+                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
     );
   }
 
