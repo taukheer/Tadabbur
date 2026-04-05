@@ -19,7 +19,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _currentPage = 0;
 
   // User selections
-  String _selectedLanguage = 'en';
+  String? _selectedLanguage;
   ArabicLevel? _arabicLevel;
   UnderstandingLevel? _understandingLevel;
   Motivation? _motivation;
@@ -85,10 +85,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       Future.delayed(const Duration(milliseconds: 300), _nextPage);
                     },
                   ),
-                  _WelcomePage(onNext: _nextPage, lang: _selectedLanguage),
+                  _WelcomePage(onNext: _nextPage, lang: _selectedLanguage ?? 'en'),
                   _ArabicLevelPage(
                     selected: _arabicLevel,
-                    lang: _selectedLanguage,
+                    lang: _selectedLanguage ?? 'en',
                     onSelect: (v) {
                       setState(() => _arabicLevel = v);
                       Future.delayed(const Duration(milliseconds: 300), _nextPage);
@@ -96,7 +96,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _UnderstandingPage(
                     selected: _understandingLevel,
-                    lang: _selectedLanguage,
+                    lang: _selectedLanguage ?? 'en',
                     onSelect: (v) {
                       setState(() => _understandingLevel = v);
                       Future.delayed(const Duration(milliseconds: 300), _nextPage);
@@ -104,7 +104,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _MotivationPage(
                     selected: _motivation,
-                    lang: _selectedLanguage,
+                    lang: _selectedLanguage ?? 'en',
                     onSelect: (v) {
                       setState(() => _motivation = v);
                     },
@@ -112,7 +112,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   _StartingPointPage(
                     selected: _startingVerseKey,
-                    lang: _selectedLanguage,
+                    lang: _selectedLanguage ?? 'en',
                     onSelect: (v) {
                       setState(() => _startingVerseKey = v);
                     },
@@ -160,10 +160,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 // === PAGE 0: LANGUAGE ===
 
 class _LanguagePage extends StatelessWidget {
-  final String selected;
+  final String? selected;
   final ValueChanged<String> onSelect;
 
-  const _LanguagePage({required this.selected, required this.onSelect});
+  const _LanguagePage({this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {

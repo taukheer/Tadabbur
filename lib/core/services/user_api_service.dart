@@ -84,7 +84,7 @@ class UserApiService {
   Future<Map<String, dynamic>> getStreak() async {
     try {
       final response = await _client.get<Map<String, dynamic>>(
-        '/user/streak',
+        '/streaks',
       );
 
       final data = response.data;
@@ -108,7 +108,7 @@ class UserApiService {
   Future<void> updateStreak() async {
     try {
       await _client.post<Map<String, dynamic>>(
-        '/user/streak',
+        '/streaks',
       );
     } on ApiException {
       rethrow;
@@ -130,7 +130,7 @@ class UserApiService {
 
     try {
       await _client.post<Map<String, dynamic>>(
-        '/user/activity_days',
+        '/activity-days',
         data: {
           'date': dateString,
         },
@@ -161,7 +161,7 @@ class UserApiService {
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
-        '/user/activity_days',
+        '/activity-days',
         queryParameters: queryParams,
       );
 
