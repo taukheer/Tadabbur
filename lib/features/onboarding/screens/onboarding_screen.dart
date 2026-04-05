@@ -123,6 +123,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _SignInPage(
                     lang: _selectedLanguage ?? 'en',
                     onGoogleSignIn: _signInWithGoogle,
+                    onQuranComSignIn: _signInWithQuranCom,
                     onGuest: () => _completeOnboarding(asGuest: true),
                   ),
                 ],
@@ -132,6 +133,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _signInWithQuranCom() async {
+    final qfAuth = ref.read(qfAuthServiceProvider);
+    await qfAuth.launchLogin();
+    // The OAuth callback will be handled by deep link
+    // For now, complete onboarding — token exchange happens on return
+    await _completeOnboarding(asGuest: true);
   }
 
   Future<void> _signInWithGoogle() async {
@@ -188,11 +197,13 @@ class _SignInPage extends StatelessWidget {
   final String lang;
   final VoidCallback onGoogleSignIn;
   final VoidCallback onGuest;
+  final VoidCallback? onQuranComSignIn;
 
   const _SignInPage({
     required this.lang,
     required this.onGoogleSignIn,
     required this.onGuest,
+    this.onQuranComSignIn,
   });
 
   @override
@@ -280,6 +291,28 @@ class _SignInPage extends StatelessWidget {
               ),
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          const SizedBox(height: 12),
+
+          // Quran.com Sign-In
+          SizedBox(
+            width: double.infinity,
+            height: 54,
+            child: FilledButton.icon(
+              onPressed: onQuranComSignIn ?? onGuest,
+              icon: const Icon(Icons.menu_book_rounded, size: 20),
+              label: const Text(
+                'Sign in with Quran.com',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2E3A2F),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
 
           const SizedBox(height: 12),
 

@@ -9,6 +9,7 @@ import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
+import 'package:tadabbur/core/services/qf_auth_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
 
@@ -52,6 +53,10 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.watch(localStorageProvider));
+});
+
+final qfAuthServiceProvider = Provider<QFAuthService>((ref) {
+  return QFAuthService(ref.watch(localStorageProvider));
 });
 
 final authUserProvider = StateProvider<AuthUser?>((ref) => null);
