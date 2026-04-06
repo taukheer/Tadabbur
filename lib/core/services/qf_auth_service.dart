@@ -7,13 +7,28 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 
 /// Quran Foundation OAuth2 PKCE authentication service.
+///
+/// Credentials are injected at build time via --dart-define:
+///   flutter build apk \
+///     --dart-define=QF_CLIENT_ID=... \
+///     --dart-define=QF_CLIENT_SECRET=... \
+///     --dart-define=QF_AUTH_ENDPOINT=...
 class QFAuthService {
   final LocalStorageService _storage;
 
-  // Pre-Production (Test) credentials
-  static const _clientId = '196d8690-730e-42f4-bf14-07b67adb6ad5';
-  static const _clientSecret = 'I3-8Jr_K6usN68LZ.6EB9S30z7';
-  static const _authEndpoint = 'https://prelive-oauth2.quran.foundation';
+  // Injected at build time — never hardcoded in source
+  static const _clientId = String.fromEnvironment(
+    'QF_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const _clientSecret = String.fromEnvironment(
+    'QF_CLIENT_SECRET',
+    defaultValue: '',
+  );
+  static const _authEndpoint = String.fromEnvironment(
+    'QF_AUTH_ENDPOINT',
+    defaultValue: 'https://prelive-oauth2.quran.foundation',
+  );
   static const _redirectUri = 'com.tadabbur.tadabbur://oauth/callback';
 
   // OAuth2 endpoints
@@ -49,7 +64,7 @@ class QFAuthService {
     final pkce = _generatePKCE();
 
     // Store verifier for token exchange
-    await _storage.setRefreshToken(pkce.verifier); // reusing field temporarily
+    await _storage.setCodeVerifier(pkce.verifier);
 
     final params = {
       'client_id': _clientId,
@@ -69,7 +84,7 @@ class QFAuthService {
 
   /// Exchange the authorization code for tokens.
   Future<bool> exchangeCode(String code) async {
-    final verifier = _storage.refreshToken; // stored during getAuthorizationUrl
+    final verifier = await _storage.getCodeVerifier();
     if (verifier == null) return false;
 
     try {
@@ -99,6 +114,8 @@ class QFAuthService {
           if (refreshToken != null) {
             await _storage.setRefreshToken(refreshToken);
           }
+          // Clear the code verifier — no longer needed
+          await _storage.setCodeVerifier(null);
           debugPrint('[QFAuth] Successfully authenticated with QF OAuth2');
           return true;
         }

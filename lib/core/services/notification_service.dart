@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:tadabbur/core/services/local_storage_service.dart';
@@ -20,32 +21,24 @@ class NotificationService {
 
     tz_data.initializeTimeZones();
 
-    // Set local timezone from device
+    // Set local timezone from device's native timezone (e.g. "Asia/Kolkata")
     try {
-      final deviceTz = DateTime.now().timeZoneName;
-      // Map common abbreviations to tz database names
-      final tzMapping = {
-        'IST': 'Asia/Kolkata',
-        'EST': 'America/New_York',
-        'CST': 'America/Chicago',
-        'MST': 'America/Denver',
-        'PST': 'America/Los_Angeles',
-        'GMT': 'Europe/London',
-        'CET': 'Europe/Berlin',
-        'AST': 'Asia/Riyadh',
-        'PKT': 'Asia/Karachi',
-        'WIB': 'Asia/Jakarta',
-        'MYT': 'Asia/Kuala_Lumpur',
-        'SGT': 'Asia/Singapore',
-      };
-      final tzName = tzMapping[deviceTz];
-      if (tzName != null) {
-        tz.setLocalLocation(tz.getLocation(tzName));
-      }
-    } catch (_) {
-      // Fallback: use UTC offset to find timezone
-      final offset = DateTime.now().timeZoneOffset;
-      debugPrint('[NotificationService] Using UTC offset: $offset');
+      final tzName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(tzName));
+      debugPrint('[NotificationService] Timezone: $tzName');
+    } catch (e) {
+      debugPrint('[NotificationService] Timezone detection failed: $e');
+      // Fallback: match by UTC offset
+      try {
+        final offset = DateTime.now().timeZoneOffset;
+        final match = tz.timeZoneDatabase.locations.values.where(
+          (loc) => loc.currentTimeZone.offset == offset.inMilliseconds,
+        );
+        if (match.isNotEmpty) {
+          tz.setLocalLocation(match.first);
+          debugPrint('[NotificationService] Fallback tz: ${tz.local.name}');
+        }
+      } catch (_) {}
     }
 
     const androidSettings =
@@ -177,24 +170,6 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
-
-    // Samsung workaround: also fire a direct notification after delay
-    // to test if the issue is zonedSchedule vs show()
-    final now = DateTime.now();
-    final target = DateTime(now.year, now.month, now.day, hour, minute);
-    var delay = target.difference(now);
-    if (delay.isNegative) delay = delay + const Duration(days: 1);
-
-    debugPrint('[NotificationService] Will fire direct notification in: ${delay.inSeconds}s');
-    Future.delayed(delay, () {
-      _plugin.show(
-        3,
-        msg.title,
-        msg.body,
-        notifDetails,
-      );
-      debugPrint('[NotificationService] Direct notification fired!');
-    });
   }
 
   /// Get the next occurrence of the given time.

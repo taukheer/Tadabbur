@@ -7,16 +7,65 @@ class FirestoreService {
 
   String? _userId;
 
+  /// Pending operations that failed and need retry.
+  final List<Future<void> Function()> _retryQueue = [];
+  bool _retrying = false;
+
   void setUser(String userId) {
     _userId = userId;
+    // Flush any pending retries when user is set
+    _flushRetryQueue();
   }
 
   bool get hasUser => _userId != null;
 
+  /// Retry a failed operation up to [maxAttempts] times with backoff.
+  Future<void> _withRetry(
+    Future<void> Function() operation, {
+    int maxAttempts = 3,
+  }) async {
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await operation();
+        return;
+      } catch (e) {
+        debugPrint('[Firestore] Attempt $attempt failed: $e');
+        if (attempt == maxAttempts) {
+          // Queue for later retry
+          _retryQueue.add(operation);
+          debugPrint('[Firestore] Queued for retry (${_retryQueue.length} pending)');
+          return;
+        }
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+  }
+
+  /// Flush the retry queue — called on connectivity restore or user set.
+  Future<void> _flushRetryQueue() async {
+    if (_retrying || _retryQueue.isEmpty) return;
+    _retrying = true;
+    try {
+      while (_retryQueue.isNotEmpty) {
+        final op = _retryQueue.removeAt(0);
+        try {
+          await op();
+        } catch (e) {
+          debugPrint('[Firestore] Retry still failing: $e');
+          // Put it back and stop — will try again later
+          _retryQueue.insert(0, op);
+          break;
+        }
+      }
+    } finally {
+      _retrying = false;
+    }
+  }
+
   /// Save a journal entry to Firestore.
   Future<void> saveJournalEntry(JournalEntry entry) async {
     if (_userId == null) return;
-    try {
+    await _withRetry(() async {
       await _db
           .collection('users')
           .doc(_userId)
@@ -33,22 +82,18 @@ class FirestoreService {
         'streak_day': entry.streakDay,
         'created_at': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
-      debugPrint('[Firestore] Failed to save journal entry: $e');
-    }
+    });
   }
 
   /// Save user progress to Firestore.
   Future<void> saveProgress(Map<String, dynamic> progress) async {
     if (_userId == null) return;
-    try {
+    await _withRetry(() async {
       await _db.collection('users').doc(_userId).set({
         'progress': progress,
         'updated_at': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('[Firestore] Failed to save progress: $e');
-    }
+    });
   }
 
   /// Save user profile and settings to Firestore.
@@ -66,26 +111,24 @@ class FirestoreService {
     String? currentVerseKey,
   }) async {
     if (_userId == null) return;
-    try {
-      final data = <String, dynamic>{
-        'updated_at': FieldValue.serverTimestamp(),
-      };
-      if (name != null) data['name'] = name;
-      if (email != null) data['email'] = email;
-      if (photoUrl != null) data['photo_url'] = photoUrl;
-      if (language != null) data['language'] = language;
-      if (arabicLevel != null) data['arabic_level'] = arabicLevel;
-      if (understandingLevel != null) data['understanding_level'] = understandingLevel;
-      if (motivation != null) data['motivation'] = motivation;
-      if (reciterPath != null) data['reciter'] = reciterPath;
-      if (arabicFont != null) data['arabic_font'] = arabicFont;
-      if (arabicFontSize != null) data['arabic_font_size'] = arabicFontSize;
-      if (currentVerseKey != null) data['current_verse_key'] = currentVerseKey;
+    final data = <String, dynamic>{
+      'updated_at': FieldValue.serverTimestamp(),
+    };
+    if (name != null) data['name'] = name;
+    if (email != null) data['email'] = email;
+    if (photoUrl != null) data['photo_url'] = photoUrl;
+    if (language != null) data['language'] = language;
+    if (arabicLevel != null) data['arabic_level'] = arabicLevel;
+    if (understandingLevel != null) data['understanding_level'] = understandingLevel;
+    if (motivation != null) data['motivation'] = motivation;
+    if (reciterPath != null) data['reciter'] = reciterPath;
+    if (arabicFont != null) data['arabic_font'] = arabicFont;
+    if (arabicFontSize != null) data['arabic_font_size'] = arabicFontSize;
+    if (currentVerseKey != null) data['current_verse_key'] = currentVerseKey;
 
+    await _withRetry(() async {
       await _db.collection('users').doc(_userId).set(data, SetOptions(merge: true));
-    } catch (e) {
-      debugPrint('[Firestore] Failed to save profile: $e');
-    }
+    });
   }
 
   /// Load journal entries from Firestore.

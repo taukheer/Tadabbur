@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 /// Custom exception for API errors with structured context.
 class ApiException implements Exception {
@@ -272,16 +273,16 @@ class _AuthInterceptor extends Interceptor {
   }
 }
 
-/// Interceptor that logs request and response details for debugging.
+/// Interceptor that logs request and response details in debug mode only.
 class _LoggingInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final timestamp = DateTime.now().toIso8601String();
-    // ignore: avoid_print
-    print('[$timestamp] --> ${options.method} ${options.uri}');
-    if (options.queryParameters.isNotEmpty) {
-      // ignore: avoid_print
-      print('[$timestamp]     Query: ${options.queryParameters}');
+    if (kDebugMode) {
+      final timestamp = DateTime.now().toIso8601String();
+      debugPrint('[$timestamp] --> ${options.method} ${options.uri}');
+      if (options.queryParameters.isNotEmpty) {
+        debugPrint('[$timestamp]     Query: ${options.queryParameters}');
+      }
     }
     handler.next(options);
   }
@@ -291,26 +292,28 @@ class _LoggingInterceptor extends Interceptor {
     Response response,
     ResponseInterceptorHandler handler,
   ) {
-    final timestamp = DateTime.now().toIso8601String();
-    // ignore: avoid_print
-    print(
-      '[$timestamp] <-- ${response.statusCode} '
-      '${response.requestOptions.method} '
-      '${response.requestOptions.uri}',
-    );
+    if (kDebugMode) {
+      final timestamp = DateTime.now().toIso8601String();
+      debugPrint(
+        '[$timestamp] <-- ${response.statusCode} '
+        '${response.requestOptions.method} '
+        '${response.requestOptions.uri}',
+      );
+    }
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final timestamp = DateTime.now().toIso8601String();
-    // ignore: avoid_print
-    print(
-      '[$timestamp] <-- ERROR ${err.response?.statusCode ?? 'NETWORK'} '
-      '${err.requestOptions.method} '
-      '${err.requestOptions.uri} '
-      '${err.message}',
-    );
+    if (kDebugMode) {
+      final timestamp = DateTime.now().toIso8601String();
+      debugPrint(
+        '[$timestamp] <-- ERROR ${err.response?.statusCode ?? 'NETWORK'} '
+        '${err.requestOptions.method} '
+        '${err.requestOptions.uri} '
+        '${err.message}',
+      );
+    }
     handler.next(err);
   }
 }

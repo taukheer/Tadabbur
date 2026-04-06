@@ -281,11 +281,11 @@ class _SignInPage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _BenefitRow(icon: Icons.sync_rounded, text: 'Sync across devices'),
+                _BenefitRow(icon: Icons.sync_rounded, text: t('sync_benefit')),
                 const SizedBox(height: 8),
-                _BenefitRow(icon: Icons.backup_rounded, text: 'Journal backed up safely'),
+                _BenefitRow(icon: Icons.backup_rounded, text: t('backup_benefit')),
                 const SizedBox(height: 8),
-                _BenefitRow(icon: Icons.devices_rounded, text: 'Continue on any phone'),
+                _BenefitRow(icon: Icons.devices_rounded, text: t('phone_benefit')),
               ],
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 400.ms),
@@ -295,7 +295,6 @@ class _SignInPage extends StatelessWidget {
           // Google Sign-In
           SizedBox(
             width: double.infinity,
-            height: 54,
             child: OutlinedButton.icon(
               onPressed: onGoogleSignIn,
               icon: Image.network(
@@ -311,6 +310,8 @@ class _SignInPage extends StatelessWidget {
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF1A1A1A),
+                minimumSize: const Size.fromHeight(54),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 side: const BorderSide(color: Color(0xFFE8E0D4)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -324,7 +325,6 @@ class _SignInPage extends StatelessWidget {
           // Quran.com Sign-In
           SizedBox(
             width: double.infinity,
-            height: 54,
             child: FilledButton.icon(
               onPressed: onQuranComSignIn ?? onGuest,
               icon: const Icon(Icons.menu_book_rounded, size: 20),
@@ -334,6 +334,8 @@ class _SignInPage extends StatelessWidget {
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2E3A2F),
+                minimumSize: const Size.fromHeight(54),
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -748,11 +750,11 @@ class _StartingPointPage extends StatelessWidget {
   String t(String key) => AppTranslations.get(key, lang);
 
   static const _presets = [
-    ('1:1', 'Al-Fatiha', 'The Opening — begin from the start'),
-    ('36:1', 'Ya-Sin', 'The Heart of the Quran'),
-    ('55:1', 'Ar-Rahman', 'The Most Merciful'),
-    ('67:1', 'Al-Mulk', 'Sovereignty — protection in the grave'),
-    ('78:1', 'Juz Amma', 'The short surahs you hear in salah'),
+    ('1:1', 'Al-Fatiha', 'surah_fatiha_desc'),
+    ('36:1', 'Ya-Sin', 'surah_yasin_desc'),
+    ('55:1', 'Ar-Rahman', 'surah_rahman_desc'),
+    ('67:1', 'Al-Mulk', 'surah_mulk_desc'),
+    ('78:1', 'Juz Amma', 'surah_juz_amma_desc'),
   ];
 
   @override
@@ -783,12 +785,12 @@ class _StartingPointPage extends StatelessWidget {
           ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
           const SizedBox(height: 24),
           ..._presets.asMap().entries.map((entry) {
-            final (key, name, desc) = entry.value;
+            final (key, name, descKey) = entry.value;
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _Option(
                 title: name,
-                subtitle: desc,
+                subtitle: t(descKey),
                 isSelected: selected == key,
                 onTap: () => onSelect(key),
               )

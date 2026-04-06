@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
+
+      // OAuth callback deep link handler
+      GoRoute(
+        path: '/oauth/callback',
+        redirect: (context, state) {
+          final code = state.uri.queryParameters['code'];
+          if (code != null) {
+            // Exchange the auth code — handled by QFAuthService via the
+            // onboarding screen or a listener. Store code temporarily so
+            // the auth flow can pick it up.
+            debugPrint('[OAuth] Received callback with auth code');
+            final qfAuth = ref.read(qfAuthServiceProvider);
+            qfAuth.exchangeCode(code);
+          }
+          // Redirect to home (or onboarding if not yet onboarded)
+          return hasOnboarded ? '/home' : '/onboarding';
+        },
+      ),
+
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [

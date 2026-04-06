@@ -21,7 +21,9 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('[Firebase] Initialization failed: $e');
+  }
 
   final localStorage = LocalStorageService();
   await localStorage.init();
@@ -31,7 +33,9 @@ void main() async {
     final notifService = NotificationService(localStorage);
     await notifService.init();
     notifService.requestPermission(); // fire-and-forget
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('[Notifications] Initialization failed: $e');
+  }
 
   runApp(
     ProviderScope(

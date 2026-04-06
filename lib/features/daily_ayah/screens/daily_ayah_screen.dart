@@ -142,7 +142,7 @@ class DailyAyahScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${_surahName(ayah.surahNumber).toUpperCase()}  •  Ayah ${ayah.ayahNumber}',
+              '${_surahName(ayah.surahNumber).toUpperCase()}  •  ${t('ayah')} ${ayah.ayahNumber}',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: const Color(0xFF8B7355),
                 fontWeight: FontWeight.w500,
@@ -945,7 +945,7 @@ class _CompletedState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(userProgressProvider);
-    final milestone = _getMilestoneMessage(dayNumber, totalAyat);
+    final milestoneKey = _getMilestoneKey(dayNumber, totalAyat);
 
     // Detect surah completion: current ayah is 1 means we just moved to a new surah
     final currentAyahInProgress =
@@ -1004,7 +1004,7 @@ class _CompletedState extends ConsumerWidget {
             ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
             const SizedBox(height: 6),
             Text(
-              '$totalAyat ${_t('ayat', ref)} · Day $dayNumber',
+              '$totalAyat ${_t('ayat', ref)} · ${_t('day_label', ref)} $dayNumber',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
@@ -1017,7 +1017,7 @@ class _CompletedState extends ConsumerWidget {
 
           // Milestone or warm line
           Text(
-            milestone ?? _t('showed_up', ref),
+            milestoneKey != null ? _t(milestoneKey, ref) : _t('showed_up', ref),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
@@ -1229,18 +1229,19 @@ class _CompletedState extends ConsumerWidget {
     );
   }
 
-  static String? _getMilestoneMessage(int dayNum, int ayatCount) {
+  /// Returns a translation key for milestone messages, or null.
+  static String? _getMilestoneKey(int dayNum, int ayatCount) {
     // Ayat-based milestones
-    if (ayatCount == 1) return 'Your first ayah. This is the beginning.';
-    if (ayatCount == 50) return '50 ayat. Your journal is growing.';
-    if (ayatCount == 100) return '100 ayat. Something no one can take from you.';
+    if (ayatCount == 1) return 'first_ayah_msg';
+    if (ayatCount == 50) return 'milestone_50';
+    if (ayatCount == 100) return 'milestone_100';
 
     // Day-based milestones (only on actual calendar days)
-    if (dayNum == 3) return 'Day 3. You\'re building something.';
-    if (dayNum == 7) return 'One week. You\'ve built something real.';
-    if (dayNum == 14) return 'Two weeks. This is becoming part of you.';
-    if (dayNum == 30) return 'Day 30. This is a habit now.';
-    if (dayNum == 365) return 'One year. Your spiritual autobiography.';
+    if (dayNum == 3) return 'milestone_day3';
+    if (dayNum == 7) return 'milestone_week1';
+    if (dayNum == 14) return 'milestone_week2';
+    if (dayNum == 30) return 'milestone_day30';
+    if (dayNum == 365) return 'milestone_year';
 
     return null;
   }

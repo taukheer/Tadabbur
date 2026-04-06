@@ -45,11 +45,11 @@ class AuthService {
     } catch (_) {}
 
     // Check local storage for cached user
-    final name = _storage.userId;
-    if (name != null && name != 'guest' && name != 'local') {
+    final id = _storage.userId;
+    if (id != null && id != 'guest' && id != 'local') {
       _currentUser = AuthUser(
-        id: name,
-        name: _storage.notificationTime ?? 'User', // reusing field temporarily
+        id: id,
+        name: _storage.userName ?? 'User',
         email: '',
       );
     }
@@ -88,6 +88,7 @@ class AuthService {
   Future<void> _saveUser() async {
     if (_currentUser != null) {
       await _storage.setUserId(_currentUser!.id);
+      await _storage.setUserName(_currentUser!.name);
       await _storage.setAuthToken('google_${_currentUser!.id}');
     }
   }

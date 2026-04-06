@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
@@ -14,14 +15,28 @@ class LocalStorageService {
   static const _keyReciterPath = 'reciter_cdn_path';
   static const _keyArabicFontSize = 'arabic_font_size';
   static const _keyTranslationId = 'translation_id';
-  static const _keyAuthToken = 'auth_token';
-  static const _keyRefreshToken = 'refresh_token';
   static const _keyUserId = 'user_id';
+  static const _keyUserName = 'user_display_name';
+
+  // Secure storage keys (encrypted on device)
+  static const _secureKeyAuthToken = 'auth_token';
+  static const _secureKeyRefreshToken = 'refresh_token';
+  static const _secureKeyCodeVerifier = 'pkce_code_verifier';
 
   late final SharedPreferences _prefs;
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
+  // In-memory cache for secure values (avoid async reads in sync getters)
+  String? _authToken;
+  String? _refreshToken;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    // Pre-load secure values into memory
+    _authToken = await _secureStorage.read(key: _secureKeyAuthToken);
+    _refreshToken = await _secureStorage.read(key: _secureKeyRefreshToken);
   }
 
   // --- Onboarding ---
@@ -42,25 +57,40 @@ class LocalStorageService {
   Future<void> saveProfile(UserProfile profile) =>
       _prefs.setString(_keyProfile, jsonEncode(profile.toJson()));
 
-  // --- Auth ---
+  // --- Auth (encrypted via flutter_secure_storage) ---
 
-  String? get authToken => _prefs.getString(_keyAuthToken);
+  String? get authToken => _authToken;
 
   Future<void> setAuthToken(String? token) async {
+    _authToken = token;
     if (token == null) {
-      await _prefs.remove(_keyAuthToken);
+      await _secureStorage.delete(key: _secureKeyAuthToken);
     } else {
-      await _prefs.setString(_keyAuthToken, token);
+      await _secureStorage.write(key: _secureKeyAuthToken, value: token);
     }
   }
 
-  String? get refreshToken => _prefs.getString(_keyRefreshToken);
+  String? get refreshToken => _refreshToken;
 
   Future<void> setRefreshToken(String? token) async {
+    _refreshToken = token;
     if (token == null) {
-      await _prefs.remove(_keyRefreshToken);
+      await _secureStorage.delete(key: _secureKeyRefreshToken);
     } else {
-      await _prefs.setString(_keyRefreshToken, token);
+      await _secureStorage.write(key: _secureKeyRefreshToken, value: token);
+    }
+  }
+
+  /// PKCE code verifier — stored securely, used only during OAuth flow.
+  Future<String?> getCodeVerifier() async {
+    return _secureStorage.read(key: _secureKeyCodeVerifier);
+  }
+
+  Future<void> setCodeVerifier(String? verifier) async {
+    if (verifier == null) {
+      await _secureStorage.delete(key: _secureKeyCodeVerifier);
+    } else {
+      await _secureStorage.write(key: _secureKeyCodeVerifier, value: verifier);
     }
   }
 
@@ -74,12 +104,25 @@ class LocalStorageService {
     }
   }
 
+  /// Cached display name for offline user restoration.
+  String? get userName => _prefs.getString(_keyUserName);
+
+  Future<void> setUserName(String? name) async {
+    if (name == null) {
+      await _prefs.remove(_keyUserName);
+    } else {
+      await _prefs.setString(_keyUserName, name);
+    }
+  }
+
   bool get isLoggedIn => authToken != null;
 
   Future<void> clearAuth() async {
-    await _prefs.remove(_keyAuthToken);
-    await _prefs.remove(_keyRefreshToken);
+    await setAuthToken(null);
+    await setRefreshToken(null);
+    await setCodeVerifier(null);
     await _prefs.remove(_keyUserId);
+    await _prefs.remove(_keyUserName);
   }
 
   // --- Preferences ---
