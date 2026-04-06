@@ -69,14 +69,15 @@ class DailyAyahScreen extends ConsumerWidget {
     ThemeData theme,
   ) {
     final ayah = state.ayah!;
-    final editorial = state.editorial;
+    // Editorial content is English-only — hide for other languages
+    final lang = ref.watch(languageProvider);
+    final editorial = lang == 'en' ? state.editorial : null;
     final words = state.words.where((w) => w.charTypeName == 'word').toList();
     final showTransliteration = profile?.needsTransliteration ?? false;
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
     final reciterPath = ref.watch(reciterPathProvider);
-    final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
 
     // Build audio URL from Islamic Network CDN (uses absolute ayah number)
@@ -154,12 +155,16 @@ class DailyAyahScreen extends ConsumerWidget {
           // === THEMATIC HOOK — creates instant curiosity ===
           if (ayahTheme != null) ...[
             const SizedBox(height: 12),
-            Text(
-              '${t('today_ayah_about')} $ayahTheme',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
-                fontStyle: FontStyle.italic,
-                fontSize: 13,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Text(
+                '${t('today_ayah_about')} $ayahTheme',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
+                  fontStyle: FontStyle.italic,
+                  fontSize: 13,
+                ),
               ),
             ).animate().fadeIn(duration: 600.ms, delay: 100.ms),
           ],
@@ -280,7 +285,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 ayah: ayah,
                 editorial: editorial,
                 profile: profile,
-                onFullReflection: () => _openReflection(context, state),
+                onFullReflection: () => _openReflection(context, state, editorial),
               ),
             )
           else ...[
@@ -424,11 +429,11 @@ class DailyAyahScreen extends ConsumerWidget {
     );
   }
 
-  void _openReflection(BuildContext context, DailyAyahState state) {
+  void _openReflection(BuildContext context, DailyAyahState state, dynamic editorial) {
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            ReflectionScreen(ayah: state.ayah!, editorial: state.editorial),
+            ReflectionScreen(ayah: state.ayah!, editorial: editorial),
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
             FadeTransition(
                 opacity:
