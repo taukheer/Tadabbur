@@ -1,7 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
@@ -417,19 +417,11 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
-              // === CONTACT ===
-              _SectionLabel('CONTACT', theme),
+              // === FEEDBACK ===
+              _SectionLabel('FEEDBACK', theme),
               const SizedBox(height: 10),
               GestureDetector(
-                onTap: () => launchUrl(
-                  Uri(
-                    scheme: 'mailto',
-                    path: 'thetadabburapp@gmail.com',
-                    queryParameters: {
-                      'subject': 'Tadabbur App Feedback',
-                    },
-                  ),
-                ),
+                onTap: () => _showFeedbackSheet(context, ref),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -441,7 +433,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.mail_outline_rounded,
+                      Icon(Icons.chat_bubble_outline_rounded,
                           color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                           size: 20),
                       const SizedBox(width: 14),
@@ -452,7 +444,7 @@ class SettingsScreen extends ConsumerWidget {
                             Text('Send Feedback',
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(fontWeight: FontWeight.w500)),
-                            Text('thetadabburapp@gmail.com',
+                            Text('Help us improve Tadabbur',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.35),
@@ -685,6 +677,265 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showFeedbackSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFFFEFDF8),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: _FeedbackSheet(ref: ref),
+      ),
+    );
+  }
+}
+
+class _FeedbackSheet extends StatefulWidget {
+  final WidgetRef ref;
+  const _FeedbackSheet({required this.ref});
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  final _controller = TextEditingController();
+  String _category = 'general';
+  bool _sending = false;
+  bool _sent = false;
+
+  static const _categories = [
+    ('general', 'General', Icons.chat_bubble_outline_rounded),
+    ('bug', 'Bug Report', Icons.bug_report_outlined),
+    ('feature', 'Feature Request', Icons.lightbulb_outline_rounded),
+    ('content', 'Content Issue', Icons.menu_book_outlined),
+  ];
+
+  Future<void> _submit() async {
+    if (_controller.text.trim().isEmpty) return;
+    setState(() => _sending = true);
+
+    try {
+      final firestore = widget.ref.read(firestoreServiceProvider);
+      final storage = widget.ref.read(localStorageProvider);
+
+      await FirebaseFirestore.instance.collection('feedback').add({
+        'category': _category,
+        'message': _controller.text.trim(),
+        'user_id': storage.userId ?? 'guest',
+        'language': storage.language,
+        'verse_key': storage.getProgress()?.currentVerseKey ?? '1:1',
+        'created_at': FieldValue.serverTimestamp(),
+        'platform': Theme.of(context).platform.name,
+      });
+
+      setState(() {
+        _sent = true;
+        _sending = false;
+      });
+
+      // Auto-close after showing success
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      setState(() => _sending = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send feedback. Please try again.')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (_sent) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0E0E0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+            Icon(Icons.check_circle_rounded,
+                color: const Color(0xFF1B5E20), size: 56),
+            const SizedBox(height: 20),
+            Text('JazakAllahu Khairan',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: const Color(0xFF1B5E20),
+                  fontWeight: FontWeight.w600,
+                )),
+            const SizedBox(height: 8),
+            Text('Your feedback helps us improve.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                )),
+            const SizedBox(height: 48),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Title
+          Text('Send Feedback',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              )),
+          const SizedBox(height: 4),
+          Text('We read every message.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              )),
+          const SizedBox(height: 20),
+
+          // Category chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _categories.map((c) {
+              final (id, label, icon) = c;
+              final selected = _category == id;
+              return GestureDetector(
+                onTap: () => setState(() => _category = id),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0xFF1B5E20).withValues(alpha: 0.08)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: selected
+                          ? const Color(0xFF1B5E20).withValues(alpha: 0.3)
+                          : const Color(0xFFE8E0D4),
+                      width: selected ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16,
+                          color: selected
+                              ? const Color(0xFF1B5E20)
+                              : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                      const SizedBox(width: 6),
+                      Text(label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                            color: selected
+                                ? const Color(0xFF1B5E20)
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          )),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // Text field
+          TextField(
+            controller: _controller,
+            maxLines: 4,
+            minLines: 3,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'Tell us what you think...',
+              hintStyle: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                fontSize: 14,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.all(16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE8E0D4), width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE8E0D4), width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFF1B5E20), width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Submit button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton(
+              onPressed: _sending || _controller.text.trim().isEmpty ? null : _submit,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                disabledBackgroundColor: const Color(0xFF1B5E20).withValues(alpha: 0.3),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: _sending
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Send', style: TextStyle(fontSize: 15)),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

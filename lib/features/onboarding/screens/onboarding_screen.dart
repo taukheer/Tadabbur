@@ -123,6 +123,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   _SignInPage(
                     lang: _selectedLanguage ?? 'en',
                     onGoogleSignIn: _signInWithGoogle,
+                    onAppleSignIn: _isIOS ? _signInWithApple : null,
                     onQuranComSignIn: _signInWithQuranCom,
                     onGuest: () => _completeOnboarding(asGuest: true),
                   ),
@@ -143,17 +144,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await _completeOnboarding(asGuest: true);
   }
 
+  bool get _isIOS =>
+      Theme.of(context).platform == TargetPlatform.iOS;
+
   Future<void> _signInWithGoogle() async {
     final authService = ref.read(authServiceProvider);
     final user = await authService.signInWithGoogle();
 
     if (user != null) {
       ref.read(authUserProvider.notifier).state = user;
-      // Set Firestore user ID for cloud sync
       ref.read(firestoreServiceProvider).setUser(user.id);
       await _completeOnboarding(asGuest: false);
     } else {
-      // Sign in cancelled or failed — continue as guest
+      await _completeOnboarding(asGuest: true);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    final authService = ref.read(authServiceProvider);
+    final user = await authService.signInWithApple();
+
+    if (user != null) {
+      ref.read(authUserProvider.notifier).state = user;
+      ref.read(firestoreServiceProvider).setUser(user.id);
+      await _completeOnboarding(asGuest: false);
+    } else {
       await _completeOnboarding(asGuest: true);
     }
   }
@@ -221,12 +236,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 class _SignInPage extends StatelessWidget {
   final String lang;
   final VoidCallback onGoogleSignIn;
+  final VoidCallback? onAppleSignIn;
   final VoidCallback onGuest;
   final VoidCallback? onQuranComSignIn;
 
   const _SignInPage({
     required this.lang,
     required this.onGoogleSignIn,
+    this.onAppleSignIn,
     required this.onGuest,
     this.onQuranComSignIn,
   });
@@ -319,6 +336,31 @@ class _SignInPage extends StatelessWidget {
               ),
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          // Apple Sign-In (iOS only)
+          if (onAppleSignIn != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onAppleSignIn,
+                icon: const Icon(Icons.apple_rounded, size: 22),
+                label: Text(
+                  t('sign_apple'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1A1A1A),
+                  minimumSize: const Size.fromHeight(54),
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  side: const BorderSide(color: Color(0xFFE8E0D4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 650.ms),
+          ],
 
           const SizedBox(height: 12),
 

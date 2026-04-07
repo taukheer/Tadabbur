@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
@@ -457,8 +459,27 @@ class DailyAyahScreen extends ConsumerWidget {
               isSalahMotivated: isSalahMotivated,
               theme: theme,
             ),
-            // === EXPLORE BY FEELING (after completion) ===
+            // === SHARE AYAH ===
             const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: TextButton.icon(
+                onPressed: () => _shareAyah(context, ayah, lang),
+                icon: Icon(Icons.share_outlined,
+                    size: 18,
+                    color: const Color(0xFF1B5E20).withValues(alpha: 0.5)),
+                label: Text(
+                  'Share this ayah',
+                  style: TextStyle(
+                    color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+
+            // === EXPLORE BY FEELING (after completion) ===
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Divider(
@@ -614,6 +635,30 @@ class DailyAyahScreen extends ConsumerWidget {
     if (t.contains('moral') || t.contains('character') || t.contains('noble') || t.contains('virtue')) return 'character';
     if (t.contains('rememb') || t.contains('dhikr') || t.contains('mindful')) return 'remembrance';
     return null;
+  }
+
+  static Future<void> _shareAyah(BuildContext context, dynamic ayah, String lang) async {
+    final surahName = ayah.surahNumber > 0 && ayah.surahNumber < _surahNames.length
+        ? _surahNames[ayah.surahNumber]
+        : 'Surah ${ayah.surahNumber}';
+
+    // Share as beautifully formatted text
+    final text = StringBuffer();
+    text.writeln(ayah.textUthmani);
+    text.writeln();
+    if (ayah.translationText != null) {
+      text.writeln('"${ayah.translationText}"');
+      text.writeln();
+    }
+    text.writeln('— $surahName ${ayah.verseKey}');
+    text.writeln();
+    text.writeln('Tadabbur — To reflect deeply on the Qur\'an');
+    text.write('https://tadabbur.app');
+
+    await Share.share(
+      text.toString(),
+      subject: '$surahName ${ayah.verseKey}',
+    );
   }
 
   void _openFeelingMode(BuildContext context) {
@@ -1267,6 +1312,11 @@ class _CompletedState extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
 
+          // === RATE PROMPT — Day 5-7, emotional framing ===
+          if (dayNumber >= 5 && dayNumber <= 7)
+            _RatePrompt(ref: ref)
+                .animate().fadeIn(duration: 500.ms, delay: 700.ms),
+
           // === SALAH BRIDGE — after completing Al-Fatiha ===
           if (completedFatiha) ...[
             const SizedBox(height: 20),
@@ -1661,5 +1711,96 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
   bool _hasMore(String text) {
     final sentences = text.split(RegExp(r'(?<=[.!?،؟])\s+'));
     return sentences.length > 4;
+  }
+}
+
+/// Gentle rate prompt — shows on Day 5-7, dismissible, emotional framing.
+class _RatePrompt extends StatefulWidget {
+  final WidgetRef ref;
+  const _RatePrompt({required this.ref});
+
+  @override
+  State<_RatePrompt> createState() => _RatePromptState();
+}
+
+class _RatePromptState extends State<_RatePrompt> {
+  bool _dismissed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check if already shown
+    final storage = widget.ref.read(localStorageProvider);
+    final shown = storage.notificationTime; // reuse check — or use a dedicated key
+    // For simplicity, we show it on Day 5-7 every time until they tap
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_dismissed) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F5F0),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              'Has Tadabbur helped you reflect?',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => setState(() => _dismissed = true),
+                    child: Text(
+                      'Not now',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      setState(() => _dismissed = true);
+                      final reviewer = InAppReview.instance;
+                      if (await reviewer.isAvailable()) {
+                        await reviewer.requestReview();
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1B5E20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Yes, rate it', style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

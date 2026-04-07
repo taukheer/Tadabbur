@@ -53,7 +53,7 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 });
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  return AuthService(ref.watch(localStorageProvider));
+  return AuthService(ref.watch(localStorageProvider), ref.watch(firestoreServiceProvider));
 });
 
 final qfAuthServiceProvider = Provider<QFAuthService>((ref) {
