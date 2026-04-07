@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/ayah.dart';
@@ -19,6 +21,7 @@ class DailyAyahState {
   final bool showScholar;
   final bool todayCompleted;
   final String? revelationType;
+  final String? tafsirSummary;
 
   /// The 14 sajdah (prostration) verses in the Quran.
   static const sajdahVerses = {
@@ -42,6 +45,7 @@ class DailyAyahState {
     this.showScholar = false,
     this.todayCompleted = false,
     this.revelationType,
+    this.tafsirSummary,
   });
 
   DailyAyahState copyWith({
@@ -56,6 +60,7 @@ class DailyAyahState {
     bool? showScholar,
     bool? todayCompleted,
     String? revelationType,
+    String? tafsirSummary,
   }) {
     return DailyAyahState(
       loadingState: loadingState ?? this.loadingState,
@@ -69,6 +74,7 @@ class DailyAyahState {
       showScholar: showScholar ?? this.showScholar,
       todayCompleted: todayCompleted ?? this.todayCompleted,
       revelationType: revelationType ?? this.revelationType,
+      tafsirSummary: tafsirSummary ?? this.tafsirSummary,
     );
   }
 }
@@ -106,20 +112,23 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
             lastCompleted.day == now.day;
       }
 
-      // Fetch ayah data, words, editorial, and surah info in parallel
+      // Fetch ayah data, words, editorial, surah info in parallel + local tafsir
       final surahNum = int.tryParse(verseKey.split(':').first) ?? 1;
+
       final results = await Future.wait([
         quranApi.getVerseByKey(verseKey,
             translationId: AppLanguages.getByCode(storage.language).translationId.toString()),
         quranApi.getWordsByVerse(verseKey),
         editorialService.getEditorialContent(verseKey, lang: storage.language),
         quranApi.getChapter(surahNum),
+        _loadTafsirSummary(verseKey, storage.language),
       ]);
 
       final ayah = results[0] as Ayah;
       final words = results[1] as List<Word>;
       final editorial = results[2] as EditorialContent?;
       final surah = results[3] as dynamic;
+      final tafsirSummary = results[4] as String?;
 
       // Build audio URL from CDN with selected reciter
       final reciterPath = storage.reciterPath;
@@ -137,12 +146,46 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         audioUrl: audioUrl,
         todayCompleted: todayCompleted,
         revelationType: surah.revelationType as String?,
+        tafsirSummary: tafsirSummary,
       );
     } catch (e) {
       state = state.copyWith(
         loadingState: AyahLoadingState.error,
         errorMessage: e.toString(),
       );
+    }
+  }
+
+  /// Cached tafsir summaries loaded from bundled assets.
+  static Map<String, String>? _tafsirCacheEn;
+  static Map<String, String>? _tafsirCacheAr;
+
+  /// Load tafsir summary from bundled JSON (no API call).
+  static Future<String?> _loadTafsirSummary(String verseKey, String lang) async {
+    final isArabic = lang == 'ar';
+    final cache = isArabic ? _tafsirCacheAr : _tafsirCacheEn;
+
+    if (cache != null) {
+      return cache[verseKey];
+    }
+
+    // Load and cache the full file on first access
+    try {
+      final path = isArabic
+          ? 'assets/data/tafsir_summaries_ar.json'
+          : 'assets/data/tafsir_summaries.json';
+      final jsonStr = await rootBundle.loadString(path);
+      final data = (json.decode(jsonStr) as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, v as String));
+
+      if (isArabic) {
+        _tafsirCacheAr = data;
+      } else {
+        _tafsirCacheEn = data;
+      }
+      return data[verseKey];
+    } catch (_) {
+      return null;
     }
   }
 

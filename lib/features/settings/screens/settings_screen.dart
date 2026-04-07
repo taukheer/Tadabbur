@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
@@ -413,6 +414,59 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                   )),
+
+              const SizedBox(height: 28),
+
+              // === CONTACT ===
+              _SectionLabel('CONTACT', theme),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => launchUrl(
+                  Uri(
+                    scheme: 'mailto',
+                    path: 'thetadabburapp@gmail.com',
+                    queryParameters: {
+                      'subject': 'Tadabbur App Feedback',
+                    },
+                  ),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFE8E0D4), width: 0.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.mail_outline_rounded,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          size: 20),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Send Feedback',
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w500)),
+                            Text('thetadabburapp@gmail.com',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.35),
+                                    fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          size: 18,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+                    ],
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 40),
 

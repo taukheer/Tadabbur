@@ -85,8 +85,12 @@ class DailyAyahScreen extends ConsumerWidget {
     final liveAudioUrl =
         'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
 
-    // Detect theme from translation for the hook line
-    final ayahTheme = _detectTheme(ayah.translationText ?? '');
+    // Only show thematic hook when we have editorial content (verified, not guessed)
+    final ayahTheme = editorial != null
+        ? _detectTheme(ayah.translationText ?? '')
+            ?? _detectTheme(editorial.historicalContext)
+            ?? _detectTheme(editorial.scholarReflection)
+        : null;
 
     // Check if returning after a gap (no guilt, just welcome back)
     final lastCompleted = progress.lastCompletedAt as DateTime?;
@@ -375,7 +379,7 @@ class DailyAyahScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
-          // === SHORT MEANING — brief, with tafsir expand ===
+          // === SHORT MEANING — editorial if available, otherwise API tafsir summary ===
           if (editorial != null) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36),
@@ -387,6 +391,23 @@ class DailyAyahScreen extends ConsumerWidget {
                   height: 1.7,
                   fontSize: 13,
                 ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+            const SizedBox(height: 8),
+          ] else if (state.tafsirSummary != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
+              child: Text(
+                state.tafsirSummary!,
+                textAlign: TextAlign.center,
+                textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  height: 1.7,
+                  fontSize: 13,
+                ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
             const SizedBox(height: 8),
@@ -564,21 +585,34 @@ class DailyAyahScreen extends ConsumerWidget {
 
   static String? _detectTheme(String translation) {
     final t = translation.toLowerCase();
-    if (t.contains('mercy') || t.contains('merciful') || t.contains('compassion')) return 'mercy';
-    if (t.contains('patience') || t.contains('patient') || t.contains('steadfast')) return 'patience';
-    if (t.contains('trust') || t.contains('rely') || t.contains('tawakkul')) return 'trust';
-    if (t.contains('prayer') || t.contains('worship') || t.contains('prostrat')) return 'worship';
-    if (t.contains('grateful') || t.contains('thank') || t.contains('praise')) return 'gratitude';
-    if (t.contains('forgiv') || t.contains('repent') || t.contains('pardon')) return 'forgiveness';
-    if (t.contains('fear') || t.contains('awe') || t.contains('taqwa')) return 'God-consciousness';
-    if (t.contains('guide') || t.contains('path') || t.contains('straight')) return 'guidance';
-    if (t.contains('just') || t.contains('justice') || t.contains('fair')) return 'justice';
-    if (t.contains('death') || t.contains('hereafter') || t.contains('judgment')) return 'the hereafter';
-    if (t.contains('provision') || t.contains('sustain') || t.contains('rizq')) return 'provision';
-    if (t.contains('knowledge') || t.contains('wisdom') || t.contains('understand')) return 'knowledge';
+    if (t.contains('mercy') || t.contains('merciful') || t.contains('compassion') || t.contains('rahm')) return 'mercy';
+    if (t.contains('patience') || t.contains('patient') || t.contains('steadfast') || t.contains('persever')) return 'patience';
+    if (t.contains('trust') || t.contains('rely') || t.contains('tawakkul') || t.contains('depend')) return 'trust in Allah';
+    if (t.contains('prayer') || t.contains('worship') || t.contains('prostrat') || t.contains('salah')) return 'worship';
+    if (t.contains('grateful') || t.contains('thank') || t.contains('praise') || t.contains('hamd')) return 'gratitude';
+    if (t.contains('forgiv') || t.contains('repent') || t.contains('pardon') || t.contains('tawbah')) return 'forgiveness';
+    if (t.contains('taqwa') || t.contains('god-conscious') || t.contains('piety')) return 'God-consciousness';
+    if (t.contains('guide') || t.contains('guidance') || t.contains('path') || t.contains('straight')) return 'guidance';
+    if (t.contains('just') || t.contains('justice') || t.contains('fair') || t.contains('equit')) return 'justice';
+    if (t.contains('death') || t.contains('hereafter') || t.contains('judgment') || t.contains('resurrection') || t.contains('apocal')) return 'the hereafter';
+    if (t.contains('provision') || t.contains('sustain') || t.contains('rizq') || t.contains('wealth')) return 'provision';
+    if (t.contains('knowledge') || t.contains('wisdom') || t.contains('understand') || t.contains('reflect')) return 'reflection';
     if (t.contains('love') || t.contains('beloved')) return 'love';
-    if (t.contains('family') || t.contains('parent') || t.contains('child')) return 'family';
-    if (t.contains('creation') || t.contains('created') || t.contains('heaven')) return 'creation';
+    if (t.contains('family') || t.contains('parent') || t.contains('child') || t.contains('orphan')) return 'family';
+    if (t.contains('creation') || t.contains('created') || t.contains('heaven') || t.contains('earth') || t.contains('sign')) return 'creation';
+    if (t.contains('faith') || t.contains('belief') || t.contains('believ') || t.contains('iman')) return 'faith';
+    if (t.contains('truth') || t.contains('sinceri') || t.contains('honest')) return 'truth';
+    if (t.contains('unity') || t.contains('ummah') || t.contains('community') || t.contains('together')) return 'unity';
+    if (t.contains('prophet') || t.contains('messenger') || t.contains('moses') || t.contains('jesus') || t.contains('abraham')) return 'the prophets';
+    if (t.contains('covenant') || t.contains('promise') || t.contains('contract') || t.contains('pledge')) return 'covenant';
+    if (t.contains('struggle') || t.contains('trial') || t.contains('test') || t.contains('hardship')) return 'trials';
+    if (t.contains('light') || t.contains('darkness') || t.contains('illumin')) return 'light and guidance';
+    if (t.contains('power') || t.contains('sovereign') || t.contains('dominion') || t.contains('authority')) return 'divine sovereignty';
+    if (t.contains('obey') || t.contains('obedien') || t.contains('submit') || t.contains('command')) return 'obedience';
+    if (t.contains('hypocri') || t.contains('disbeliev') || t.contains('deny') || t.contains('reject')) return 'sincerity';
+    if (t.contains('reward') || t.contains('paradise') || t.contains('garden') || t.contains('punish') || t.contains('fire')) return 'accountability';
+    if (t.contains('moral') || t.contains('character') || t.contains('noble') || t.contains('virtue')) return 'character';
+    if (t.contains('rememb') || t.contains('dhikr') || t.contains('mindful')) return 'remembrance';
     return null;
   }
 
