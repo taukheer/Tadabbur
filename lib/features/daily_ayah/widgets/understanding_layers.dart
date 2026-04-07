@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 
 class UnderstandingLayers extends StatelessWidget {
   final EditorialContent? editorial;
@@ -31,7 +32,7 @@ class UnderstandingLayers extends StatelessWidget {
           content: editorial!.historicalContext,
           isRevealed: showContext,
           onTap: onToggleContext,
-          accentColor: const Color(0xFF5C6BC0),
+          accentColor: AppColors.statIndigo,
         ),
         const SizedBox(height: 12),
 
@@ -43,7 +44,7 @@ class UnderstandingLayers extends StatelessWidget {
           content: editorial!.scholarReflection,
           isRevealed: showScholar,
           onTap: onToggleScholar,
-          accentColor: const Color(0xFF1B5E20),
+          accentColor: AppColors.primary,
         ),
       ],
     );

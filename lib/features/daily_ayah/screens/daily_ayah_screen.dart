@@ -10,6 +10,7 @@ import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
@@ -26,12 +27,12 @@ class DailyAyahScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: state.loadingState == AyahLoadingState.loading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF1B5E20),
+                  color: theme.colorScheme.primary,
                   strokeWidth: 1.5,
                 ),
               )
@@ -74,11 +75,11 @@ class DailyAyahScreen extends ConsumerWidget {
     final lang = ref.watch(languageProvider);
     final editorial = state.editorial;
     final words = state.words.where((w) => w.charTypeName == 'word').toList();
-    final showTransliteration = profile?.needsTransliteration ?? false;
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
     final reciterPath = ref.watch(reciterPathProvider);
+    final isDark = theme.brightness == Brightness.dark;
     String t(String key) => AppTranslations.get(key, lang);
 
     // Build audio URL from Islamic Network CDN (uses absolute ayah number)
@@ -124,13 +125,13 @@ class DailyAyahScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.06),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${t('day_label')} ${progress.dayNumber}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                     ),
@@ -147,7 +148,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 t('sit_moment'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
                 ),
@@ -159,7 +160,7 @@ class DailyAyahScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 4, 32, 8),
               child: Text(
-                '${t('welcome_back')}',
+                t('welcome_back'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
@@ -177,7 +178,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 t('welcome_back'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,
                 ),
               ).animate().fadeIn(duration: 800.ms),
@@ -189,7 +190,7 @@ class DailyAyahScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F0E8),
+              color: isDark ? AppColors.warmSurfaceDark : AppColors.warmSurface,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -198,7 +199,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 Text(
                   '${_surahName(ayah.surahNumber).toUpperCase()}  •  ${t('ayah')} ${ayah.ayahNumber}',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF8B7355),
+                    color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.5,
                   ),
@@ -207,7 +208,7 @@ class DailyAyahScreen extends ConsumerWidget {
                   Text(
                     '  •  Juz ${ayah.juzNumber}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                      color: (isDark ? AppColors.warmBrownDark : AppColors.warmBrown).withValues(alpha: 0.6),
                       fontWeight: FontWeight.w400,
                       letterSpacing: 0.5,
                     ),
@@ -228,16 +229,16 @@ class DailyAyahScreen extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
                       color: state.revelationType == 'makkah'
-                          ? const Color(0xFFFFF8E1)
-                          : const Color(0xFFE8F5E9),
+                          ? AppColors.makkiSurface
+                          : AppColors.madaniSurface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       state.revelationType == 'makkah' ? 'Makki' : 'Madani',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: state.revelationType == 'makkah'
-                            ? const Color(0xFF8B6914)
-                            : const Color(0xFF2E7D32),
+                            ? AppColors.makkiText
+                            : AppColors.madaniText,
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
                       ),
@@ -248,7 +249,7 @@ class DailyAyahScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEDE7F6),
+                      color: AppColors.sajdahSurface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -258,7 +259,7 @@ class DailyAyahScreen extends ConsumerWidget {
                         Text(
                           'Sajdah',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: const Color(0xFF4A148C),
+                            color: AppColors.sajdahText,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                           ),
@@ -280,7 +281,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 '${t('today_ayah_about')} $ayahTheme',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.45),
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
                 ),
@@ -304,7 +305,7 @@ class DailyAyahScreen extends ConsumerWidget {
                           : ayah.textUthmani.length > 50
                               ? arabicFontSize * 0.8
                               : arabicFontSize)
-                  .copyWith(color: const Color(0xFF1A1A1A)),
+                  .copyWith(color: theme.colorScheme.onSurface),
             ),
           ).animate().fadeIn(duration: 1000.ms, delay: 200.ms),
 
@@ -354,7 +355,7 @@ class DailyAyahScreen extends ConsumerWidget {
               Text(
                 t('start_listening'),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.45),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.45),
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -372,7 +373,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 t('recite_every'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,
                   fontSize: 12,
                 ),
@@ -421,12 +422,12 @@ class DailyAyahScreen extends ConsumerWidget {
             icon: Icon(
               Icons.auto_stories_outlined,
               size: 15,
-              color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+              color: theme.colorScheme.primary.withValues(alpha: 0.4),
             ),
             label: Text(
               t('read_more'),
               style: TextStyle(
-                color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                color: theme.colorScheme.primary.withValues(alpha: 0.4),
                 fontSize: 12,
               ),
             ),
@@ -467,11 +468,11 @@ class DailyAyahScreen extends ConsumerWidget {
                 onPressed: () => _shareAyah(context, ayah, lang),
                 icon: Icon(Icons.share_outlined,
                     size: 18,
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.5)),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                 label: Text(
                   'Share this ayah',
                   style: TextStyle(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
                     fontSize: 13,
                   ),
                 ),
@@ -493,7 +494,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 onPressed: () => _openFeelingMode(context),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  backgroundColor: const Color(0xFFF8F5F0),
+                  backgroundColor: AppColors.warmSurfaceLight,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -501,7 +502,7 @@ class DailyAyahScreen extends ConsumerWidget {
                 child: Text(
                   '🤲  ${t('explore_feeling')}',
                   style: TextStyle(
-                    color: const Color(0xFF8B7355).withValues(alpha: 0.7),
+                    color: AppColors.warmBrown.withValues(alpha: 0.7),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -563,7 +564,7 @@ class DailyAyahScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -712,18 +713,6 @@ class _InlineReflection extends ConsumerStatefulWidget {
 
 class _InlineReflectionState extends ConsumerState<_InlineReflection> {
   bool _saving = false;
-  bool _highlighted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Auto-highlight "I felt this" after 5 seconds of inactivity
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted && !_saving) {
-        setState(() => _highlighted = true);
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -767,10 +756,10 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F5F0),
+              color: AppColors.warmSurfaceLight,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: const Color(0xFFE8E0D4).withValues(alpha: 0.4),
+                color: AppColors.warmBorder.withValues(alpha: 0.4),
               ),
             ),
             child: Column(
@@ -778,7 +767,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 Text(
                   t('earlier_paused'),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                    color: AppColors.warmBrown.withValues(alpha: 0.6),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -803,10 +792,10 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.03),
+            color: AppColors.primary.withValues(alpha: 0.03),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
+              color: AppColors.primary.withValues(alpha: 0.08),
             ),
           ),
           child: Column(
@@ -815,7 +804,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 prompt,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
+                  color: AppColors.textPrimaryLight.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w500,
                   height: 1.5,
                 ),
@@ -828,7 +817,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 child: FilledButton(
                   onPressed: _saving ? null : _acknowledge,
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1B5E20),
+                    backgroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -852,7 +841,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 child: Text(
                   t('write_one_line'),
                   style: TextStyle(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                    color: AppColors.primary.withValues(alpha: 0.4),
                     fontSize: 13,
                   ),
                   textAlign: TextAlign.center,
@@ -863,13 +852,6 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
         ).animate().fadeIn(duration: 600.ms, delay: 800.ms),
       ],
     );
-  }
-
-  String _daysAgo(DateTime date) {
-    final diff = DateTime.now().difference(date).inDays;
-    if (diff == 0) return 'earlier today';
-    if (diff == 1) return 'yesterday';
-    return '$diff days ago';
   }
 
   Future<void> _acknowledge() async {
@@ -910,13 +892,10 @@ class _TruncatedScholarText extends StatefulWidget {
   final String text;
   final String scholarName;
   final ThemeData theme;
-  final String readMoreLabel;
-
   const _TruncatedScholarText({
     required this.text,
     required this.scholarName,
     required this.theme,
-    this.readMoreLabel = 'Read more',
   });
 
   @override
@@ -955,140 +934,15 @@ class _TruncatedScholarTextState extends State<_TruncatedScholarText> {
           GestureDetector(
             onTap: () => setState(() => _expanded = true),
             child: Text(
-              widget.readMoreLabel,
+              'Read more',
               style: widget.theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                color: AppColors.warmBrown.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ],
       ],
-    );
-  }
-}
-
-class _WordByWordSection extends StatelessWidget {
-  final List<dynamic> words;
-  final bool showTransliteration;
-  final bool isExpanded;
-  final VoidCallback onToggle;
-  final ThemeData theme;
-  final String wordByWordLabel;
-
-  const _WordByWordSection({
-    required this.words,
-    required this.showTransliteration,
-    required this.isExpanded,
-    required this.onToggle,
-    required this.theme,
-    required this.wordByWordLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: onToggle,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isExpanded
-                    ? const Color(0xFFF5F0E8).withValues(alpha: 0.5)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFE8E0D4).withValues(alpha: 0.4),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    wordByWordLabel,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF8B7355).withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 250),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: const Color(0xFF8B7355).withValues(alpha: 0.4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (isExpanded) ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              textDirection: TextDirection.rtl,
-              children: words.map((word) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFFE8E0D4),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        word.textUthmani,
-                        textDirection: TextDirection.rtl,
-                        style: const TextStyle(
-                          fontFamily: 'AmiriQuran',
-                          fontSize: 20,
-                          color: Color(0xFF1A1A1A),
-                          height: 1.5,
-                        ),
-                      ),
-                      if (showTransliteration &&
-                          word.transliteration != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          word.transliteration!,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.3),
-                            fontSize: 9,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 4),
-                      Text(
-                        word.translation ?? '',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFF8B7355),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ).animate().fadeIn(duration: 400.ms),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -1121,35 +975,39 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
             playerState?.processingState == ProcessingState.loading ||
             playerState?.processingState == ProcessingState.buffering;
 
-        return FilledButton.icon(
-          onPressed: () => _toggleAudio(audioService, isPlaying),
-          icon: isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: Colors.white,
+        return Semantics(
+          button: true,
+          label: isPlaying ? 'Pause Quran recitation' : 'Play Quran recitation',
+          child: FilledButton.icon(
+            onPressed: () => _toggleAudio(audioService, isPlaying),
+            icon: isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(
+                    isPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 20,
                   ),
-                )
-              : Icon(
-                  isPlaying
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  size: 20,
-                ),
-          label: Text(isPlaying
-              ? AppTranslations.get('pause', ref.watch(languageProvider))
-              : AppTranslations.get('listen', ref.watch(languageProvider))),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF2E3A2F),
-            foregroundColor: Colors.white,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+            label: Text(isPlaying
+                ? AppTranslations.get('pause', ref.watch(languageProvider))
+                : AppTranslations.get('listen', ref.watch(languageProvider))),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryDarkButton,
+              foregroundColor: Colors.white,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              textStyle: const TextStyle(fontSize: 14),
             ),
-            textStyle: const TextStyle(fontSize: 14),
           ),
         );
       },
@@ -1221,7 +1079,7 @@ class _CompletedState extends ConsumerWidget {
           // Checkmark — slightly larger, more space
           Icon(
             Icons.check_rounded,
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+            color: AppColors.primary.withValues(alpha: 0.4),
             size: 36,
           )
               .animate()
@@ -1241,7 +1099,7 @@ class _CompletedState extends ConsumerWidget {
               '${_t("completed_surah", ref)} $completedSurahName',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: const Color(0xFF1B5E20),
+                color: AppColors.primary,
                 fontWeight: FontWeight.w600,
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
@@ -1288,14 +1146,14 @@ class _CompletedState extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F5F0),
+              color: AppColors.warmSurfaceLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               _t('keep_ayah', ref),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: const Color(0xFF8B7355).withValues(alpha: 0.8),
+                color: AppColors.warmBrown.withValues(alpha: 0.8),
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
               ),
@@ -1323,17 +1181,17 @@ class _CompletedState extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B5E20).withValues(alpha: 0.05),
+                color: AppColors.primary.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                 ),
               ),
               child: Text(
                 'You now understand every word of Al-Fatiha.\n\nYou will say it 17 times today in prayer. Listen for it.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.7),
+                  color: AppColors.primary.withValues(alpha: 0.7),
                   height: 1.7,
                 ),
               ),
@@ -1352,7 +1210,7 @@ class _CompletedState extends ConsumerWidget {
                   ref.read(dailyAyahProvider.notifier).loadNextAyah();
                 },
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E3A2F),
+                  backgroundColor: AppColors.primaryDarkButton,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1371,7 +1229,7 @@ class _CompletedState extends ConsumerWidget {
               child: Text(
                 _t('choose_different', ref),
                 style: TextStyle(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                  color: AppColors.primary.withValues(alpha: 0.5),
                   fontSize: 13,
                 ),
               ),
@@ -1388,14 +1246,14 @@ class _CompletedState extends ConsumerWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.12),
+                    color: AppColors.primary.withValues(alpha: 0.12),
                   ),
                 ),
               ),
               child: Text(
                 _t('next_ayah', ref),
                 style: TextStyle(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
+                  color: AppColors.primary.withValues(alpha: 0.6),
                   fontSize: 14,
                 ),
               ),
@@ -1411,7 +1269,7 @@ class _CompletedState extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1449,7 +1307,7 @@ class _CompletedState extends ConsumerWidget {
                     leading: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5F0E8),
+                        color: AppColors.warmSurface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
@@ -1554,10 +1412,14 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
       final text = await quranApi.getTafsir(_tafsirSlug, widget.verseKey);
       if (mounted) {
         setState(() {
-          // Strip HTML tags
+          // Strip HTML tags and fix missing spaces between sections
           _tafsirText = text
-              .replaceAll(RegExp(r'<[^>]*>'), '')
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
               .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAllMapped(
+                RegExp(r'([a-z."\x27\)])([A-Z])'),
+                (m) => '${m[1]} ${m[2]}',
+              )
               .trim();
           _loading = false;
         });
@@ -1586,7 +1448,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFFE0E0E0),
+              color: AppColors.shimmerBase,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1596,12 +1458,12 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
           Row(
             children: [
               const Icon(Icons.auto_stories_outlined,
-                  size: 20, color: Color(0xFF1B5E20)),
+                  size: 20, color: AppColors.primary),
               const SizedBox(width: 8),
               Text(
                 _tafsirName,
                 style: theme.textTheme.titleSmall?.copyWith(
-                  color: const Color(0xFF1B5E20),
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1609,7 +1471,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
               Text(
                 widget.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF8B7355),
+                  color: AppColors.warmBrown,
                 ),
               ),
             ],
@@ -1666,7 +1528,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
                                     child: Text(
                                       widget.lang == 'ar' ? 'عرض التفسير الكامل' : 'View full tafsir',
                                       style: TextStyle(
-                                        color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
+                                        color: AppColors.primary.withValues(alpha: 0.6),
                                         fontSize: 13,
                                       ),
                                     ),
@@ -1730,8 +1592,6 @@ class _RatePromptState extends State<_RatePrompt> {
   void initState() {
     super.initState();
     // Check if already shown
-    final storage = widget.ref.read(localStorageProvider);
-    final shown = storage.notificationTime; // reuse check — or use a dedicated key
     // For simplicity, we show it on Day 5-7 every time until they tap
   }
 
@@ -1746,10 +1606,10 @@ class _RatePromptState extends State<_RatePrompt> {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F5F0),
+          color: AppColors.warmSurfaceLight,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+            color: AppColors.warmBorder.withValues(alpha: 0.5),
           ),
         ),
         child: Column(
@@ -1759,7 +1619,7 @@ class _RatePromptState extends State<_RatePrompt> {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1A1A).withValues(alpha: 0.7),
+                color: AppColors.textPrimaryLight.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 14),
@@ -1788,7 +1648,7 @@ class _RatePromptState extends State<_RatePrompt> {
                       }
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1B5E20),
+                      backgroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),

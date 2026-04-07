@@ -11,6 +11,7 @@ class FirestoreService {
   static const _maxRetryQueue = 50;
   final List<Future<void> Function()> _retryQueue = [];
   bool _retrying = false;
+  DateTime? _lastFlushAttempt;
 
   void setUser(String userId) {
     _userId = userId;
@@ -49,6 +50,13 @@ class FirestoreService {
   /// Flush the retry queue — called on connectivity restore or user set.
   Future<void> _flushRetryQueue() async {
     if (_retrying || _retryQueue.isEmpty) return;
+    // Throttle: don't flush more than once per 30 seconds
+    final now = DateTime.now();
+    if (_lastFlushAttempt != null &&
+        now.difference(_lastFlushAttempt!) < const Duration(seconds: 30)) {
+      return;
+    }
+    _lastFlushAttempt = now;
     _retrying = true;
     try {
       while (_retryQueue.isNotEmpty) {

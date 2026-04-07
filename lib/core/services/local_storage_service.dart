@@ -22,6 +22,7 @@ class LocalStorageService {
   static const _secureKeyAuthToken = 'auth_token';
   static const _secureKeyRefreshToken = 'refresh_token';
   static const _secureKeyCodeVerifier = 'pkce_code_verifier';
+  static const _secureKeyOAuthState = 'oauth_state';
 
   late final SharedPreferences _prefs;
   static const _secureStorage = FlutterSecureStorage(
@@ -94,6 +95,19 @@ class LocalStorageService {
     }
   }
 
+  /// OAuth state parameter — stored securely, used for CSRF validation during OAuth flow.
+  Future<String?> getOAuthState() async {
+    return _secureStorage.read(key: _secureKeyOAuthState);
+  }
+
+  Future<void> setOAuthState(String? state) async {
+    if (state == null) {
+      await _secureStorage.delete(key: _secureKeyOAuthState);
+    } else {
+      await _secureStorage.write(key: _secureKeyOAuthState, value: state);
+    }
+  }
+
   String? get userId => _prefs.getString(_keyUserId);
 
   Future<void> setUserId(String? id) async {
@@ -121,6 +135,7 @@ class LocalStorageService {
     await setAuthToken(null);
     await setRefreshToken(null);
     await setCodeVerifier(null);
+    await setOAuthState(null);
     await _prefs.remove(_keyUserId);
     await _prefs.remove(_keyUserName);
   }

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:go_router/go_router.dart';
+
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 
 class JournalScreen extends ConsumerStatefulWidget {
   const JournalScreen({super.key});
@@ -36,7 +37,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
         : ref.read(journalProvider.notifier).search(_searchQuery);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -55,7 +56,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                             t('your_journal'),
                             style: theme.textTheme.headlineSmall?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1A1A1A),
+                              color: AppColors.textPrimaryLight,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -98,7 +99,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                             .withValues(alpha: 0.25),
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF5F0E8).withValues(alpha: 0.5),
+                      fillColor: AppColors.warmSurface.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
@@ -181,7 +182,7 @@ void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFFFEFDF8),
+    backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -223,7 +224,7 @@ void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
               style: TextStyle(
                 fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
                 fontSize: arabicFontSize * 0.85,
-                color: const Color(0xFF1A1A1A),
+                color: AppColors.textPrimaryLight,
                 height: 2.2,
               ),
             ),
@@ -247,13 +248,13 @@ void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F0E8),
+                color: AppColors.warmSurface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 entry.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF8B7355),
+                  color: AppColors.warmBrown,
                 ),
               ),
             ),
@@ -274,7 +275,7 @@ void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
                     '"${entry.promptText!}"',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFB8860B),
+                      color: AppColors.accentDark,
                       fontStyle: FontStyle.italic,
                       height: 1.4,
                     ),
@@ -295,7 +296,7 @@ void _openEntryDetail(BuildContext context, JournalEntry entry, WidgetRef ref) {
               Text(
                 AppTranslations.get('i_felt_this', lang),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                  color: AppColors.primary.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -359,7 +360,7 @@ class _JournalCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+          color: AppColors.warmBorder.withValues(alpha: 0.5),
           width: 0.5,
         ),
         boxShadow: [
@@ -387,13 +388,13 @@ class _JournalCard extends StatelessWidget {
               Icon(
                 _tierIcon,
                 size: 14,
-                color: const Color(0xFF8B7355).withValues(alpha: 0.5),
+                color: AppColors.warmBrown.withValues(alpha: 0.5),
               ),
               const SizedBox(width: 4),
               Text(
                 _tierLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF8B7355).withValues(alpha: 0.6),
+                  color: AppColors.warmBrown.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -410,7 +411,7 @@ class _JournalCard extends StatelessWidget {
               style: const TextStyle(
                 fontFamily: 'AmiriQuran',
                 fontSize: 20,
-                color: Color(0xFF1A1A1A),
+                color: AppColors.textPrimaryLight,
                 height: 1.8,
               ),
               maxLines: 2,
@@ -443,13 +444,13 @@ class _JournalCard extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F0E8),
+                color: AppColors.warmSurface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 '${_surahName(entry.verseKey)}  ·  ${entry.verseKey}',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF8B7355),
+                  color: AppColors.warmBrown,
                   fontSize: 11,
                 ),
               ),
@@ -468,7 +469,7 @@ class _JournalCard extends StatelessWidget {
                 child: Text(
                   '"${entry.promptText!}"',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFFB8860B),
+                    color: AppColors.accentDark,
                     fontStyle: FontStyle.italic,
                     height: 1.4,
                   ),

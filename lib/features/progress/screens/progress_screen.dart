@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
@@ -68,7 +69,7 @@ class ProgressScreen extends ConsumerWidget {
                       icon: Icons.auto_stories_rounded,
                       value: '${progress.totalAyatCompleted}',
                       label: 'Ayat Completed',
-                      color: const Color(0xFF1B5E20),
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -77,7 +78,7 @@ class ProgressScreen extends ConsumerWidget {
                       icon: Icons.edit_note_rounded,
                       value: '${progress.totalReflections}',
                       label: 'Reflections',
-                      color: const Color(0xFF5C6BC0),
+                      color: AppColors.statIndigo,
                     ),
                   ),
                 ],
@@ -145,7 +146,7 @@ class _StreakCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD4A856).withValues(alpha: 0.15),
+            color: AppColors.accent.withValues(alpha: 0.15),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
@@ -162,7 +163,7 @@ class _StreakCard extends StatelessWidget {
                 '$currentStreak',
                 style: theme.textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: const Color(0xFFE65100),
+                  color: AppColors.streakOrange,
                 ),
               ),
             ],
@@ -171,7 +172,7 @@ class _StreakCard extends StatelessWidget {
           Text(
             'day streak',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFFE65100).withValues(alpha: 0.7),
+              color: AppColors.streakOrange.withValues(alpha: 0.7),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -187,7 +188,7 @@ class _StreakCard extends StatelessWidget {
                 width: 1,
                 height: 24,
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                color: const Color(0xFFE65100).withValues(alpha: 0.15),
+                color: AppColors.streakOrange.withValues(alpha: 0.15),
               ),
               _MiniStat(
                 label: 'Freezes',
@@ -215,14 +216,14 @@ class _MiniStat extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: const Color(0xFFE65100).withValues(alpha: 0.5),
+            color: AppColors.streakOrange.withValues(alpha: 0.5),
           ),
         ),
         const SizedBox(height: 2),
         Text(
           value,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: const Color(0xFFE65100),
+            color: AppColors.streakOrange,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -393,7 +394,7 @@ class _ReflectionBreakdown extends StatelessWidget {
             label: 'Acknowledged',
             count: tier1,
             total: total,
-            color: const Color(0xFF42A5F5),
+            color: AppColors.info,
             icon: Icons.favorite_rounded,
           ),
           const SizedBox(height: 10),
@@ -401,7 +402,7 @@ class _ReflectionBreakdown extends StatelessWidget {
             label: 'Responded',
             count: tier2,
             total: total,
-            color: const Color(0xFFFF8F00),
+            color: AppColors.tierAmber,
             icon: Icons.short_text_rounded,
           ),
           const SizedBox(height: 10),
@@ -409,7 +410,7 @@ class _ReflectionBreakdown extends StatelessWidget {
             label: 'Reflected',
             count: tier3,
             total: total,
-            color: const Color(0xFF1B5E20),
+            color: AppColors.primary,
             icon: Icons.edit_note_rounded,
           ),
         ],
@@ -500,13 +501,13 @@ class _QuranProgressBar extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF1B5E20).withValues(alpha: 0.06),
-            const Color(0xFF1B5E20).withValues(alpha: 0.02),
+            AppColors.primary.withValues(alpha: 0.06),
+            AppColors.primary.withValues(alpha: 0.02),
           ],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFF1B5E20).withValues(alpha: 0.1),
+          color: AppColors.primary.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -519,13 +520,13 @@ class _QuranProgressBar extends StatelessWidget {
                 'Quran Journey',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1B5E20),
+                  color: AppColors.primary,
                 ),
               ),
               Text(
                 '$totalAyat / $totalInQuran ayat',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.6),
+                  color: AppColors.primary.withValues(alpha: 0.6),
                 ),
               ),
             ],
@@ -536,8 +537,8 @@ class _QuranProgressBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: fraction,
               backgroundColor:
-                  const Color(0xFF1B5E20).withValues(alpha: 0.08),
-              color: const Color(0xFF1B5E20),
+                  AppColors.primary.withValues(alpha: 0.08),
+              color: AppColors.primary,
               minHeight: 10,
             ),
           ),
@@ -545,7 +546,7 @@ class _QuranProgressBar extends StatelessWidget {
           Text(
             '$percentage% — one ayah at a time',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+              color: AppColors.primary.withValues(alpha: 0.5),
               fontStyle: FontStyle.italic,
             ),
           ),

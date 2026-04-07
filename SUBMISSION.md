@@ -156,6 +156,7 @@ The app guides users through a simple flow: listen to the ayah, read its transla
 | Streak Tracking | `updateStreak()` — syncs daily streak on ayah completion |
 | Activity Logging | `logActivityDay()` — records daily Quran engagement |
 | Reflections | `saveReflection()` — syncs journal entries to QF |
+| Bookmarks | `addBookmark()` — auto-bookmarks ayat when user writes a reflection (Tier 2/3) |
 
 ### Pre-bundled Data (from quran.com API, fetched at build time)
 | Data | Source | Entries |

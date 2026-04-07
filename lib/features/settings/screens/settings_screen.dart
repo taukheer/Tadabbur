@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/languages.dart';
-import 'package:tadabbur/core/services/auth_service.dart';
-import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 
@@ -75,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
         int.tryParse(progress.currentVerseKey.split(':').last) ?? 1;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -104,11 +102,11 @@ class SettingsScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B5E20).withValues(alpha: 0.04),
+                    color: AppColors.primary.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color:
-                          const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                          AppColors.primary.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Row(
@@ -123,14 +121,14 @@ class SettingsScreen extends ConsumerWidget {
                                   ? _surahNames[currentSurah]
                                   : 'Surah $currentSurah',
                               style: theme.textTheme.titleSmall?.copyWith(
-                                color: const Color(0xFF1B5E20),
+                                color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             Text(
                               'Ayah $currentAyah  ·  ${progress.totalAyatCompleted} ayat completed',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFF1B5E20)
+                                color: AppColors.primary
                                     .withValues(alpha: 0.5),
                               ),
                             ),
@@ -140,14 +138,14 @@ class SettingsScreen extends ConsumerWidget {
                       Text(
                         'Change',
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: const Color(0xFF1B5E20)
+                          color: AppColors.primary
                               .withValues(alpha: 0.5),
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded,
                           size: 18,
-                          color: const Color(0xFF1B5E20)
+                          color: AppColors.primary
                               .withValues(alpha: 0.3)),
                     ],
                   ),
@@ -168,7 +166,7 @@ class SettingsScreen extends ConsumerWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFFE8E0D4),
+                      color: AppColors.warmBorder,
                       width: 0.5,
                     ),
                   ),
@@ -202,13 +200,13 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       Text('Change',
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: const Color(0xFF1B5E20)
+                            color: AppColors.primary
                                 .withValues(alpha: 0.5),
                           )),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded,
                           size: 18,
-                          color: const Color(0xFF1B5E20)
+                          color: AppColors.primary
                               .withValues(alpha: 0.3)),
                     ],
                   ),
@@ -252,7 +250,7 @@ class SettingsScreen extends ConsumerWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: const Color(0xFFE8E0D4), width: 0.5),
+                    color: AppColors.warmBorder, width: 0.5),
                 ),
                 child: Row(
                   children: [
@@ -273,7 +271,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     Switch(
                       value: ref.watch(showTransliterationProvider),
-                      activeColor: const Color(0xFF1B5E20),
+                      activeTrackColor: AppColors.primary,
                       onChanged: (v) async {
                         await storage.setShowTransliteration(v);
                         ref.read(showTransliterationProvider.notifier).state = v;
@@ -309,15 +307,15 @@ class SettingsScreen extends ConsumerWidget {
                           horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF1B5E20)
+                            ? AppColors.primary
                                 .withValues(alpha: 0.08)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF1B5E20)
+                              ? AppColors.primary
                                   .withValues(alpha: 0.3)
-                              : const Color(0xFFE8E0D4),
+                              : AppColors.warmBorder,
                           width: isSelected ? 1.5 : 0.5,
                         ),
                       ),
@@ -325,7 +323,7 @@ class SettingsScreen extends ConsumerWidget {
                         label,
                         style: TextStyle(
                           color: isSelected
-                              ? const Color(0xFF1B5E20)
+                              ? AppColors.primary
                               : theme.colorScheme.onSurface
                                   .withValues(alpha: 0.6),
                           fontWeight: isSelected
@@ -358,13 +356,13 @@ class SettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: currentFont == font.id
-                            ? const Color(0xFF1B5E20).withValues(alpha: 0.06)
+                            ? AppColors.primary.withValues(alpha: 0.06)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: currentFont == font.id
-                              ? const Color(0xFF1B5E20).withValues(alpha: 0.25)
-                              : const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+                              ? AppColors.primary.withValues(alpha: 0.25)
+                              : AppColors.warmBorder.withValues(alpha: 0.5),
                           width: currentFont == font.id ? 1.5 : 0.5,
                         ),
                       ),
@@ -382,7 +380,7 @@ class SettingsScreen extends ConsumerWidget {
                                               ? FontWeight.w600
                                               : FontWeight.w400,
                                           color: currentFont == font.id
-                                              ? const Color(0xFF1B5E20)
+                                              ? AppColors.primary
                                               : theme.colorScheme.onSurface,
                                           fontSize: 14,
                                         )),
@@ -401,7 +399,7 @@ class SettingsScreen extends ConsumerWidget {
                                   textDirection: TextDirection.rtl,
                                   style: ArabicFonts.getStyle(font.id, fontSize: 22)
                                       .copyWith(
-                                    color: const Color(0xFF1A1A1A),
+                                    color: AppColors.textPrimaryLight,
                                   ),
                                 ),
                               ],
@@ -409,7 +407,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                           if (currentFont == font.id)
                             const Icon(Icons.check_circle_rounded,
-                                color: Color(0xFF1B5E20), size: 20),
+                                color: AppColors.primary, size: 20),
                         ],
                       ),
                     ),
@@ -429,7 +427,7 @@ class SettingsScreen extends ConsumerWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFFE8E0D4), width: 0.5),
+                      color: AppColors.warmBorder, width: 0.5),
                   ),
                   child: Row(
                     children: [
@@ -501,7 +499,7 @@ class SettingsScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -542,7 +540,7 @@ class SettingsScreen extends ConsumerWidget {
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                               color: isCurrent
-                                  ? const Color(0xFF1B5E20)
+                                  ? AppColors.primary
                                   : null,
                               fontSize: 16,
                             )),
@@ -564,7 +562,7 @@ class SettingsScreen extends ConsumerWidget {
                         : null,
                     trailing: isCurrent
                         ? const Icon(Icons.check_circle_rounded,
-                            color: Color(0xFF1B5E20), size: 20)
+                            color: AppColors.primary, size: 20)
                         : null,
                     onTap: () async {
                       await storage.setLanguage(lang.code);
@@ -592,7 +590,7 @@ class SettingsScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -633,17 +631,17 @@ class SettingsScreen extends ConsumerWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         color: isCurrent
-                            ? const Color(0xFF1B5E20)
+                            ? AppColors.primary
                                 .withValues(alpha: 0.1)
-                            : const Color(0xFFF5F0E8),
+                            : AppColors.warmSurface,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
                         child: Text('$surahNum',
                             style: TextStyle(
                               color: isCurrent
-                                  ? const Color(0xFF1B5E20)
-                                  : const Color(0xFF8B7355),
+                                  ? AppColors.primary
+                                  : AppColors.warmBrown,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             )),
@@ -655,12 +653,12 @@ class SettingsScreen extends ConsumerWidget {
                               ? FontWeight.w600
                               : FontWeight.w400,
                           color: isCurrent
-                              ? const Color(0xFF1B5E20)
+                              ? AppColors.primary
                               : null,
                         )),
                     trailing: isCurrent
                         ? const Icon(Icons.place_rounded,
-                            color: Color(0xFF1B5E20), size: 18)
+                            color: AppColors.primary, size: 18)
                         : null,
                     onTap: () async {
                       await ref
@@ -685,7 +683,7 @@ class SettingsScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -725,7 +723,6 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
     setState(() => _sending = true);
 
     try {
-      final firestore = widget.ref.read(firestoreServiceProvider);
       final storage = widget.ref.read(localStorageProvider);
 
       await FirebaseFirestore.instance.collection('feedback').add({
@@ -777,18 +774,18 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               child: Container(
                 width: 40, height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0E0E0),
+                  color: AppColors.shimmerBase,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 48),
             Icon(Icons.check_circle_rounded,
-                color: const Color(0xFF1B5E20), size: 56),
+                color: AppColors.primary, size: 56),
             const SizedBox(height: 20),
             Text('JazakAllahu Khairan',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: const Color(0xFF1B5E20),
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 )),
             const SizedBox(height: 8),
@@ -814,7 +811,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             child: Container(
               width: 40, height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFE0E0E0),
+                color: AppColors.shimmerBase,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -847,13 +844,13 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFF1B5E20).withValues(alpha: 0.08)
+                        ? AppColors.primary.withValues(alpha: 0.08)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: selected
-                          ? const Color(0xFF1B5E20).withValues(alpha: 0.3)
-                          : const Color(0xFFE8E0D4),
+                          ? AppColors.primary.withValues(alpha: 0.3)
+                          : AppColors.warmBorder,
                       width: selected ? 1.5 : 0.5,
                     ),
                   ),
@@ -862,7 +859,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                     children: [
                       Icon(icon, size: 16,
                           color: selected
-                              ? const Color(0xFF1B5E20)
+                              ? AppColors.primary
                               : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
                       const SizedBox(width: 6),
                       Text(label,
@@ -870,7 +867,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                             fontSize: 13,
                             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                             color: selected
-                                ? const Color(0xFF1B5E20)
+                                ? AppColors.primary
                                 : theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           )),
                     ],
@@ -898,15 +895,15 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               contentPadding: const EdgeInsets.all(16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE8E0D4), width: 0.5),
+                borderSide: const BorderSide(color: AppColors.warmBorder, width: 0.5),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE8E0D4), width: 0.5),
+                borderSide: const BorderSide(color: AppColors.warmBorder, width: 0.5),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFF1B5E20), width: 1.5),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
               ),
             ),
           ),
@@ -919,8 +916,8 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             child: FilledButton(
               onPressed: _sending || _controller.text.trim().isEmpty ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20),
-                disabledBackgroundColor: const Color(0xFF1B5E20).withValues(alpha: 0.3),
+                backgroundColor: AppColors.primary,
+                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -980,13 +977,13 @@ class _NotificationTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isEnabled
-              ? const Color(0xFF1B5E20).withValues(alpha: 0.04)
+              ? AppColors.primary.withValues(alpha: 0.04)
               : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isEnabled
-                ? const Color(0xFF1B5E20).withValues(alpha: 0.15)
-                : const Color(0xFFE8E0D4),
+                ? AppColors.primary.withValues(alpha: 0.15)
+                : AppColors.warmBorder,
             width: isEnabled ? 1 : 0.5,
           ),
         ),
@@ -997,7 +994,7 @@ class _NotificationTile extends StatelessWidget {
                   ? Icons.notifications_active_rounded
                   : Icons.notifications_off_outlined,
               color: isEnabled
-                  ? const Color(0xFF1B5E20)
+                  ? AppColors.primary
                   : theme.colorScheme.onSurface.withValues(alpha: 0.3),
               size: 22,
             ),
@@ -1011,7 +1008,7 @@ class _NotificationTile extends StatelessWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                       color: isEnabled
-                          ? const Color(0xFF1B5E20)
+                          ? AppColors.primary
                           : theme.colorScheme.onSurface,
                     ),
                   ),
@@ -1032,7 +1029,7 @@ class _NotificationTile extends StatelessWidget {
             Text(
               isEnabled ? 'Change' : 'Set time',
               style: theme.textTheme.labelMedium?.copyWith(
-                color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                color: AppColors.primary.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -1094,7 +1091,7 @@ class _AccountTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE8E0D4), width: 0.5),
+            border: Border.all(color: AppColors.warmBorder, width: 0.5),
           ),
           child: Row(
             children: [
@@ -1119,7 +1116,7 @@ class _AccountTile extends StatelessWidget {
               ),
               Text('Sign in',
                   style: theme.textTheme.labelMedium?.copyWith(
-                      color: const Color(0xFF1B5E20).withValues(alpha: 0.6))),
+                      color: AppColors.primary.withValues(alpha: 0.6))),
             ],
           ),
         ),
@@ -1130,17 +1127,17 @@ class _AccountTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B5E20).withValues(alpha: 0.04),
+        color: AppColors.primary.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: const Color(0xFF1B5E20).withValues(alpha: 0.1)),
+            color: AppColors.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 18,
             backgroundColor:
-                const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                AppColors.primary.withValues(alpha: 0.1),
             backgroundImage: authUser.photoUrl != null
                 ? NetworkImage(authUser.photoUrl!)
                 : null,
@@ -1148,7 +1145,7 @@ class _AccountTile extends StatelessWidget {
                 ? Text(
                     authUser.name[0].toUpperCase(),
                     style: const TextStyle(
-                      color: Color(0xFF1B5E20),
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   )
@@ -1162,7 +1159,7 @@ class _AccountTile extends StatelessWidget {
                 Text(authUser.name,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF1B5E20),
+                      color: AppColors.primary,
                     )),
                 Text(authUser.email,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1212,13 +1209,13 @@ class _ReciterTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF1B5E20).withValues(alpha: 0.06)
+              ? AppColors.primary.withValues(alpha: 0.06)
               : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF1B5E20).withValues(alpha: 0.25)
-                : const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+                ? AppColors.primary.withValues(alpha: 0.25)
+                : AppColors.warmBorder.withValues(alpha: 0.5),
             width: isSelected ? 1.5 : 0.5,
           ),
         ),
@@ -1230,14 +1227,14 @@ class _ReciterTile extends StatelessWidget {
                     fontWeight:
                         isSelected ? FontWeight.w600 : FontWeight.w400,
                     color: isSelected
-                        ? const Color(0xFF1B5E20)
+                        ? AppColors.primary
                         : theme.colorScheme.onSurface,
                     fontSize: 14,
                   )),
             ),
             if (isSelected)
               const Icon(Icons.check_circle_rounded,
-                  color: Color(0xFF1B5E20), size: 20),
+                  color: AppColors.primary, size: 20),
           ],
         ),
       ),

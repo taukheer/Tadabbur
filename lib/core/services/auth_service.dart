@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
@@ -84,7 +84,7 @@ class AuthService {
 
   /// Check if Apple Sign-In is available (iOS 13+).
   Future<bool> get isAppleSignInAvailable async {
-    if (!Platform.isIOS) return false;
+    if (defaultTargetPlatform != TargetPlatform.iOS) return false;
     return await SignInWithApple.isAvailable();
   }
 

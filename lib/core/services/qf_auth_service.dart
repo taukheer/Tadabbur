@@ -66,6 +66,12 @@ class QFAuthService {
     // Store verifier for token exchange
     await _storage.setCodeVerifier(pkce.verifier);
 
+    // Generate and store state parameter for CSRF protection
+    final state = base64UrlEncode(
+      List<int>.generate(16, (_) => Random.secure().nextInt(256)),
+    );
+    await _storage.setOAuthState(state);
+
     final params = {
       'client_id': _clientId,
       'response_type': 'code',
@@ -73,17 +79,29 @@ class QFAuthService {
       'scope': 'openid offline_access',
       'code_challenge': pkce.challenge,
       'code_challenge_method': 'S256',
-      'state': base64UrlEncode(
-        List<int>.generate(16, (_) => Random.secure().nextInt(256)),
-      ),
+      'state': state,
     };
 
     final uri = Uri.parse(_authorizeUrl).replace(queryParameters: params);
     return uri.toString();
   }
 
+  /// Validate the OAuth state parameter against the stored value (CSRF protection).
+  Future<bool> validateState(String state) async {
+    final storedState = await _storage.getOAuthState();
+    if (storedState == null || storedState != state) {
+      debugPrint('[QFAuth] State mismatch — possible CSRF attack');
+      return false;
+    }
+    return true;
+  }
+
   /// Exchange the authorization code for tokens.
-  Future<bool> exchangeCode(String code) async {
+  /// [state] is validated against the stored value for CSRF protection.
+  Future<bool> exchangeCode(String code, {required String state}) async {
+    // Validate state parameter before proceeding
+    if (!await validateState(state)) return false;
+
     final verifier = await _storage.getCodeVerifier();
     if (verifier == null) return false;
 
@@ -114,8 +132,9 @@ class QFAuthService {
           if (refreshToken != null) {
             await _storage.setRefreshToken(refreshToken);
           }
-          // Clear the code verifier — no longer needed
+          // Clear the code verifier and OAuth state — no longer needed
           await _storage.setCodeVerifier(null);
+          await _storage.setOAuthState(null);
           debugPrint('[QFAuth] Successfully authenticated with QF OAuth2');
           return true;
         }

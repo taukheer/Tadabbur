@@ -176,7 +176,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
           : 'assets/data/tafsir_summaries.json';
       final jsonStr = await rootBundle.loadString(path);
       final data = (json.decode(jsonStr) as Map<String, dynamic>)
-          .map((k, v) => MapEntry(k, v as String));
+          .map((k, v) => MapEntry(k, _fixTafsirSpacing(v as String)));
 
       if (isArabic) {
         _tafsirCacheAr = data;
@@ -187,6 +187,17 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Fix missing spaces in scraped tafsir text.
+  /// E.g. "MakkahWhy" → "Makkah Why", "Bara'ah.\"The" → "Bara'ah.\" The"
+  static String _fixTafsirSpacing(String text) {
+    // Insert space where a lowercase/period/quote/paren is immediately
+    // followed by an uppercase letter (but not inside Arabic text).
+    return text.replaceAllMapped(
+      RegExp(r'([a-z."\x27\)])([A-Z])'),
+      (m) => '${m[1]} ${m[2]}',
+    );
   }
 
   bool _skipTodayCheck = false;

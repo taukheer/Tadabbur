@@ -5,7 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:tadabbur/core/constants/feelings.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
-import 'package:tadabbur/core/services/quran_api_service.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/ayah.dart';
@@ -29,7 +29,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
     String t(String key) => AppTranslations.get(key, lang);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -57,7 +57,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             t('how_feeling'),
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1A1A1A),
+              color: AppColors.textPrimaryLight,
             ),
           ).animate().fadeIn(duration: 600.ms),
 
@@ -89,13 +89,13 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
                       color: _selected?.id == feeling.id
-                          ? const Color(0xFF1B5E20).withValues(alpha: 0.08)
+                          ? AppColors.primary.withValues(alpha: 0.08)
                           : Colors.white,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: _selected?.id == feeling.id
-                            ? const Color(0xFF1B5E20).withValues(alpha: 0.3)
-                            : const Color(0xFFE8E0D4).withValues(alpha: 0.5),
+                            ? AppColors.primary.withValues(alpha: 0.3)
+                            : AppColors.warmBorder.withValues(alpha: 0.5),
                         width: _selected?.id == feeling.id ? 1.5 : 0.5,
                       ),
                     ),
@@ -114,8 +114,8 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
                                     ? FontWeight.w600
                                     : FontWeight.w400,
                                 color: _selected?.id == feeling.id
-                                    ? const Color(0xFF1B5E20)
-                                    : const Color(0xFF1A1A1A),
+                                    ? AppColors.primary
+                                    : AppColors.textPrimaryLight,
                                 fontSize: 13,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -142,7 +142,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             const Padding(
               padding: EdgeInsets.all(20),
               child: CircularProgressIndicator(
-                color: Color(0xFF1B5E20),
+                color: AppColors.primary,
                 strokeWidth: 1.5,
               ),
             ),
@@ -175,13 +175,13 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F0E8),
+              color: AppColors.warmSurface,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '${_selected!.emoji}  ${t(_selected!.labelKey)}',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF8B7355),
+                color: AppColors.warmBrown,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -195,7 +195,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
             style: ArabicFonts.getStyle(arabicFontId, fontSize: arabicFontSize)
-                .copyWith(color: const Color(0xFF1A1A1A)),
+                .copyWith(color: AppColors.textPrimaryLight),
           ).animate().fadeIn(duration: 800.ms),
 
           const SizedBox(height: 20),
@@ -240,7 +240,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1B5E20),
+                backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -257,7 +257,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             child: Text(
               t('try_another'),
               style: TextStyle(
-                color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                color: AppColors.primary.withValues(alpha: 0.5),
                 fontSize: 13,
               ),
             ),
@@ -269,7 +269,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
           Text(
             t('make_dua'),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF8B7355).withValues(alpha: 0.5),
+              color: AppColors.warmBrown.withValues(alpha: 0.5),
               fontStyle: FontStyle.italic,
               fontSize: 12,
             ),
@@ -310,7 +310,9 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
   static int _absoluteAyahNumber(int surah, int ayah) {
     const vc = [0,7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,11,8,3,9,5,4,7,3,6,3,5,4,5,6];
     int total = 0;
-    for (int i = 1; i < surah && i < vc.length; i++) total += vc[i];
+    for (int i = 1; i < surah && i < vc.length; i++) {
+      total += vc[i];
+    }
     return total + ayah;
   }
 }
@@ -358,7 +360,7 @@ class _FeelingAudioButton extends ConsumerWidget {
               ? AppTranslations.get('pause', lang)
               : AppTranslations.get('listen', lang)),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF2E3A2F),
+            backgroundColor: AppColors.primaryDarkButton,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             shape: RoundedRectangleBorder(

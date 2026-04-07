@@ -88,6 +88,41 @@ abstract final class AppColors {
   static const Color info = Color(0xFF42A5F5);
 
   // ---------------------------------------------------------------------------
+  // Warm tones — used for pills, tags, card backgrounds, borders, labels
+  // ---------------------------------------------------------------------------
+  static const Color warmBrown = Color(0xFF8B7355);
+  static const Color warmBrownDark = Color(0xFFBFA87E);
+  static const Color warmSurface = Color(0xFFF5F0E8);
+  static const Color warmSurfaceDark = Color(0xFF1E2C3E);
+  static const Color warmSurfaceLight = Color(0xFFF8F5F0);
+  static const Color warmSurfaceLightDark = Color(0xFF1A2836);
+  static const Color warmBorder = Color(0xFFE8E0D4);
+  static const Color warmBorderDark = Color(0xFF2E3D50);
+
+  // ---------------------------------------------------------------------------
+  // Button variants
+  // ---------------------------------------------------------------------------
+  static const Color primaryDarkButton = Color(0xFF2E3A2F);
+  static const Color primaryDarkButtonDark = Color(0xFF3A5040);
+
+  // ---------------------------------------------------------------------------
+  // Revelation type & Sajdah indicators
+  // ---------------------------------------------------------------------------
+  static const Color makkiSurface = Color(0xFFFFF8E1);
+  static const Color makkiText = Color(0xFF8B6914);
+  static const Color madaniSurface = Color(0xFFE8F5E9);
+  static const Color madaniText = Color(0xFF2E7D32);
+  static const Color sajdahSurface = Color(0xFFEDE7F6);
+  static const Color sajdahText = Color(0xFF4A148C);
+
+  // ---------------------------------------------------------------------------
+  // Progress / stats
+  // ---------------------------------------------------------------------------
+  static const Color statIndigo = Color(0xFF5C6BC0);
+  static const Color streakOrange = Color(0xFFE65100);
+  static const Color tierAmber = Color(0xFFFF8F00);
+
+  // ---------------------------------------------------------------------------
   // Miscellaneous
   // ---------------------------------------------------------------------------
   static const Color dividerLight = Color(0xFFE0DCD4);

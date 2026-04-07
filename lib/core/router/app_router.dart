@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/main.dart';
 import 'package:tadabbur/features/onboarding/screens/onboarding_screen.dart';
 import 'package:tadabbur/features/daily_ayah/screens/daily_ayah_screen.dart';
 import 'package:tadabbur/features/journal/screens/journal_screen.dart';
@@ -14,6 +14,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: !hasOnboarded ? '/onboarding' : '/home',
+    observers: [TadabburApp.analyticsObserver],
     routes: [
       GoRoute(
         path: '/onboarding',
@@ -29,7 +30,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (code != null && callbackState != null) {
             debugPrint('[OAuth] Received callback with auth code');
             final qfAuth = ref.read(qfAuthServiceProvider);
-            qfAuth.exchangeCode(code);
+            qfAuth.exchangeCode(code, state: callbackState);
           } else {
             debugPrint('[OAuth] Invalid callback — missing code or state');
           }

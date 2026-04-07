@@ -7,6 +7,7 @@ import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 
 class ReflectionScreen extends ConsumerStatefulWidget {
@@ -36,17 +37,17 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
     super.dispose();
   }
 
-  @override
   String _t(String key) =>
       AppTranslations.get(key, ref.watch(languageProvider));
 
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     if (_isComplete) return _buildCompletion(theme);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -79,7 +80,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   style: const TextStyle(
                     fontFamily: 'AmiriQuran',
                     fontSize: 22,
-                    color: Color(0xFF1A1A1A),
+                    color: AppColors.textPrimaryLight,
                     height: 2.0,
                   ),
                   maxLines: 3,
@@ -112,7 +113,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(80, 28, 80, 28),
                 child: Divider(
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.08),
+                  color: AppColors.primary.withValues(alpha: 0.08),
                   thickness: 0.5,
                 ),
               ),
@@ -158,23 +159,23 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF1B5E20).withValues(alpha: 0.02),
+                    fillColor: AppColors.primary.withValues(alpha: 0.02),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: const Color(0xFF1B5E20).withValues(alpha: 0.06),
+                        color: AppColors.primary.withValues(alpha: 0.06),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: const Color(0xFF1B5E20).withValues(alpha: 0.06),
+                        color: AppColors.primary.withValues(alpha: 0.06),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: const Color(0xFF1B5E20).withValues(alpha: 0.15),
+                        color: AppColors.primary.withValues(alpha: 0.15),
                       ),
                     ),
                     contentPadding: const EdgeInsets.all(20),
@@ -196,9 +197,9 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       child: FilledButton(
                         onPressed: _isSaving ? null : () => _save(withText: true),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF1B5E20),
+                          backgroundColor: AppColors.primary,
                           disabledBackgroundColor:
-                              const Color(0xFF1B5E20).withValues(alpha: 0.4),
+                              AppColors.primary.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -234,14 +235,14 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: const Color(0xFF1B5E20).withValues(alpha: 0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                             ),
                           ),
                         ),
                         child: Text(
                           _t('this_spoke'),
                           style: TextStyle(
-                            color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                            color: AppColors.primary.withValues(alpha: 0.5),
                             fontSize: 14,
                           ),
                         ),
@@ -268,7 +269,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
         SnackBar(
           content: const Text('Write a reflection, or tap "This spoke to me" below'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF1B5E20),
+          backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -331,7 +332,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
     final progress = ref.watch(userProgressProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFEFDF8),
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -343,7 +344,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
 
                 Icon(
                   Icons.check_rounded,
-                  color: const Color(0xFF1B5E20).withValues(alpha: 0.3),
+                  color: AppColors.primary.withValues(alpha: 0.3),
                   size: 48,
                 )
                     .animate()
@@ -383,7 +384,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   child: Text(
                     _t('return_btn'),
                     style: TextStyle(
-                      color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+                      color: AppColors.primary.withValues(alpha: 0.5),
                     ),
                   ),
                 ).animate().fadeIn(duration: 600.ms, delay: 1000.ms),

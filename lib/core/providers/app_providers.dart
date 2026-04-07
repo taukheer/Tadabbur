@@ -291,6 +291,11 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
 
     // Sync to QF Post API (fire-and-forget)
     _syncReflectionToQF(entry);
+
+    // Auto-bookmark on QF when user wrote a reflection (Tier 2/3)
+    if (entry.tier != ReflectionTier.acknowledge && entry.responseText != null) {
+      _userApi.addBookmark(entry.verseKey).catchError((_) {});
+    }
   }
 
   /// Save reflection to QF Post API.
