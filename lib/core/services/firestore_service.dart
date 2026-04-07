@@ -7,7 +7,8 @@ class FirestoreService {
 
   String? _userId;
 
-  /// Pending operations that failed and need retry.
+  /// Pending operations that failed and need retry (capped to prevent memory leaks).
+  static const _maxRetryQueue = 50;
   final List<Future<void> Function()> _retryQueue = [];
   bool _retrying = false;
 
@@ -31,7 +32,11 @@ class FirestoreService {
       } catch (e) {
         debugPrint('[Firestore] Attempt $attempt failed: $e');
         if (attempt == maxAttempts) {
-          // Queue for later retry
+          // Queue for later retry (drop oldest if full)
+          if (_retryQueue.length >= _maxRetryQueue) {
+            _retryQueue.removeAt(0);
+            debugPrint('[Firestore] Retry queue full — dropped oldest');
+          }
           _retryQueue.add(operation);
           debugPrint('[Firestore] Queued for retry (${_retryQueue.length} pending)');
           return;

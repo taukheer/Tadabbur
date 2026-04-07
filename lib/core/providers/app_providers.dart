@@ -211,8 +211,8 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
     return ayah == _verseCounts[surah];
   }
 
-  /// Get the surah number from a verse key
-  static int surahFromKey(String key) => int.parse(key.split(':').first);
+  /// Get the surah number from a verse key (safe parse)
+  static int surahFromKey(String key) => int.tryParse(key.split(':').first) ?? 1;
 
   String _getNextVerseKey(String currentKey) {
     final parts = currentKey.split(':');

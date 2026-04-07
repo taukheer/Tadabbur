@@ -107,7 +107,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       }
 
       // Fetch ayah data, words, editorial, and surah info in parallel
-      final surahNum = int.parse(verseKey.split(':').first);
+      final surahNum = int.tryParse(verseKey.split(':').first) ?? 1;
       final results = await Future.wait([
         quranApi.getVerseByKey(verseKey,
             translationId: AppLanguages.getByCode(storage.language).translationId.toString()),

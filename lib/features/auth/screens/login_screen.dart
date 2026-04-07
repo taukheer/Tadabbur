@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/qf_auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -151,13 +152,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: Implement real QF OAuth2 PKCE flow
-      // For hackathon MVP, simulate login
-      await Future.delayed(const Duration(seconds: 1));
-
-      final storage = ref.read(localStorageProvider);
-      await storage.setAuthToken('demo_token');
-      await storage.setUserId('demo_user');
+      // Launch real QF OAuth2 PKCE flow
+      final qfAuth = ref.read(qfAuthServiceProvider);
+      await qfAuth.launchLogin();
 
       ref.read(isLoggedInProvider.notifier).state = true;
       if (mounted) context.go('/home');

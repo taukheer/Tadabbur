@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -153,8 +154,10 @@ class ApiClient {
 
   /// Executes [request] with automatic retry for transient failures.
   ///
+  static final _jitterRng = Random();
+
   /// Retries up to [_maxRetries] times on network errors and 5xx server errors
-  /// using exponential backoff.
+  /// using exponential backoff with jitter.
   Future<Response<T>> _executeWithRetry<T>(
     Future<Response<T>> Function() request,
   ) async {
@@ -167,7 +170,10 @@ class ApiClient {
         if (!_isRetryable(e) || attempt >= _maxRetries) {
           throw _mapException(e);
         }
-        await Future.delayed(_retryDelay * attempt);
+        // Exponential backoff: 1s, 2s, 4s + random jitter (0-500ms)
+        final backoff = _retryDelay * (1 << (attempt - 1));
+        final jitter = Duration(milliseconds: _jitterRng.nextInt(500));
+        await Future.delayed(backoff + jitter);
       }
     }
   }

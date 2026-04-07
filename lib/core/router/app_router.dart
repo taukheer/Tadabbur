@@ -25,15 +25,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/oauth/callback',
         redirect: (context, state) {
           final code = state.uri.queryParameters['code'];
-          if (code != null) {
-            // Exchange the auth code — handled by QFAuthService via the
-            // onboarding screen or a listener. Store code temporarily so
-            // the auth flow can pick it up.
+          final callbackState = state.uri.queryParameters['state'];
+          if (code != null && callbackState != null) {
             debugPrint('[OAuth] Received callback with auth code');
             final qfAuth = ref.read(qfAuthServiceProvider);
             qfAuth.exchangeCode(code);
+          } else {
+            debugPrint('[OAuth] Invalid callback — missing code or state');
           }
-          // Redirect to home (or onboarding if not yet onboarded)
           return hasOnboarded ? '/home' : '/onboarding';
         },
       ),
