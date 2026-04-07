@@ -9,6 +9,7 @@ class AppTranslations {
     'en': {
       // Onboarding
       'welcome_line': 'Sixty seconds with the Quran.\nEvery morning.\nAnd one day, your prayer\nwill change.',
+      'tagline': 'To reflect deeply on the Qur\'an',
       'how_read_arabic': 'How well do you\nread Arabic?',
       'read_fluent': 'I read Arabic fluently',
       'read_fluent_sub': 'Comfortable with Uthmani script',
@@ -133,6 +134,7 @@ class AppTranslations {
     },
     'ar': {
       'welcome_line': 'ستون ثانية مع القرآن.\nكل صباح.\nوفي يوم ما، ستتغير\nصلاتك.',
+      'tagline': 'التأمل العميق في القرآن',
       'how_read_arabic': 'ما مستوى قراءتك\nللعربية؟',
       'read_fluent': 'أقرأ العربية بطلاقة',
       'read_fluent_sub': 'مرتاح مع الخط العثماني',
@@ -256,6 +258,7 @@ class AppTranslations {
     },
     'ur': {
       'welcome_line': 'قرآن کے ساتھ ساٹھ سیکنڈ۔\nہر صبح۔\nاور ایک دن، آپ کی نماز\nبدل جائے گی۔',
+      'tagline': 'قرآن میں گہرا غور و فکر',
       'how_read_arabic': 'آپ عربی کتنی اچھی\nپڑھ سکتے ہیں؟',
       'read_fluent': 'میں عربی روانی سے پڑھتا ہوں',
       'read_fluent_sub': 'عثمانی خط سے واقف',
@@ -379,6 +382,7 @@ class AppTranslations {
     },
     'ta': {
       'welcome_line': 'குர்ஆனுடன் அறுபது வினாடிகள்.\nஒவ்வொரு காலையும்.\nஒரு நாள், உங்கள் தொழுகை\nமாறும்.',
+      'tagline': 'குர்ஆனை ஆழமாக சிந்திப்பது',
       'how_read_arabic': 'நீங்கள் அரபி\nஎவ்வளவு நன்றாக படிப்பீர்கள்?',
       'read_fluent': 'நான் அரபி சரளமாக படிப்பேன்',
       'read_fluent_sub': 'உஸ்மானி எழுத்தில் வசதியாக',
@@ -502,6 +506,7 @@ class AppTranslations {
     },
     'ml': {
       'welcome_line': 'ഖുർആനുമായി അറുപത് സെക്കൻഡ്.\nഎല്ലാ രാവിലെയും.\nഒരു ദിവസം, നിങ്ങളുടെ നമസ്കാരം\nമാറും.',
+      'tagline': 'ഖുർആനിൽ ആഴത്തിൽ ചിന്തിക്കുക',
       'how_read_arabic': 'നിങ്ങൾ അറബി\nഎത്ര നന്നായി വായിക്കും?',
       'read_fluent': 'ഞാൻ അറബി സുഗമമായി വായിക്കും',
       'read_slow': 'പതുക്കെ വായിക്കാൻ കഴിയും',
@@ -618,6 +623,7 @@ class AppTranslations {
     },
     'fr': {
       'welcome_line': 'Soixante secondes avec le Coran.\nChaque matin.\nEt un jour, votre prière\nchangera.',
+      'tagline': 'Méditer profondément le Coran',
       'how_read_arabic': 'Lisez-vous bien\nl\'arabe ?',
       'read_fluent': 'Je lis l\'arabe couramment',
       'read_fluent_sub': 'À l\'aise avec l\'écriture outhmanienne',
@@ -741,6 +747,7 @@ class AppTranslations {
     },
     'es': {
       'welcome_line': 'Sesenta segundos con el Corán.\nCada mañana.\nY un día, tu oración\ncambiará.',
+      'tagline': 'Reflexionar profundamente sobre el Corán',
       'how_read_arabic': '¿Qué tan bien\nlees árabe?',
       'read_fluent': 'Leo árabe con fluidez',
       'read_slow': 'Puedo leer lentamente',
@@ -861,6 +868,7 @@ class AppTranslations {
     },
     'tr': {
       'welcome_line': 'Kur\'an ile altmış saniye.\nHer sabah.\nVe bir gün, namazın\ndeğişecek.',
+      'tagline': 'Kur\'an\'ı derinlemesine tefekkür etmek',
       'how_read_arabic': 'Arapça ne kadar iyi\nokursunuz?',
       'read_fluent': 'Arapça akıcı okurum',
       'read_slow': 'Yavaş okuyabilirim',
@@ -981,6 +989,7 @@ class AppTranslations {
     },
     'id': {
       'welcome_line': 'Enam puluh detik bersama Al-Quran.\nSetiap pagi.\nDan suatu hari, shalatmu\nakan berubah.',
+      'tagline': 'Merenungkan Al-Quran secara mendalam',
       'how_read_arabic': 'Seberapa baik Anda\nmembaca Arab?',
       'read_fluent': 'Saya membaca Arab dengan lancar',
       'read_slow': 'Saya bisa membaca perlahan',
@@ -1101,6 +1110,7 @@ class AppTranslations {
     },
     'hi': {
       'welcome_line': 'कुरआन के साथ साठ सेकंड।\nहर सुबह।\nऔर एक दिन, आपकी नमाज़\nबदल जाएगी।',
+      'tagline': 'कुरान पर गहन चिंतन',
       'how_read_arabic': 'आप अरबी कितनी अच्छी\nपढ़ सकते हैं?',
       'read_fluent': 'मैं अरबी धाराप्रवाह पढ़ता हूँ',
       'read_slow': 'धीरे-धीरे पढ़ सकता हूँ',
@@ -1221,6 +1231,7 @@ class AppTranslations {
     },
     'bn': {
       'welcome_line': 'কুরআনের সাথে ষাট সেকেন্ড।\nপ্রতিটি সকালে।\nএবং একদিন, আপনার নামাজ\nবদলে যাবে।',
+      'tagline': 'কুরআনে গভীর চিন্তা',
       'how_read_arabic': 'আপনি আরবি কতটা\nভালো পড়তে পারেন?',
       'read_fluent': 'আমি আরবি সাবলীলভাবে পড়ি',
       'read_slow': 'আস্তে আস্তে পড়তে পারি',
@@ -1341,6 +1352,7 @@ class AppTranslations {
     },
     'ms': {
       'welcome_line': 'Enam puluh saat bersama al-Quran.\nSetiap pagi.\nDan suatu hari, solat anda\nakan berubah.',
+      'tagline': 'Merenung secara mendalam tentang Al-Quran',
       'how_read_arabic': 'Sejauh mana anda\nmembaca Arab?',
       'read_fluent': 'Saya membaca Arab dengan lancar',
       'read_fluent_sub': 'Selesa dengan tulisan Uthmani',
@@ -1464,6 +1476,7 @@ class AppTranslations {
     },
     'de': {
       'welcome_line': 'Sechzig Sekunden mit dem Quran.\nJeden Morgen.\nUnd eines Tages wird sich\ndein Gebet verändern.',
+      'tagline': 'Den Koran tiefgründig betrachten',
       'how_read_arabic': 'Wie gut kannst du\nArabisch lesen?',
       'read_fluent': 'Ich lese Arabisch fließend',
       'read_fluent_sub': 'Vertraut mit der Uthmani-Schrift',
@@ -1587,6 +1600,7 @@ class AppTranslations {
     },
     'ru': {
       'welcome_line': 'Шестьдесят секунд с Кораном.\nКаждое утро.\nИ однажды твой намаз\nизменится.',
+      'tagline': 'Глубокое размышление над Кораном',
       'how_read_arabic': 'Насколько хорошо ты\nчитаешь на арабском?',
       'read_fluent': 'Я свободно читаю на арабском',
       'read_fluent_sub': 'Уверенно читаю усмановский почерк',
@@ -1710,6 +1724,7 @@ class AppTranslations {
     },
     'pt': {
       'welcome_line': 'Sessenta segundos com o Alcorão.\nTodas as manhãs.\nE um dia, a sua oração\nvai mudar.',
+      'tagline': 'Refletir profundamente sobre o Alcorão',
       'how_read_arabic': 'Quão bem você\nlê em árabe?',
       'read_fluent': 'Leio árabe fluentemente',
       'read_fluent_sub': 'Confortável com a escrita Uthmani',
@@ -1833,6 +1848,7 @@ class AppTranslations {
     },
     'fa': {
       'welcome_line': 'شصت ثانیه با قرآن.\nهر صبح.\nو روزی، نمازت\nدگرگون خواهد شد.',
+      'tagline': 'تأمل عمیق در قرآن',
       'how_read_arabic': 'چقدر خوب\nعربی می\u200cخوانید؟',
       'read_fluent': 'عربی را روان می\u200cخوانم',
       'read_fluent_sub': 'با خط عثمانی راحتم',
@@ -1956,6 +1972,7 @@ class AppTranslations {
     },
     'so': {
       'welcome_line': 'Lixdan ilbiriqsi oo Qur\'aanka ah.\nSubax walba.\nMaalin maalna, salaaddaadu\nway isbeddeli doontaa.',
+      'tagline': 'Si fiiro dheer ku samayn Quraanka',
       'how_read_arabic': 'Sidee ayaad u\nakhrisaa Carabiga?',
       'read_fluent': 'Carabiga waan si fiican u akhristaa',
       'read_fluent_sub': 'Ku raaxaysan farta Cuthmaan',
@@ -2079,6 +2096,7 @@ class AppTranslations {
     },
     'sw': {
       'welcome_line': 'Sekunde sitini na Qur\'ani.\nKila asubuhi.\nNa siku moja, swala yako\nitabadilika.',
+      'tagline': 'Kutafakari kwa kina juu ya Qurani',
       'how_read_arabic': 'Unasoma Kiarabu\nvipi?',
       'read_fluent': 'Ninasoma Kiarabu kwa ufasaha',
       'read_fluent_sub': 'Niko sawa na maandishi ya Uthmani',
@@ -2202,6 +2220,7 @@ class AppTranslations {
     },
     'zh': {
       'welcome_line': '每天早晨，\n与《古兰经》共度六十秒。\n终有一天，你的礼拜\n会因此改变。',
+      'tagline': '深入思考古兰经',
       'how_read_arabic': '你的阿拉伯语\n阅读水平如何？',
       'read_fluent': '我能流利地阅读阿拉伯语',
       'read_fluent_sub': '熟悉奥斯曼体',
@@ -2325,6 +2344,7 @@ class AppTranslations {
     },
     'ja': {
       'welcome_line': 'クルアーンと過ごす六十秒。\n毎朝。\nそしていつか、あなたの\n礼拝が変わります。',
+      'tagline': 'クルアーンを深く熟考する',
       'how_read_arabic': 'アラビア語は\nどの程度読めますか？',
       'read_fluent': 'アラビア語を流暢に読めます',
       'read_fluent_sub': 'ウスマーニー書体に慣れています',
@@ -2448,6 +2468,7 @@ class AppTranslations {
     },
     'ko': {
       'welcome_line': '꾸란과 함께하는 육십 초.\n매일 아침.\n그리고 언젠가, 당신의 예배가\n달라질 것입니다.',
+      'tagline': '꾸란에 대한 깊은 묵상',
       'how_read_arabic': '아랍어를 얼마나\n잘 읽으십니까?',
       'read_fluent': '아랍어를 유창하게 읽습니다',
       'read_fluent_sub': '우스마니 서체에 익숙합니다',

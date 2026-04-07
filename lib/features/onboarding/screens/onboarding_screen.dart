@@ -529,6 +529,17 @@ class _WelcomePage extends StatelessWidget {
                 end: const Offset(1, 1),
                 duration: 1000.ms,
               ),
+          const SizedBox(height: 12),
+          Text(
+            t('tagline'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: const Color(0xFF1B5E20).withValues(alpha: 0.5),
+              fontStyle: FontStyle.italic,
+              fontSize: 14,
+              letterSpacing: 0.3,
+            ),
+          ).animate().fadeIn(duration: 800.ms, delay: 300.ms),
           const SizedBox(height: 32),
           Text(
             t('welcome_line'),

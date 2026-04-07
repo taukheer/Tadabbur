@@ -204,49 +204,90 @@ class NotificationService {
     return (hour: hour, minute: minute);
   }
 
-  /// Day-specific notification messages.
+  /// Identity-based notification messages — reinforce the habit, not the app.
   ({String title, String body}) getMessageForDay(int dayNumber,
       {String? theme}) {
     final themeHook =
         theme != null ? ' Today\'s ayah is about $theme.' : '';
 
+    // Milestone days — celebrate identity
     switch (dayNumber) {
       case 1:
         return (
           title: 'Tadabbur',
-          body: 'Your ayah for today is waiting.$themeHook',
+          body: 'Your first ayah is waiting.$themeHook',
         );
       case 2:
         return (
-          title: 'Tadabbur',
-          body: 'Yesterday you started. Today you continue.$themeHook',
+          title: 'Day 2',
+          body: 'You came back. That matters.$themeHook',
         );
       case 3:
         return (
-          title: 'Tadabbur',
-          body: 'Sit with today\'s ayah for a moment.$themeHook',
+          title: 'Day 3',
+          body: 'You\'re building something.$themeHook',
         );
       case 7:
         return (
           title: 'One week',
-          body: '7 ayat. You\'ve built something real.$themeHook',
+          body: 'Seven days. You\'re someone who shows up.$themeHook',
+        );
+      case 14:
+        return (
+          title: 'Two weeks',
+          body: 'This is becoming part of who you are.$themeHook',
         );
       case 30:
         return (
           title: 'Day 30',
-          body: 'This is a habit now.$themeHook',
+          body: 'A month of showing up. This is you now.$themeHook',
         );
-      default:
-        final messages = [
-          'Your ayah for today is waiting.',
-          'Sit with today\'s ayah.',
-          'A moment with the Quran awaits.',
-          'Your daily ayah is ready.',
-        ];
+      case 100:
         return (
-          title: 'Tadabbur',
-          body: messages[dayNumber % messages.length] + themeHook,
+          title: 'Day 100',
+          body: '100 days with the Quran. SubhanAllah.$themeHook',
+        );
+      case 365:
+        return (
+          title: 'One year',
+          body: 'Your spiritual autobiography.$themeHook',
         );
     }
+
+    // Identity-reinforcing messages for regular days
+    if (dayNumber > 30) {
+      final messages = [
+        'Day $dayNumber. You\'re consistent.',
+        'Your ayah is ready. You always show up.',
+        'Day $dayNumber with the Quran.',
+      ];
+      return (
+        title: 'Tadabbur',
+        body: messages[dayNumber % messages.length] + themeHook,
+      );
+    }
+
+    if (dayNumber > 7) {
+      final messages = [
+        'Day $dayNumber. Keep going.',
+        'Your next ayah is waiting for you.',
+        'Day $dayNumber. You\'re building a habit.',
+      ];
+      return (
+        title: 'Tadabbur',
+        body: messages[dayNumber % messages.length] + themeHook,
+      );
+    }
+
+    // First week — gentle encouragement
+    final messages = [
+      'Your ayah for today is waiting.',
+      'A quiet moment with the Quran.',
+      'Sit with today\'s ayah.',
+    ];
+    return (
+      title: 'Tadabbur',
+      body: messages[dayNumber % messages.length] + themeHook,
+    );
   }
 }

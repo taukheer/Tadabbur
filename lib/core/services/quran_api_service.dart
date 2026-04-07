@@ -70,7 +70,7 @@ class QuranApiService {
   }) async {
     final queryParams = <String, dynamic>{
       'translations': translationId ?? '20',
-      'fields': 'text_uthmani,text_simple',
+      'fields': 'text_uthmani,text_simple,chapter_id,verse_number,juz_number,hizb_number,page_number',
       'language': 'en',
     };
 

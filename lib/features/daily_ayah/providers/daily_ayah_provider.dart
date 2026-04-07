@@ -18,6 +18,17 @@ class DailyAyahState {
   final bool showContext;
   final bool showScholar;
   final bool todayCompleted;
+  final String? revelationType;
+
+  /// The 14 sajdah (prostration) verses in the Quran.
+  static const sajdahVerses = {
+    '7:206', '13:15', '16:50', '17:109', '19:58', '22:18', '22:77',
+    '25:60', '27:26', '32:15', '38:24', '41:38', '53:62', '84:21',
+    '96:19',
+  };
+
+  bool get isSajdahVerse =>
+      ayah != null && sajdahVerses.contains(ayah!.verseKey);
 
   const DailyAyahState({
     this.loadingState = AyahLoadingState.loading,
@@ -30,6 +41,7 @@ class DailyAyahState {
     this.showContext = false,
     this.showScholar = false,
     this.todayCompleted = false,
+    this.revelationType,
   });
 
   DailyAyahState copyWith({
@@ -43,6 +55,7 @@ class DailyAyahState {
     bool? showContext,
     bool? showScholar,
     bool? todayCompleted,
+    String? revelationType,
   }) {
     return DailyAyahState(
       loadingState: loadingState ?? this.loadingState,
@@ -55,6 +68,7 @@ class DailyAyahState {
       showContext: showContext ?? this.showContext,
       showScholar: showScholar ?? this.showScholar,
       todayCompleted: todayCompleted ?? this.todayCompleted,
+      revelationType: revelationType ?? this.revelationType,
     );
   }
 }
@@ -92,19 +106,20 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
             lastCompleted.day == now.day;
       }
 
-      // Fetch ayah data, words, and editorial in parallel
+      // Fetch ayah data, words, editorial, and surah info in parallel
+      final surahNum = int.parse(verseKey.split(':').first);
       final results = await Future.wait([
         quranApi.getVerseByKey(verseKey,
             translationId: AppLanguages.getByCode(storage.language).translationId.toString()),
         quranApi.getWordsByVerse(verseKey),
-        editorialService.getEditorialContent(verseKey),
+        editorialService.getEditorialContent(verseKey, lang: storage.language),
+        quranApi.getChapter(surahNum),
       ]);
 
       final ayah = results[0] as Ayah;
       final words = results[1] as List<Word>;
-      // Only show English editorial content when language is English
-      final rawEditorial = results[2] as EditorialContent?;
-      final editorial = storage.language == 'en' ? rawEditorial : null;
+      final editorial = results[2] as EditorialContent?;
+      final surah = results[3] as dynamic;
 
       // Build audio URL from CDN with selected reciter
       final reciterPath = storage.reciterPath;
@@ -121,6 +136,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         editorial: editorial,
         audioUrl: audioUrl,
         todayCompleted: todayCompleted,
+        revelationType: surah.revelationType as String?,
       );
     } catch (e) {
       state = state.copyWith(
