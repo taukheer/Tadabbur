@@ -1,3 +1,4 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
@@ -169,6 +170,16 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
     );
     await _storage.saveProgress(state);
 
+    // Log analytics event
+    FirebaseAnalytics.instance.logEvent(
+      name: 'ayah_completed',
+      parameters: {
+        'verse_key': verseKey,
+        'streak': newStreak,
+        'total_ayat': state.totalAyatCompleted,
+      },
+    ).catchError((_) {});
+
     // Sync with QF User APIs (fire-and-forget, don't block UI)
     _syncWithQF(now);
 
@@ -264,6 +275,16 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
     // Save locally first (always works)
     state = [entry, ...state];
     await _storage.saveJournalEntries(state);
+
+    // Log analytics
+    FirebaseAnalytics.instance.logEvent(
+      name: 'reflection_added',
+      parameters: {
+        'verse_key': entry.verseKey,
+        'tier': entry.tier.name,
+        'has_text': entry.responseText != null,
+      },
+    ).catchError((_) {});
 
     // Sync to Firestore (fire-and-forget)
     _firestore.saveJournalEntry(entry).catchError((_) {});

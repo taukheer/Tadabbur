@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/router/app_router.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
 import 'package:tadabbur/core/theme/app_theme.dart';
@@ -16,13 +21,27 @@ void main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  // Initialize Firebase (non-blocking — app works without it)
+  // Initialize Firebase
+  bool firebaseReady = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseReady = true;
   } catch (e) {
     debugPrint('[Firebase] Initialization failed: $e');
+  }
+
+  // Initialize Crashlytics — catch all uncaught errors
+  if (firebaseReady) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+    // Disable Crashlytics in debug mode to avoid noise
+    await FirebaseCrashlytics.instance
+        .setCrashlyticsCollectionEnabled(!kDebugMode);
   }
 
   final localStorage = LocalStorageService();
@@ -49,6 +68,10 @@ void main() async {
 
 class TadabburApp extends ConsumerWidget {
   const TadabburApp({super.key});
+
+  static final _analytics = FirebaseAnalytics.instance;
+  static final analyticsObserver =
+      FirebaseAnalyticsObserver(analytics: _analytics);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
