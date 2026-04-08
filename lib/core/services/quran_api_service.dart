@@ -34,8 +34,8 @@ class QuranApiService {
     String? language,
   }) async {
     final queryParams = <String, dynamic>{
-      if (language != null) 'language': language,
-      if (translationId != null) 'translations': translationId,
+      'language': ?language,
+      'translations': ?translationId,
       'fields': 'text_uthmani,text_simple',
     };
 
@@ -227,7 +227,7 @@ class QuranApiService {
   /// QDC response shape: `{"chapters": [...]}`
   Future<List<Surah>> getAllChapters({String? language}) async {
     final queryParams = <String, dynamic>{
-      if (language != null) 'language': language,
+      'language': ?language,
     };
 
     try {

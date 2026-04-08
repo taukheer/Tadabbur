@@ -192,6 +192,46 @@ class FirestoreService {
     });
   }
 
+  /// Delete ALL user data from Firestore (used by Delete Account).
+  /// Deletes the user document and all subcollections (journal, bookmarks).
+  Future<void> deleteUserData() async {
+    if (_userId == null) return;
+    try {
+      final userDoc = _db.collection('users').doc(_userId);
+
+      // Delete journal subcollection in batches of 500 (Firestore limit)
+      await _deleteSubcollection(userDoc.collection('journal'));
+
+      // Delete bookmarks subcollection
+      await _deleteSubcollection(userDoc.collection('bookmarks'));
+
+      // Delete the main user document
+      await userDoc.delete();
+
+      debugPrint('[Firestore] User data deleted');
+    } catch (e) {
+      debugPrint('[Firestore] Failed to delete user data: $e');
+      rethrow;
+    }
+  }
+
+  /// Helper to delete all docs in a subcollection.
+  Future<void> _deleteSubcollection(CollectionReference ref) async {
+    final snapshot = await ref.limit(500).get();
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _db.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+
+    // Recurse if there were more than 500 (rare for this app)
+    if (snapshot.docs.length == 500) {
+      await _deleteSubcollection(ref);
+    }
+  }
+
   /// Load journal entries from Firestore.
   Future<List<JournalEntry>> loadJournalEntries() async {
     if (_userId == null) return [];

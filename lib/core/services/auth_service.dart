@@ -125,6 +125,34 @@ class AuthService {
     await _storage.clearAuth();
   }
 
+  /// Permanently delete the user's account and all associated data.
+  /// Deletes cloud data (Firestore), local data (SharedPreferences + secure
+  /// storage), signs out from Google, and clears the in-memory user.
+  Future<void> deleteAccount() async {
+    // 1. Delete cloud data (Firestore user doc + subcollections)
+    try {
+      await _firestore.deleteUserData();
+    } catch (e) {
+      debugPrint('[AuthService] Firestore delete failed: $e');
+      // Continue with local deletion even if cloud fails
+    }
+
+    // 2. Sign out from Google (revokes token on Google side)
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+    }
+
+    // 3. Clear all local data
+    await _storage.clearAll();
+
+    // 4. Reset in-memory state
+    _currentUser = null;
+  }
+
   Future<void> _saveUser() async {
     if (_currentUser != null) {
       await _storage.setUserId(_currentUser!.id);

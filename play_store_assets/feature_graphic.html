@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 1024px;
+    height: 500px;
+    overflow: hidden;
+    background: #050A14;
+  }
+
+  .graphic {
+    width: 1024px;
+    height: 500px;
+    background:
+      radial-gradient(ellipse 700px 500px at 75% 50%, rgba(201, 169, 110, 0.18) 0%, transparent 60%),
+      linear-gradient(135deg, #050A14 0%, #0D1422 60%, #111B2E 100%);
+    position: relative;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+
+  /* Starfield dots */
+  .graphic::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(2px 2px at 120px 100px, rgba(201, 169, 110, 0.7), transparent 2px),
+      radial-gradient(1.5px 1.5px at 260px 350px, rgba(201, 169, 110, 0.5), transparent 2px),
+      radial-gradient(2px 2px at 620px 80px, rgba(245, 240, 232, 0.5), transparent 2px),
+      radial-gradient(1.5px 1.5px at 820px 200px, rgba(201, 169, 110, 0.6), transparent 2px),
+      radial-gradient(1.5px 1.5px at 450px 420px, rgba(201, 169, 110, 0.4), transparent 2px),
+      radial-gradient(2px 2px at 920px 380px, rgba(245, 240, 232, 0.5), transparent 2px),
+      radial-gradient(1.5px 1.5px at 160px 280px, rgba(201, 169, 110, 0.4), transparent 2px),
+      radial-gradient(1.5px 1.5px at 970px 110px, rgba(245, 240, 232, 0.5), transparent 2px),
+      radial-gradient(1.5px 1.5px at 380px 180px, rgba(201, 169, 110, 0.5), transparent 2px);
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+
+  .content {
+    position: absolute;
+    left: 80px;
+    top: 110px;
+    max-width: 640px;
+    z-index: 2;
+  }
+
+  .brand-mark {
+    display: inline-block;
+    padding: 7px 16px;
+    border: 1px solid rgba(201, 169, 110, 0.3);
+    border-radius: 30px;
+    font-size: 13px;
+    color: #C9A96E;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 28px;
+    line-height: 1;
+  }
+
+  .headline {
+    font-size: 66px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, #F5F0E8 0%, #E2C992 50%, #C9A96E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 18px;
+    padding-bottom: 4px;
+  }
+
+  .tagline {
+    font-size: 22px;
+    color: #F5F0E8;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    line-height: 1.3;
+    margin-bottom: 14px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: #9AABBF;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+
+  .subtitle .dot {
+    color: #C9A96E;
+    margin: 0 10px;
+  }
+
+  /* Arabic medallion on right */
+  .medallion {
+    position: absolute;
+    right: 90px;
+    top: 110px;
+    width: 280px;
+    height: 280px;
+    border: 1.5px solid rgba(201, 169, 110, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, rgba(201, 169, 110, 0.08) 0%, transparent 70%);
+    z-index: 1;
+    box-shadow: 0 0 80px rgba(201, 169, 110, 0.1);
+  }
+
+  .medallion::before {
+    content: "";
+    position: absolute;
+    inset: 16px;
+    border: 1px solid rgba(201, 169, 110, 0.2);
+    border-radius: 50%;
+  }
+
+  .medallion::after {
+    content: "";
+    position: absolute;
+    inset: 32px;
+    border: 0.5px solid rgba(201, 169, 110, 0.1);
+    border-radius: 50%;
+  }
+
+  .medallion-arabic {
+    font-size: 86px;
+    color: #E2C992;
+    font-weight: 400;
+    line-height: 1;
+    font-family: "Geeza Pro", "Damascus", "Baghdad", "Al Bayan", serif;
+    text-shadow: 0 0 40px rgba(201, 169, 110, 0.4);
+    position: relative;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+  <div class="graphic">
+    <div class="content">
+      <div class="brand-mark">Tadabbur</div>
+      <div class="headline">One Ayah.<br>Every Day.</div>
+      <div class="tagline">For life.</div>
+      <div class="subtitle">Daily Quran contemplation<span class="dot">·</span>21 languages<span class="dot">·</span>Reflect deeply</div>
+    </div>
+    <div class="medallion">
+      <div class="medallion-arabic">تَدَبُّر</div>
+    </div>
+  </div>
+</body>
+</html>

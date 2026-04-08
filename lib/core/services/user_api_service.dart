@@ -49,8 +49,8 @@ class UserApiService {
     int? perPage,
   }) async {
     final queryParams = <String, dynamic>{
-      if (page != null) 'page': page,
-      if (perPage != null) 'per_page': perPage,
+      'page': ?page,
+      'per_page': ?perPage,
     };
 
     try {
