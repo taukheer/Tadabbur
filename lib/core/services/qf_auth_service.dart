@@ -27,7 +27,7 @@ class QFAuthService {
   );
   static const _authEndpoint = String.fromEnvironment(
     'QF_AUTH_ENDPOINT',
-    defaultValue: 'https://prelive-oauth2.quran.foundation',
+    defaultValue: 'https://oauth2.quran.foundation',
   );
   static const _redirectUri = 'com.tadabbur.tadabbur://oauth/callback';
 
