@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
 
@@ -176,6 +177,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final storage = ref.read(localStorageProvider);
     storage.setAuthToken('guest');
     storage.setUserId('guest');
+    storage.setAuthType(AuthType.guest);
     ref.read(isLoggedInProvider.notifier).state = true;
     context.go('/home');
   }

@@ -44,11 +44,33 @@ class UserProfile {
         'preferred_time': preferredTime,
       };
 
-  factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
-        arabicLevel: ArabicLevel.values.byName(json['arabic_level']),
-        understandingLevel:
-            UnderstandingLevel.values.byName(json['understanding_level']),
-        motivation: Motivation.values.byName(json['motivation']),
-        preferredTime: json['preferred_time'],
-      );
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    ArabicLevel arabicLevel;
+    try {
+      arabicLevel = ArabicLevel.values.byName(json['arabic_level']);
+    } catch (_) {
+      arabicLevel = ArabicLevel.none;
+    }
+
+    UnderstandingLevel understandingLevel;
+    try {
+      understandingLevel = UnderstandingLevel.values.byName(json['understanding_level']);
+    } catch (_) {
+      understandingLevel = UnderstandingLevel.none;
+    }
+
+    Motivation motivation;
+    try {
+      motivation = Motivation.values.byName(json['motivation']);
+    } catch (_) {
+      motivation = Motivation.connection;
+    }
+
+    return UserProfile(
+      arabicLevel: arabicLevel,
+      understandingLevel: understandingLevel,
+      motivation: motivation,
+      preferredTime: json['preferred_time'],
+    );
+  }
 }

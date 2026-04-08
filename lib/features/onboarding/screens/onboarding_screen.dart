@@ -6,6 +6,7 @@ import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
 
@@ -200,6 +201,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (asGuest) {
       await storage.setAuthToken('guest');
       await storage.setUserId('guest');
+      await storage.setAuthType(AuthType.guest);
     }
 
     // Set starting position

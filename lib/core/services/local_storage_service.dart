@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 
+enum AuthType { guest, google, quranFoundation, none }
+
 class LocalStorageService {
+  static const _keyAuthType = 'auth_type';
+
   static const _keyProgress = 'user_progress';
   static const _keyJournal = 'journal_entries';
   static const _keyOnboarded = 'has_onboarded';
@@ -131,6 +136,27 @@ class LocalStorageService {
 
   bool get isLoggedIn => authToken != null;
 
+  AuthType get authType {
+    final stored = _prefs.getString(_keyAuthType);
+    if (stored == null) {
+      // Legacy fallback: infer from token
+      if (_authToken == null) return AuthType.none;
+      if (_authToken == 'guest') return AuthType.guest;
+      if (_authToken!.startsWith('google_')) return AuthType.google;
+      return AuthType.quranFoundation;
+    }
+    try {
+      return AuthType.values.byName(stored);
+    } catch (_) {
+      return AuthType.none;
+    }
+  }
+
+  Future<void> setAuthType(AuthType type) =>
+      _prefs.setString(_keyAuthType, type.name);
+
+  bool get isGuest => authType == AuthType.guest;
+
   Future<void> clearAuth() async {
     await setAuthToken(null);
     await setRefreshToken(null);
@@ -138,6 +164,7 @@ class LocalStorageService {
     await setOAuthState(null);
     await _prefs.remove(_keyUserId);
     await _prefs.remove(_keyUserName);
+    await _prefs.remove(_keyAuthType);
   }
 
   // --- Preferences ---
@@ -197,6 +224,23 @@ class LocalStorageService {
 
   Future<void> saveProgress(UserProgress progress) =>
       _prefs.setString(_keyProgress, jsonEncode(progress.toJson()));
+
+  // --- Bookmarks ---
+
+  static const _keyBookmarks = 'bookmarks';
+
+  List<Bookmark> getBookmarks() {
+    final json = _prefs.getString(_keyBookmarks);
+    if (json == null) return [];
+    final list = jsonDecode(json) as List;
+    return list.map((e) => Bookmark.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> saveBookmarks(List<Bookmark> bookmarks) =>
+      _prefs.setString(
+        _keyBookmarks,
+        jsonEncode(bookmarks.map((e) => e.toJson()).toList()),
+      );
 
   // --- Journal Entries ---
 

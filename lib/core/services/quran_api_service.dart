@@ -354,7 +354,7 @@ class QuranApiService {
     String? translationAuthor;
     final translations = json['translations'] as List<dynamic>?;
     if (translations != null && translations.isNotEmpty) {
-      final firstTranslation = translations.first as Map<String, dynamic>;
+      final firstTranslation = translations[0] as Map<String, dynamic>;
       translationText = firstTranslation['text'] as String?;
       // Strip HTML tags and footnote references from translation
       if (translationText != null) {

@@ -116,29 +116,37 @@ class DailyAyahScreen extends ConsumerWidget {
         children: [
           const SizedBox(height: 16),
 
-          // === IDENTITY + DAY COUNTER ===
-          if (progress.totalAyatCompleted > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${t('day_label')} ${progress.dayNumber}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+          // === IDENTITY + DAY COUNTER + BOOKMARK ===
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (progress.totalAyatCompleted > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${t('day_label')} ${progress.dayNumber}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
+                const SizedBox(width: 8),
+                _BookmarkButton(
+                  verseKey: ayah.verseKey,
+                  arabicText: ayah.textUthmani,
+                  translationText: ayah.translationText ?? '',
                 ),
-              ),
+              ],
             ),
+          ),
 
           // === FIRST-TIME HINT — reduce confusion ===
           if (progress.totalAyatCompleted == 0)
@@ -316,7 +324,7 @@ class DailyAyahScreen extends ConsumerWidget {
               child: Text(
                 words
                     .where((w) => w.transliteration != null)
-                    .map((w) => w.transliteration!)
+                    .map((w) => w.transliteration!.replaceAll(',', ''))
                     .join(' '),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1659,6 +1667,88 @@ class _RatePromptState extends State<_RatePrompt> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// === BOOKMARK BUTTON — toggle bookmark on current ayah ===
+
+class _BookmarkButton extends ConsumerWidget {
+  final String verseKey;
+  final String arabicText;
+  final String translationText;
+
+  const _BookmarkButton({
+    required this.verseKey,
+    required this.arabicText,
+    required this.translationText,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bookmarks = ref.watch(bookmarkProvider);
+    final isBookmarked = bookmarks.any((b) => b.verseKey == verseKey);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          ref.read(bookmarkProvider.notifier).toggle(
+                verseKey: verseKey,
+                arabicText: arabicText,
+                translationText: translationText,
+              );
+          if (!isBookmarked) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Ayah bookmarked'),
+                duration: const Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: isBookmarked
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : Colors.black.withValues(alpha: 0.03)),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isBookmarked
+                  ? AppColors.primary.withValues(alpha: 0.2)
+                  : Colors.transparent,
+            ),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) => ScaleTransition(
+              scale: animation,
+              child: child,
+            ),
+            child: Icon(
+              isBookmarked
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              key: ValueKey(isBookmarked),
+              size: 20,
+              color: isBookmarked
+                  ? AppColors.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
         ),
       ),
     );

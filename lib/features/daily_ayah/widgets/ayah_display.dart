@@ -60,16 +60,20 @@ class AyahDisplay extends StatelessWidget {
           ],
 
           // Main Arabic text — the heart of the screen
-          Text(
-            ayah.textUthmani,
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              fontFamily: 'AmiriQuran',
-              fontSize: 32,
-              color: theme.colorScheme.onSurface,
-              height: 2.2,
-              letterSpacing: 0,
+          Semantics(
+            label: 'Quranic verse ${ayah.verseKey}',
+            child: Text(
+              ayah.textUthmani,
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              textScaler: const TextScaler.linear(1.0),
+              style: TextStyle(
+                fontFamily: 'AmiriQuran',
+                fontSize: 32,
+                color: theme.colorScheme.onSurface,
+                height: 2.2,
+                letterSpacing: 0,
+              ),
             ),
           ),
 

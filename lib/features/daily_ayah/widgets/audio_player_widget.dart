@@ -53,11 +53,13 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
                     )
                   : IconButton(
                       onPressed: () => _togglePlayback(audioService, isPlaying),
+                      tooltip: isPlaying ? 'Pause recitation' : 'Play recitation',
                       icon: Icon(
                         isPlaying
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                         size: 28,
+                        semanticLabel: isPlaying ? 'Pause recitation' : 'Play recitation',
                       ),
                       color: theme.colorScheme.primary,
                       padding: EdgeInsets.zero,
@@ -115,7 +117,9 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
               // Repeat button
               IconButton(
                 onPressed: () => _replay(audioService),
-                icon: const Icon(Icons.replay_rounded, size: 22),
+                tooltip: 'Replay recitation',
+                icon: const Icon(Icons.replay_rounded, size: 22,
+                    semanticLabel: 'Replay recitation'),
                 color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(

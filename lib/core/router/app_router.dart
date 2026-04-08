@@ -15,6 +15,22 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: !hasOnboarded ? '/onboarding' : '/home',
     observers: [TadabburApp.analyticsObserver],
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Page not found',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => GoRouter.of(context).go('/home'),
+              child: const Text('Go home'),
+            ),
+          ],
+        ),
+      ),
+    ),
     routes: [
       GoRoute(
         path: '/onboarding',
@@ -24,13 +40,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       // OAuth callback deep link handler
       GoRoute(
         path: '/oauth/callback',
-        redirect: (context, state) {
+        redirect: (context, state) async {
           final code = state.uri.queryParameters['code'];
           final callbackState = state.uri.queryParameters['state'];
           if (code != null && callbackState != null) {
-            debugPrint('[OAuth] Received callback with auth code');
             final qfAuth = ref.read(qfAuthServiceProvider);
-            qfAuth.exchangeCode(code, state: callbackState);
+            final isValid = await qfAuth.validateState(callbackState);
+            if (isValid) {
+              debugPrint('[OAuth] State validated, exchanging code');
+              qfAuth.exchangeCode(code, state: callbackState);
+            } else {
+              debugPrint('[OAuth] State mismatch — rejecting callback');
+            }
           } else {
             debugPrint('[OAuth] Invalid callback — missing code or state');
           }

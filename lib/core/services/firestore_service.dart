@@ -1,17 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
+
+enum SyncStatus { idle, syncing, failed, success }
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   String? _userId;
 
+  /// Current sync status — UI can watch this to show feedback.
+  SyncStatus _syncStatus = SyncStatus.idle;
+  SyncStatus get syncStatus => _syncStatus;
+  String? _lastSyncError;
+  String? get lastSyncError => _lastSyncError;
+
   /// Pending operations that failed and need retry (capped to prevent memory leaks).
   static const _maxRetryQueue = 50;
   final List<Future<void> Function()> _retryQueue = [];
   bool _retrying = false;
   DateTime? _lastFlushAttempt;
+  int get pendingRetryCount => _retryQueue.length;
 
   void setUser(String userId) {
     _userId = userId;
@@ -29,10 +39,14 @@ class FirestoreService {
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         await operation();
+        _syncStatus = SyncStatus.success;
+        _lastSyncError = null;
         return;
       } catch (e) {
         debugPrint('[Firestore] Attempt $attempt failed: $e');
         if (attempt == maxAttempts) {
+          _syncStatus = SyncStatus.failed;
+          _lastSyncError = e.toString();
           // Queue for later retry (drop oldest if full)
           if (_retryQueue.length >= _maxRetryQueue) {
             _retryQueue.removeAt(0);
@@ -78,6 +92,7 @@ class FirestoreService {
   /// Save a journal entry to Firestore.
   Future<void> saveJournalEntry(JournalEntry entry) async {
     if (_userId == null) return;
+    _syncStatus = SyncStatus.syncing;
     await _withRetry(() async {
       await _db
           .collection('users')
@@ -141,6 +156,39 @@ class FirestoreService {
 
     await _withRetry(() async {
       await _db.collection('users').doc(_userId).set(data, SetOptions(merge: true));
+    });
+  }
+
+  /// Save a bookmark to Firestore.
+  Future<void> saveBookmark(Bookmark bookmark) async {
+    if (_userId == null) return;
+    _syncStatus = SyncStatus.syncing;
+    await _withRetry(() async {
+      await _db
+          .collection('users')
+          .doc(_userId)
+          .collection('bookmarks')
+          .doc(bookmark.verseKey.replaceAll(':', '_'))
+          .set({
+        'verse_key': bookmark.verseKey,
+        'arabic_text': bookmark.arabicText,
+        'translation_text': bookmark.translationText,
+        'bookmarked_at': bookmark.bookmarkedAt.toIso8601String(),
+        'created_at': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  /// Remove a bookmark from Firestore.
+  Future<void> removeBookmark(String verseKey) async {
+    if (_userId == null) return;
+    await _withRetry(() async {
+      await _db
+          .collection('users')
+          .doc(_userId)
+          .collection('bookmarks')
+          .doc(verseKey.replaceAll(':', '_'))
+          .delete();
     });
   }
 

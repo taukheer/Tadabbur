@@ -48,3 +48,8 @@ app.*.map.json
 .env
 .env.*
 !.env.example
+
+# Android release signing
+android/key.properties
+*.jks
+*.keystore

@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
 import 'package:tadabbur/core/services/editorial_service.dart';
@@ -64,6 +67,15 @@ final authUserProvider = StateProvider<AuthUser?>((ref) => null);
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
+});
+
+// --- Connectivity ---
+
+final connectivityProvider = StreamProvider<bool>((ref) {
+  final connectivity = Connectivity();
+  return connectivity.onConnectivityChanged.map(
+    (results) => results.any((r) => r != ConnectivityResult.none),
+  );
 });
 
 // --- Auth State ---
@@ -250,6 +262,96 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
       state = state.copyWith(streakFreezes: state.streakFreezes - 1);
       await _storage.saveProgress(state);
     }
+  }
+}
+
+// --- Bookmarks ---
+
+final bookmarkProvider =
+    StateNotifierProvider<BookmarkNotifier, List<Bookmark>>((ref) {
+  final storage = ref.watch(localStorageProvider);
+  final userApi = ref.watch(userApiProvider);
+  final firestore = ref.watch(firestoreServiceProvider);
+  return BookmarkNotifier(storage, userApi, firestore);
+});
+
+class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
+  final LocalStorageService _storage;
+  final UserApiService _userApi;
+  final FirestoreService _firestore;
+
+  BookmarkNotifier(this._storage, this._userApi, this._firestore)
+      : super(_storage.getBookmarks());
+
+  bool isBookmarked(String verseKey) {
+    return state.any((b) => b.verseKey == verseKey);
+  }
+
+  Future<void> toggle({
+    required String verseKey,
+    required String arabicText,
+    required String translationText,
+  }) async {
+    if (isBookmarked(verseKey)) {
+      await remove(verseKey);
+    } else {
+      await add(
+        verseKey: verseKey,
+        arabicText: arabicText,
+        translationText: translationText,
+      );
+    }
+  }
+
+  Future<void> add({
+    required String verseKey,
+    required String arabicText,
+    required String translationText,
+  }) async {
+    if (isBookmarked(verseKey)) return;
+
+    final bookmark = Bookmark(
+      verseKey: verseKey,
+      arabicText: arabicText,
+      translationText: translationText,
+      bookmarkedAt: DateTime.now(),
+    );
+
+    state = [bookmark, ...state];
+    await _storage.saveBookmarks(state);
+
+    // Sync to QF API (fire-and-forget)
+    _userApi.addBookmark(verseKey).catchError((_) {});
+
+    // Sync to Firestore (fire-and-forget)
+    _firestore.saveBookmark(bookmark).catchError((_) {});
+
+    // Analytics
+    FirebaseAnalytics.instance.logEvent(
+      name: 'bookmark_added',
+      parameters: {'verse_key': verseKey},
+    ).catchError((_) {});
+  }
+
+  Future<void> remove(String verseKey) async {
+    final idx = state.indexWhere((b) => b.verseKey == verseKey);
+    final bookmark = idx >= 0 ? state[idx] : null;
+
+    state = state.where((b) => b.verseKey != verseKey).toList();
+    await _storage.saveBookmarks(state);
+
+    // Sync removal to Firestore
+    _firestore.removeBookmark(verseKey).catchError((_) {});
+
+    // If we have a QF bookmark ID, remove via API too
+    if (bookmark?.qfBookmarkId != null) {
+      _userApi.removeBookmark(bookmark!.qfBookmarkId!).catchError((_) {});
+    }
+
+    FirebaseAnalytics.instance.logEvent(
+      name: 'bookmark_removed',
+      parameters: {'verse_key': verseKey},
+    ).catchError((_) {});
   }
 }
 

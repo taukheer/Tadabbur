@@ -33,6 +33,7 @@ class JournalEntry {
       translationText: json['translation_text'] as String,
       tier: ReflectionTier.values.firstWhere(
         (e) => e.name == json['tier'],
+        orElse: () => ReflectionTier.acknowledge,
       ),
       promptText: json['prompt_text'] as String?,
       responseText: json['response_text'] as String?,

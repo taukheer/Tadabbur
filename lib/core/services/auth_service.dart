@@ -51,7 +51,7 @@ class AuthService {
 
     // Check local storage for cached user
     final id = _storage.userId;
-    if (id != null && id != 'guest' && id != 'local') {
+    if (id != null && !_storage.isGuest && id != 'local') {
       _currentUser = AuthUser(
         id: id,
         name: _storage.userName ?? 'User',

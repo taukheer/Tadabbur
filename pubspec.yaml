@@ -1,7 +1,7 @@
 name: tadabbur
 description: "One Ayah. Every Day. For Life. Your spiritual autobiography through the Quran."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.11.0
@@ -57,6 +57,7 @@ dependencies:
   path_provider: ^2.1.5
   in_app_review: ^2.0.10
 
+  connectivity_plus: ^6.1.4
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

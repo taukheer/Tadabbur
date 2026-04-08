@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart' show LocalStorageService, AuthType;
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -40,8 +40,7 @@ class QFAuthService {
   String? get accessToken => _storage.authToken;
   bool get isAuthenticated =>
       _storage.authToken != null &&
-      _storage.authToken != 'guest' &&
-      !_storage.authToken!.startsWith('google_');
+      _storage.authType == AuthType.quranFoundation;
 
   /// Generate PKCE code verifier and challenge.
   static ({String verifier, String challenge}) _generatePKCE() {
