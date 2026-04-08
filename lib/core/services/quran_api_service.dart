@@ -34,10 +34,10 @@ class QuranApiService {
     String? language,
   }) async {
     final queryParams = <String, dynamic>{
-      'language': ?language,
-      'translations': ?translationId,
       'fields': 'text_uthmani,text_simple',
     };
+    if (language != null) queryParams['language'] = language;
+    if (translationId != null) queryParams['translations'] = translationId;
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
@@ -226,9 +226,8 @@ class QuranApiService {
   ///
   /// QDC response shape: `{"chapters": [...]}`
   Future<List<Surah>> getAllChapters({String? language}) async {
-    final queryParams = <String, dynamic>{
-      'language': ?language,
-    };
+    final queryParams = <String, dynamic>{};
+    if (language != null) queryParams['language'] = language;
 
     try {
       final response = await _client.get<Map<String, dynamic>>(

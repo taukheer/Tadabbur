@@ -48,10 +48,9 @@ class UserApiService {
     int? page,
     int? perPage,
   }) async {
-    final queryParams = <String, dynamic>{
-      'page': ?page,
-      'per_page': ?perPage,
-    };
+    final queryParams = <String, dynamic>{};
+    if (page != null) queryParams['page'] = page;
+    if (perPage != null) queryParams['per_page'] = perPage;
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
