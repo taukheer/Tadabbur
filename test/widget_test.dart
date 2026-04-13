@@ -64,10 +64,16 @@ class FakeUserApiService extends UserApiService {
 /// All methods are no-ops so they don't touch Firestore.
 class FakeFirestoreService extends FirestoreService {
   @override
-  Future<void> saveProgress(Map<String, dynamic> progress) async {}
+  Future<void> saveProgress(
+    Map<String, dynamic> progress, {
+    LocalStorageService? storage,
+  }) async {}
 
   @override
-  Future<void> saveJournalEntry(JournalEntry entry) async {}
+  Future<void> saveJournalEntry(
+    JournalEntry entry, {
+    LocalStorageService? storage,
+  }) async {}
 
   @override
   void setUser(String userId) {}

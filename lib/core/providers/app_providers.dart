@@ -195,8 +195,8 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
     // Sync with QF User APIs (fire-and-forget, don't block UI)
     _syncWithQF(now);
 
-    // Sync progress to Firestore
-    _firestore.saveProgress(state.toJson()).catchError((_) {});
+    // Sync progress to Firestore (pending flag tracked in storage for replay)
+    _firestore.saveProgress(state.toJson(), storage: _storage).catchError((_) {});
   }
 
   /// Sync activity with Quran Foundation APIs.
@@ -323,8 +323,8 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     // Sync to QF API (fire-and-forget)
     _userApi.addBookmark(verseKey).catchError((_) {});
 
-    // Sync to Firestore (fire-and-forget)
-    _firestore.saveBookmark(bookmark).catchError((_) {});
+    // Sync to Firestore (pending key tracked in storage for replay)
+    _firestore.saveBookmark(bookmark, storage: _storage).catchError((_) {});
 
     // Analytics
     FirebaseAnalytics.instance.logEvent(
@@ -340,8 +340,8 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     state = state.where((b) => b.verseKey != verseKey).toList();
     await _storage.saveBookmarks(state);
 
-    // Sync removal to Firestore
-    _firestore.removeBookmark(verseKey).catchError((_) {});
+    // Sync removal to Firestore (pending key tracked for replay)
+    _firestore.removeBookmark(verseKey, storage: _storage).catchError((_) {});
 
     // If we have a QF bookmark ID, remove via API too
     if (bookmark?.qfBookmarkId != null) {
@@ -388,8 +388,8 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
       },
     ).catchError((_) {});
 
-    // Sync to Firestore (fire-and-forget)
-    _firestore.saveJournalEntry(entry).catchError((_) {});
+    // Sync to Firestore (pending ID tracked in storage for replay)
+    _firestore.saveJournalEntry(entry, storage: _storage).catchError((_) {});
 
     // Sync to QF Post API (fire-and-forget)
     _syncReflectionToQF(entry);

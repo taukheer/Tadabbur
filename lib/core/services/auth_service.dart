@@ -58,6 +58,8 @@ class AuthService {
         email: '',
       );
       _firestore.setUser(id);
+      // Replay any writes that failed to sync before this session.
+      _firestore.flushPendingSyncs(_storage).catchError((_) {});
     }
     return _currentUser;
   }
@@ -165,6 +167,8 @@ class AuthService {
         email: _currentUser!.email,
         photoUrl: _currentUser!.photoUrl,
       ).catchError((_) {});
+      // Replay any writes that failed to sync before this session.
+      _firestore.flushPendingSyncs(_storage).catchError((_) {});
       // Restore cloud data if local is empty (new device / reinstall)
       await _restoreFromCloud();
     }

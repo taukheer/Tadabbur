@@ -41,6 +41,7 @@ class AyahDisplay extends StatelessWidget {
           if (ayahNum == 1 && surahNum != 1 && surahNum != 9) ...[
             Text(
               'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+              locale: const Locale('ar'),
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
               style: TextStyle(
@@ -64,6 +65,7 @@ class AyahDisplay extends StatelessWidget {
             label: 'Quranic verse ${ayah.verseKey}',
             child: Text(
               ayah.textUthmani,
+              locale: const Locale('ar'),
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
               textScaler: const TextScaler.linear(1.0),

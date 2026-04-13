@@ -175,6 +175,7 @@ void _openBookmarkDetail(
             // Arabic text
             Text(
               bookmark.arabicText,
+              locale: const Locale('ar'),
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -322,6 +323,7 @@ class _BookmarkCard extends ConsumerWidget {
           // Arabic text (truncated)
           Text(
             bookmark.arabicText,
+            locale: const Locale('ar'),
             textDirection: TextDirection.rtl,
             textAlign: TextAlign.right,
             maxLines: 2,

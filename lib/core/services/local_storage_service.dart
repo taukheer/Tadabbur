@@ -263,6 +263,93 @@ class LocalStorageService {
     await saveJournalEntries(entries);
   }
 
+  // --- Daily Ayah Offline Cache ---
+  // Stores the last successfully loaded daily ayah payload so the app can
+  // fall back to cached content when the QF API is unreachable.
+
+  static const _keyCachedDailyAyah = 'cached_daily_ayah';
+
+  Map<String, dynamic>? getCachedDailyAyah() {
+    final json = _prefs.getString(_keyCachedDailyAyah);
+    if (json == null) return null;
+    try {
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveCachedDailyAyah(Map<String, dynamic> payload) =>
+      _prefs.setString(_keyCachedDailyAyah, jsonEncode(payload));
+
+  // --- Pending Firestore Sync ---
+  // Tracks IDs of local writes that haven't been confirmed to Firestore yet.
+  // On startup we replay these so a crash during sync doesn't lose cloud state.
+
+  static const _keyPendingJournalSync = 'pending_journal_sync';
+  static const _keyPendingBookmarkSync = 'pending_bookmark_sync';
+  static const _keyPendingBookmarkRemoval = 'pending_bookmark_removal';
+  static const _keyPendingProgressSync = 'pending_progress_sync';
+
+  List<String> getPendingJournalSyncIds() =>
+      _prefs.getStringList(_keyPendingJournalSync) ?? const [];
+
+  Future<void> addPendingJournalSyncId(String id) async {
+    final list = getPendingJournalSyncIds().toList();
+    if (!list.contains(id)) {
+      list.add(id);
+      await _prefs.setStringList(_keyPendingJournalSync, list);
+    }
+  }
+
+  Future<void> removePendingJournalSyncId(String id) async {
+    final list = getPendingJournalSyncIds().toList();
+    if (list.remove(id)) {
+      await _prefs.setStringList(_keyPendingJournalSync, list);
+    }
+  }
+
+  List<String> getPendingBookmarkSyncKeys() =>
+      _prefs.getStringList(_keyPendingBookmarkSync) ?? const [];
+
+  Future<void> addPendingBookmarkSyncKey(String verseKey) async {
+    final list = getPendingBookmarkSyncKeys().toList();
+    if (!list.contains(verseKey)) {
+      list.add(verseKey);
+      await _prefs.setStringList(_keyPendingBookmarkSync, list);
+    }
+  }
+
+  Future<void> removePendingBookmarkSyncKey(String verseKey) async {
+    final list = getPendingBookmarkSyncKeys().toList();
+    if (list.remove(verseKey)) {
+      await _prefs.setStringList(_keyPendingBookmarkSync, list);
+    }
+  }
+
+  List<String> getPendingBookmarkRemovalKeys() =>
+      _prefs.getStringList(_keyPendingBookmarkRemoval) ?? const [];
+
+  Future<void> addPendingBookmarkRemovalKey(String verseKey) async {
+    final list = getPendingBookmarkRemovalKeys().toList();
+    if (!list.contains(verseKey)) {
+      list.add(verseKey);
+      await _prefs.setStringList(_keyPendingBookmarkRemoval, list);
+    }
+  }
+
+  Future<void> removePendingBookmarkRemovalKey(String verseKey) async {
+    final list = getPendingBookmarkRemovalKeys().toList();
+    if (list.remove(verseKey)) {
+      await _prefs.setStringList(_keyPendingBookmarkRemoval, list);
+    }
+  }
+
+  bool get hasPendingProgressSync => _prefs.getBool(_keyPendingProgressSync) ?? false;
+
+  Future<void> setPendingProgressSync(bool pending) =>
+      _prefs.setBool(_keyPendingProgressSync, pending);
+
   // --- Clear All ---
 
   Future<void> clearAll() => _prefs.clear();

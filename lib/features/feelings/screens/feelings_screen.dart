@@ -192,6 +192,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
           // Arabic
           Text(
             _ayah!.textUthmani,
+            locale: const Locale('ar'),
             textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
             style: ArabicFonts.getStyle(arabicFontId, fontSize: arabicFontSize)

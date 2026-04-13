@@ -108,6 +108,7 @@ class _WordCard extends StatelessWidget {
         children: [
           Text(
             word.textUthmani,
+            locale: const Locale('ar'),
             textDirection: TextDirection.rtl,
             style: TextStyle(
               fontFamily: 'AmiriQuran',

@@ -516,6 +516,7 @@ void _openEntryDetail(
             // Arabic text
             Text(
               entry.arabicText,
+              locale: const Locale('ar'),
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -660,6 +661,7 @@ void _openBookmarkDetail(
             // Arabic text
             Text(
               bookmark.arabicText,
+              locale: const Locale('ar'),
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -830,6 +832,7 @@ class _JournalCard extends StatelessWidget {
           Center(
             child: Text(
               entry.arabicText,
+              locale: const Locale('ar'),
               textDirection: TextDirection.rtl,
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -1010,6 +1013,7 @@ class _BookmarkCardCompact extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     bookmark.arabicText,
+                    locale: const Locale('ar'),
                     textDirection: TextDirection.rtl,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

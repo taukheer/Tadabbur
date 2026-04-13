@@ -396,6 +396,7 @@ class SettingsScreen extends ConsumerWidget {
                                 const SizedBox(height: 6),
                                 Text(
                                   'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+                                  locale: const Locale('ar'),
                                   textDirection: TextDirection.rtl,
                                   style: ArabicFonts.getStyle(font.id, fontSize: 22)
                                       .copyWith(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
@@ -25,6 +26,8 @@ class ReflectionScreen extends ConsumerStatefulWidget {
 }
 
 class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
+  static const _maxReflectionLength = 2000;
+
   final _textController = TextEditingController();
   bool _isSaving = false;
   bool _isComplete = false;
@@ -75,6 +78,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 padding: const EdgeInsets.fromLTRB(36, 8, 36, 0),
                 child: Text(
                   widget.ayah.textUthmani,
+                  locale: const Locale('ar'),
                   textDirection: TextDirection.rtl,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -149,6 +153,10 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   focusNode: _focusNode,
                   maxLines: null,
                   minLines: 6,
+                  maxLength: _maxReflectionLength,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(_maxReflectionLength),
+                  ],
                   style: theme.textTheme.bodyLarge?.copyWith(
                     height: 1.8,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.8),

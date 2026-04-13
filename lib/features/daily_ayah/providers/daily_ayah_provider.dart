@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,7 @@ class DailyAyahState {
   final bool todayCompleted;
   final String? revelationType;
   final String? tafsirSummary;
+  final bool isFromCache;
 
   /// The 14 sajdah (prostration) verses in the Quran.
   static const sajdahVerses = {
@@ -46,6 +48,7 @@ class DailyAyahState {
     this.todayCompleted = false,
     this.revelationType,
     this.tafsirSummary,
+    this.isFromCache = false,
   });
 
   DailyAyahState copyWith({
@@ -61,6 +64,7 @@ class DailyAyahState {
     bool? todayCompleted,
     String? revelationType,
     String? tafsirSummary,
+    bool? isFromCache,
   }) {
     return DailyAyahState(
       loadingState: loadingState ?? this.loadingState,
@@ -75,6 +79,7 @@ class DailyAyahState {
       todayCompleted: todayCompleted ?? this.todayCompleted,
       revelationType: revelationType ?? this.revelationType,
       tafsirSummary: tafsirSummary ?? this.tafsirSummary,
+      isFromCache: isFromCache ?? this.isFromCache,
     );
   }
 }
@@ -94,26 +99,29 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   Future<void> loadDailyAyah() async {
     state = const DailyAyahState(loadingState: AyahLoadingState.loading);
 
+    final progress = _ref.read(userProgressProvider);
+    final verseKey = progress.currentVerseKey;
+    final storage = _ref.read(localStorageProvider);
+
+    // Check if already completed today (skip if user chose to continue)
+    bool todayCompleted = false;
+    if (!_skipTodayCheck) {
+      final lastCompleted = progress.lastCompletedAt;
+      final now = DateTime.now();
+      todayCompleted = lastCompleted != null &&
+          lastCompleted.year == now.year &&
+          lastCompleted.month == now.month &&
+          lastCompleted.day == now.day;
+    }
+
     try {
-      final progress = _ref.read(userProgressProvider);
-      final verseKey = progress.currentVerseKey;
       final quranApi = _ref.read(quranApiProvider);
       final editorialService = _ref.read(editorialServiceProvider);
-      final storage = _ref.read(localStorageProvider);
 
-      // Check if already completed today (skip if user chose to continue)
-      bool todayCompleted = false;
-      if (!_skipTodayCheck) {
-        final lastCompleted = progress.lastCompletedAt;
-        final now = DateTime.now();
-        todayCompleted = lastCompleted != null &&
-            lastCompleted.year == now.year &&
-            lastCompleted.month == now.month &&
-            lastCompleted.day == now.day;
-      }
-
-      // Fetch ayah data, words, editorial, surah info in parallel + local tafsir
+      // Fetch ayah data, words, editorial, surah info, audio in parallel
+      // + local tafsir from bundled assets.
       final surahNum = int.tryParse(verseKey.split(':').first) ?? 1;
+      final reciterId = storage.preferredReciterId;
 
       final results = await Future.wait([
         quranApi.getVerseByKey(verseKey,
@@ -122,6 +130,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         editorialService.getEditorialContent(verseKey, lang: storage.language),
         quranApi.getChapter(surahNum),
         _loadTafsirSummary(verseKey, storage.language),
+        _resolveAudioUrl(quranApi, reciterId, verseKey, storage.reciterPath),
       ]);
 
       final ayah = results[0] as Ayah;
@@ -129,14 +138,20 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       final editorial = results[2] as EditorialContent?;
       final surah = results[3] as dynamic;
       final tafsirSummary = results[4] as String?;
+      final audioUrl = results[5] as String;
+      final revelationType = surah.revelationType as String?;
 
-      // Build audio URL from CDN with selected reciter
-      final reciterPath = storage.reciterPath;
-      final parts = verseKey.split(':');
-      final chapterPadded = parts[0].padLeft(3, '0');
-      final versePadded = parts[1].padLeft(3, '0');
-      final audioUrl =
-          'https://verses.quran.com/$reciterPath/mp3/$chapterPadded$versePadded.mp3';
+      // Persist the successful payload so we can fall back to it when offline.
+      unawaited(storage.saveCachedDailyAyah({
+        'verse_key': verseKey,
+        'ayah': ayah.toJson(),
+        'words': words.map((w) => w.toJson()).toList(),
+        if (editorial != null) 'editorial': editorial.toJson(),
+        'audio_url': audioUrl,
+        'revelation_type': revelationType,
+        'tafsir_summary': tafsirSummary,
+        'cached_at': DateTime.now().toIso8601String(),
+      }));
 
       state = state.copyWith(
         loadingState: AyahLoadingState.loaded,
@@ -145,14 +160,76 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         editorial: editorial,
         audioUrl: audioUrl,
         todayCompleted: todayCompleted,
-        revelationType: surah.revelationType as String?,
+        revelationType: revelationType,
         tafsirSummary: tafsirSummary,
+        isFromCache: false,
       );
     } catch (e) {
+      // API failed — try to restore the last successful load from cache.
+      final cached = _restoreFromCache(storage, verseKey, todayCompleted);
+      if (cached != null) {
+        state = cached;
+        return;
+      }
       state = state.copyWith(
         loadingState: AyahLoadingState.error,
         errorMessage: e.toString(),
       );
+    }
+  }
+
+  /// Resolve the audio URL for a verse via the QF recitations endpoint.
+  /// Falls back to the legacy verses.quran.com path if the API call fails,
+  /// so audio still works when the recitations endpoint is unavailable.
+  Future<String> _resolveAudioUrl(
+    dynamic quranApi,
+    int reciterId,
+    String verseKey,
+    String reciterPath,
+  ) async {
+    try {
+      return await quranApi.getAudioUrl(reciterId, verseKey) as String;
+    } catch (_) {
+      final parts = verseKey.split(':');
+      final chapterPadded = parts[0].padLeft(3, '0');
+      final versePadded = parts[1].padLeft(3, '0');
+      return 'https://verses.quran.com/$reciterPath/mp3/$chapterPadded$versePadded.mp3';
+    }
+  }
+
+  /// Restore a previously cached daily ayah payload for [verseKey], if one
+  /// exists. Returns null if the cache is empty or for a different verse.
+  DailyAyahState? _restoreFromCache(
+    dynamic storage,
+    String verseKey,
+    bool todayCompleted,
+  ) {
+    try {
+      final payload = storage.getCachedDailyAyah() as Map<String, dynamic>?;
+      if (payload == null) return null;
+      if (payload['verse_key'] != verseKey) return null;
+
+      final ayah = Ayah.fromJson(payload['ayah'] as Map<String, dynamic>);
+      final words = (payload['words'] as List<dynamic>? ?? [])
+          .map((w) => Word.fromJson(w as Map<String, dynamic>))
+          .toList();
+      final editorialJson = payload['editorial'] as Map<String, dynamic>?;
+      final editorial =
+          editorialJson != null ? EditorialContent.fromJson(editorialJson) : null;
+
+      return DailyAyahState(
+        loadingState: AyahLoadingState.loaded,
+        ayah: ayah,
+        words: words,
+        editorial: editorial,
+        audioUrl: payload['audio_url'] as String?,
+        todayCompleted: todayCompleted,
+        revelationType: payload['revelation_type'] as String?,
+        tafsirSummary: payload['tafsir_summary'] as String?,
+        isFromCache: true,
+      );
+    } catch (_) {
+      return null;
     }
   }
 

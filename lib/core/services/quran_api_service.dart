@@ -16,7 +16,30 @@ class QuranApiService {
   /// be prefixed with this.
   static const String _audioCdnBase = 'https://audio.qurancdn.com/';
 
+  /// Simple in-memory cache for parsed API results.
+  /// Verse/word/chapter/audio data is immutable, so entries never expire.
+  /// Capped at [_cacheMaxEntries] with insertion-order eviction.
+  static const int _cacheMaxEntries = 64;
+  final Map<String, dynamic> _cache = <String, dynamic>{};
+
   QuranApiService(this._client);
+
+  /// Run [loader] once per unique [key] and cache the result.
+  /// On cache hit, returns immediately without touching the network.
+  Future<T> _cached<T>(String key, Future<T> Function() loader) async {
+    final hit = _cache[key];
+    if (hit is T) return hit;
+    final result = await loader();
+    _cache[key] = result;
+    if (_cache.length > _cacheMaxEntries) {
+      _cache.remove(_cache.keys.first);
+    }
+    return result;
+  }
+
+  /// Clears the cache. Call after settings changes that affect API responses
+  /// (e.g. translation language, reciter) so the next read is fresh.
+  void clearCache() => _cache.clear();
 
   // ---------------------------------------------------------------------------
   // Verses
@@ -68,32 +91,35 @@ class QuranApiService {
     String verseKey, {
     String? translationId,
   }) async {
-    final queryParams = <String, dynamic>{
-      'translations': translationId ?? '20',
-      'fields': 'text_uthmani,text_simple,chapter_id,verse_number,juz_number,hizb_number,page_number',
-      'language': 'en',
-    };
+    final resolvedTranslationId = translationId ?? '20';
+    return _cached('verse:$verseKey:$resolvedTranslationId', () async {
+      final queryParams = <String, dynamic>{
+        'translations': resolvedTranslationId,
+        'fields': 'text_uthmani,text_simple,chapter_id,verse_number,juz_number,hizb_number,page_number',
+        'language': 'en',
+      };
 
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/verses/by_key/$verseKey',
-        queryParameters: queryParams,
-      );
-
-      final data = response.data;
-      if (data == null || data['verse'] == null) {
-        throw ApiException(
-          message: 'Verse not found: $verseKey',
-          statusCode: 404,
+      try {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/verses/by_key/$verseKey',
+          queryParameters: queryParams,
         );
-      }
 
-      return _parseVerseJson(data['verse'] as Map<String, dynamic>);
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to fetch verse $verseKey: $e');
-    }
+        final data = response.data;
+        if (data == null || data['verse'] == null) {
+          throw ApiException(
+            message: 'Verse not found: $verseKey',
+            statusCode: 404,
+          );
+        }
+
+        return _parseVerseJson(data['verse'] as Map<String, dynamic>);
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(message: 'Failed to fetch verse $verseKey: $e');
+      }
+    });
   }
 
   /// Fetches word-by-word breakdown for a verse.
@@ -101,37 +127,39 @@ class QuranApiService {
   /// Words are nested inside the verse response under the `words` array
   /// when the `word_fields` parameter is provided.
   Future<List<Word>> getWordsByVerse(String verseKey) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/verses/by_key/$verseKey',
-        queryParameters: <String, dynamic>{
-          'words': 'true',
-          'word_fields': 'text_uthmani,char_type_name',
-          'word_translation_language': 'en',
-        },
-      );
+    return _cached('words:$verseKey', () async {
+      try {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/verses/by_key/$verseKey',
+          queryParameters: <String, dynamic>{
+            'words': 'true',
+            'word_fields': 'text_uthmani,char_type_name',
+            'word_translation_language': 'en',
+          },
+        );
 
-      final data = response.data;
-      if (data == null || data['verse'] == null) {
-        return [];
+        final data = response.data;
+        if (data == null || data['verse'] == null) {
+          return <Word>[];
+        }
+
+        final verse = data['verse'] as Map<String, dynamic>;
+        final words = verse['words'] as List<dynamic>?;
+        if (words == null) {
+          return <Word>[];
+        }
+
+        return words
+            .map((json) => _parseWordJson(json as Map<String, dynamic>))
+            .toList();
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(
+          message: 'Failed to fetch words for $verseKey: $e',
+        );
       }
-
-      final verse = data['verse'] as Map<String, dynamic>;
-      final words = verse['words'] as List<dynamic>?;
-      if (words == null) {
-        return [];
-      }
-
-      return words
-          .map((json) => _parseWordJson(json as Map<String, dynamic>))
-          .toList();
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(
-        message: 'Failed to fetch words for $verseKey: $e',
-      );
-    }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -144,51 +172,53 @@ class QuranApiService {
   /// Response shape: `{"audio_files": [{"verse_key": "1:1", "url": "..."}]}`
   /// The `url` field is a relative path that needs the audio CDN prefix.
   Future<String> getAudioUrl(int reciterId, String verseKey) async {
-    try {
-      final parts = verseKey.split(':');
-      final chapter = parts[0];
-      final ayahNum = parts[1];
+    return _cached('audio:$reciterId:$verseKey', () async {
+      try {
+        final parts = verseKey.split(':');
+        final chapter = parts[0];
+        final ayahNum = parts[1];
 
-      final response = await _client.get<Map<String, dynamic>>(
-        '/recitations/$reciterId/by_chapter/$chapter',
-      );
-
-      final data = response.data;
-      if (data == null || data['audio_files'] == null) {
-        throw ApiException(
-          message: 'Audio not found for reciter $reciterId, chapter $chapter',
-          statusCode: 404,
+        final response = await _client.get<Map<String, dynamic>>(
+          '/recitations/$reciterId/by_chapter/$chapter',
         );
-      }
 
-      final audioFiles = data['audio_files'] as List<dynamic>;
-      // Find the audio file matching the specific verse
-      final match = audioFiles.firstWhere(
-        (f) => f['verse_key'] == verseKey ||
-            f['verse_key'] == '$chapter:$ayahNum',
-        orElse: () => audioFiles.isNotEmpty ? audioFiles.first : null,
-      );
+        final data = response.data;
+        if (data == null || data['audio_files'] == null) {
+          throw ApiException(
+            message: 'Audio not found for reciter $reciterId, chapter $chapter',
+            statusCode: 404,
+          );
+        }
 
-      if (match == null) {
-        throw ApiException(
-          message: 'No audio files available for $verseKey',
-          statusCode: 404,
+        final audioFiles = data['audio_files'] as List<dynamic>;
+        // Find the audio file matching the specific verse
+        final match = audioFiles.firstWhere(
+          (f) => f['verse_key'] == verseKey ||
+              f['verse_key'] == '$chapter:$ayahNum',
+          orElse: () => audioFiles.isNotEmpty ? audioFiles.first : null,
         );
-      }
 
-      final fileMap = match as Map<String, dynamic>;
-      final relativePath = fileMap['url'] as String;
+        if (match == null) {
+          throw ApiException(
+            message: 'No audio files available for $verseKey',
+            statusCode: 404,
+          );
+        }
 
-      // The API returns a relative path; prepend the CDN base URL.
-      if (relativePath.startsWith('http')) {
-        return relativePath;
+        final fileMap = match as Map<String, dynamic>;
+        final relativePath = fileMap['url'] as String;
+
+        // The API returns a relative path; prepend the CDN base URL.
+        if (relativePath.startsWith('http')) {
+          return relativePath;
+        }
+        return '$_audioCdnBase$relativePath';
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(message: 'Failed to fetch audio URL: $e');
       }
-      return '$_audioCdnBase$relativePath';
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to fetch audio URL: $e');
-    }
+    });
   }
 
   /// Fetches the list of available reciters.
@@ -257,25 +287,27 @@ class QuranApiService {
   ///
   /// QDC response shape: `{"chapter": {...}}`
   Future<Surah> getChapter(int chapterNum) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/chapters/$chapterNum',
-      );
-
-      final data = response.data;
-      if (data == null || data['chapter'] == null) {
-        throw ApiException(
-          message: 'Chapter not found: $chapterNum',
-          statusCode: 404,
+    return _cached('chapter:$chapterNum', () async {
+      try {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/chapters/$chapterNum',
         );
-      }
 
-      return _parseChapterJson(data['chapter'] as Map<String, dynamic>);
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to fetch chapter $chapterNum: $e');
-    }
+        final data = response.data;
+        if (data == null || data['chapter'] == null) {
+          throw ApiException(
+            message: 'Chapter not found: $chapterNum',
+            statusCode: 404,
+          );
+        }
+
+        return _parseChapterJson(data['chapter'] as Map<String, dynamic>);
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(message: 'Failed to fetch chapter $chapterNum: $e');
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------

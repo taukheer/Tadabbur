@@ -304,6 +304,7 @@ class DailyAyahScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Text(
               ayah.textUthmani,
+              locale: const Locale('ar'),
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
               // Scale down font for long ayat to prevent screen overflow
