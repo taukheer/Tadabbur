@@ -139,6 +139,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _signInWithQuranCom() async {
+    debugPrint('[Button] Onboarding: Quran.com sign-in tapped');
     final qfAuth = ref.read(qfAuthServiceProvider);
     await qfAuth.launchLogin();
     // The OAuth callback will be handled by deep link
@@ -150,19 +151,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       Theme.of(context).platform == TargetPlatform.iOS;
 
   Future<void> _signInWithGoogle() async {
-    final authService = ref.read(authServiceProvider);
-    final user = await authService.signInWithGoogle();
-
-    if (user != null) {
-      ref.read(authUserProvider.notifier).state = user;
-      ref.read(firestoreServiceProvider).setUser(user.id);
-      await _completeOnboarding(asGuest: false);
-    } else {
-      await _completeOnboarding(asGuest: true);
-    }
+    debugPrint('[Button] Onboarding: Google sign-in tapped');
+    // Firebase google_sign_in is not fully configured for the release
+    // build (SHA-1 fingerprint not registered), so we route through
+    // the working Quran Foundation OAuth flow — it offers Google as
+    // one of the federated sign-in options on the QF-branded login
+    // page, and produces a real QF access token that unlocks the
+    // User APIs. Inlined (not delegating to _signInWithQuranCom) so
+    // each button has a single, distinct log entry.
+    final qfAuth = ref.read(qfAuthServiceProvider);
+    await qfAuth.launchLogin();
+    await _completeOnboarding(asGuest: true);
   }
 
   Future<void> _signInWithApple() async {
+    debugPrint('[Button] Onboarding: Apple sign-in tapped');
     final authService = ref.read(authServiceProvider);
     final user = await authService.signInWithApple();
 

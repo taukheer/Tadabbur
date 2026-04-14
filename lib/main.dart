@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,7 +67,7 @@ void main() async {
   );
 }
 
-class TadabburApp extends ConsumerWidget {
+class TadabburApp extends ConsumerStatefulWidget {
   const TadabburApp({super.key});
 
   static final _analytics = FirebaseAnalytics.instance;
@@ -72,7 +75,80 @@ class TadabburApp extends ConsumerWidget {
       FirebaseAnalyticsObserver(analytics: _analytics);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TadabburApp> createState() => _TadabburAppState();
+}
+
+class _TadabburAppState extends ConsumerState<TadabburApp> {
+  late final AppLinks _appLinks;
+  StreamSubscription<Uri>? _linkSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _appLinks = AppLinks();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initDeepLinks());
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initDeepLinks() async {
+    try {
+      final initial = await _appLinks.getInitialLink();
+      if (initial != null) {
+        _handleUri(initial);
+      }
+    } catch (e) {
+      debugPrint('[DeepLink] initial link error: $e');
+    }
+
+    _linkSub = _appLinks.uriLinkStream.listen(
+      _handleUri,
+      onError: (Object e) => debugPrint('[DeepLink] stream error: $e'),
+    );
+  }
+
+  void _handleUri(Uri uri) {
+    debugPrint('[DeepLink] Received URI: $uri');
+
+    if (uri.scheme != 'com.tadabbur.tadabbur') {
+      return;
+    }
+    if (uri.host != 'oauth' || uri.path != '/callback') {
+      debugPrint('[DeepLink] ignoring unrelated deep link');
+      return;
+    }
+
+    final error = uri.queryParameters['error'];
+    if (error != null) {
+      debugPrint(
+        '[DeepLink] OAuth error: $error '
+        '(${uri.queryParameters['error_description'] ?? 'no description'})',
+      );
+      return;
+    }
+
+    final code = uri.queryParameters['code'];
+    final state = uri.queryParameters['state'];
+    if (code == null || state == null) {
+      debugPrint('[DeepLink] Missing code or state in OAuth callback');
+      return;
+    }
+
+    debugPrint('[DeepLink] Routing to /oauth/callback');
+    final router = ref.read(routerProvider);
+    router.go(
+      '/oauth/callback'
+      '?code=${Uri.encodeComponent(code)}'
+      '&state=${Uri.encodeComponent(state)}',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

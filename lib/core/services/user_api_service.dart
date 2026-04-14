@@ -1,153 +1,223 @@
-import 'package:tadabbur/core/services/api_client.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tadabbur/core/services/api_client.dart' show ApiException;
+import 'package:tadabbur/core/services/local_storage_service.dart';
 
-/// Service for user-specific API operations that require authentication.
+/// Service for Quran Foundation User API operations.
 ///
-/// Handles reflections (posts), streaks, activity tracking, bookmarks,
-/// and user preferences through the QDC user endpoints.
+/// Uses its OWN Dio client, separate from the content-API `ApiClient`:
+/// - Content API lives at `api.qurancdn.com/api/qdc` (public, no auth).
+/// - User API lives at `apis.quran.foundation/auth/v1` (pre-prod:
+///   `apis-prelive.quran.foundation/auth/v1`) and needs two headers:
+///   `x-auth-token` (the JWT access token) and `x-client-id`.
+///
+/// Base URL and client id are injected at build time via --dart-define.
 class UserApiService {
-  final ApiClient _client;
+  final LocalStorageService _storage;
+  late final Dio _dio;
 
-  UserApiService(this._client);
+  static const _baseUrl = String.fromEnvironment(
+    'QF_USER_API_BASE',
+    defaultValue: 'https://apis-prelive.quran.foundation/auth',
+  );
+  static const _clientId = String.fromEnvironment(
+    'QF_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  // Mushaf ID 4 = UthmaniHafs — matches the script used for
+  // text_uthmani in the content API.
+  static const _mushafId = 4;
+
+  UserApiService(this._storage) {
+    _dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-client-id': _clientId,
+      },
+    ));
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final token = _storage.authToken;
+        if (token != null && token.isNotEmpty && token != 'guest') {
+          options.headers['x-auth-token'] = token;
+        }
+        handler.next(options);
+      },
+    ));
+  }
 
   // ---------------------------------------------------------------------------
-  // Reflections (Posts)
+  // Reflections (Notes)
   // ---------------------------------------------------------------------------
 
-  /// Saves a user reflection for a specific verse.
+  /// Saves a user reflection as a Quran Foundation note tied to a verse.
   ///
-  /// [verseKey] identifies the verse (e.g. "2:255").
-  /// [body] is the reflection text.
-  /// [metadata] can include additional context like reflection tier, prompt, etc.
+  /// QF has two post-like endpoints: `/v1/posts` (social Quran Reflect
+  /// posts requiring a `roomId` and other social fields) and `/v1/notes`
+  /// (personal reflections attached to verse ranges). Tadabbur
+  /// reflections are personal, so we use `/v1/notes`.
+  ///
+  /// The server enforces a minimum body length of 6 characters; short
+  /// acknowledgements are padded to satisfy that.
   Future<void> saveReflection(
     String verseKey,
     String body, {
     Map<String, dynamic>? metadata,
   }) async {
+    debugPrint('[UserApi] POST /v1/notes — saveReflection($verseKey)');
     try {
-      await _client.post<Map<String, dynamic>>(
-        '/posts',
+      final safeBody = body.length >= 6
+          ? body
+          : '$body — Tadabbur reflection on $verseKey';
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/v1/notes',
+        options: Options(validateStatus: (_) => true),
         data: {
-          'post': {
-            'verse_key': verseKey,
-            'body': body,
-            if (metadata != null) ...metadata,
-          },
+          'body': safeBody,
+          'saveToQR': false,
+          'ranges': ['$verseKey-$verseKey'],
         },
       );
+      debugPrint('[UserApi] POST /v1/notes → ${response.statusCode}');
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint('[UserApi] POST /v1/notes error body: ${response.data}');
+        throw ApiException(
+          message: 'Save reflection failed: ${response.statusCode}',
+          statusCode: response.statusCode,
+          data: response.data,
+        );
+      }
     } on ApiException {
       rethrow;
     } catch (e) {
+      debugPrint('[UserApi] POST /v1/notes FAILED: $e');
       throw ApiException(message: 'Failed to save reflection: $e');
     }
   }
 
-  /// Fetches the user's reflections with pagination.
-  ///
-  /// Returns a list of raw reflection maps from the API.
+  /// Fetches the user's notes (pagination via cursor).
   Future<List<Map<String, dynamic>>> getReflections({
-    int? page,
-    int? perPage,
+    int? first,
+    String? after,
   }) async {
+    debugPrint('[UserApi] GET /v1/notes — getReflections');
     final queryParams = <String, dynamic>{};
-    if (page != null) queryParams['page'] = page;
-    if (perPage != null) queryParams['per_page'] = perPage;
+    if (first != null) queryParams['first'] = first;
+    if (after != null) queryParams['after'] = after;
 
     try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/posts',
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/notes',
         queryParameters: queryParams,
+        options: Options(validateStatus: (_) => true),
       );
-
-      final data = response.data;
-      if (data == null || data['posts'] == null) {
+      debugPrint('[UserApi] GET /v1/notes → ${response.statusCode}');
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint('[UserApi] GET /v1/notes error: ${response.data}');
         return [];
       }
-
-      final postsList = data['posts'] as List<dynamic>;
-      return postsList.map((e) => e as Map<String, dynamic>).toList();
-    } on ApiException {
-      rethrow;
+      final data = response.data;
+      if (data == null) return [];
+      final list = (data['data'] ?? data['items'] ?? data['edges'])
+          as List<dynamic>?;
+      if (list == null) return [];
+      return list.map((e) => e as Map<String, dynamic>).toList();
     } catch (e) {
-      throw ApiException(message: 'Failed to fetch reflections: $e');
+      debugPrint('[UserApi] GET /v1/notes FAILED: $e');
+      return [];
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Streaks
+  // Streaks (read-only — server-derived from activity-days)
   // ---------------------------------------------------------------------------
 
-  /// Fetches the user's current streak information.
-  ///
-  /// Returns a map containing streak-related fields such as
-  /// `current_streak`, `longest_streak`, etc.
   Future<Map<String, dynamic>> getStreak() async {
+    debugPrint('[UserApi] GET /v1/streaks — getStreak');
     try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/streaks',
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/streaks',
+        options: Options(validateStatus: (_) => true),
       );
-
-      final data = response.data;
-      if (data == null) {
+      debugPrint('[UserApi] GET /v1/streaks → ${response.statusCode}');
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint('[UserApi] GET /v1/streaks error: ${response.data}');
         return {};
       }
-
-      // The response may wrap streak data in a "streak" key.
-      if (data.containsKey('streak')) {
-        return data['streak'] as Map<String, dynamic>;
-      }
-      return data;
-    } on ApiException {
-      rethrow;
+      return response.data ?? {};
     } catch (e) {
-      throw ApiException(message: 'Failed to fetch streak: $e');
+      debugPrint('[UserApi] GET /v1/streaks FAILED: $e');
+      return {};
     }
   }
 
-  /// Updates (increments) the user's streak for the current day.
+  /// No-op. Streaks are derived on the server from logged activity days.
+  /// There is no POST endpoint for streaks; calling [logActivityDay] is
+  /// what moves the streak forward. This method stays for call-site
+  /// compatibility with existing notifiers.
   Future<void> updateStreak() async {
-    try {
-      await _client.post<Map<String, dynamic>>(
-        '/streaks',
-      );
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to update streak: $e');
-    }
+    debugPrint(
+      '[UserApi] updateStreak() no-op (streaks derive from activity-days)',
+    );
   }
 
   // ---------------------------------------------------------------------------
   // Activity Days
   // ---------------------------------------------------------------------------
 
-  /// Logs an activity day for the user.
+  /// Logs an activity day for the user's Quran reading session.
   ///
-  /// [date] is the day to mark as active (time portion is ignored).
-  Future<void> logActivityDay(DateTime date) async {
+  /// QF expects `type`, `seconds`, `ranges`, and `mushafId` for a
+  /// QURAN activity. We default to the current verse being marked as
+  /// read for 60 seconds using mushaf 4 (UthmaniHafs).
+  Future<void> logActivityDay(
+    DateTime date, {
+    String verseKey = '1:1',
+    int seconds = 60,
+  }) async {
     final dateString =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
+    debugPrint(
+      '[UserApi] POST /v1/activity-days — logActivityDay($dateString, $verseKey)',
+    );
     try {
-      await _client.post<Map<String, dynamic>>(
-        '/activity-days',
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/v1/activity-days',
+        options: Options(validateStatus: (_) => true),
         data: {
           'date': dateString,
+          'type': 'QURAN',
+          'seconds': seconds,
+          'ranges': ['$verseKey-$verseKey'],
+          'mushafId': _mushafId,
         },
       );
-    } on ApiException {
-      rethrow;
+      debugPrint(
+        '[UserApi] POST /v1/activity-days → ${response.statusCode}',
+      );
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint(
+          '[UserApi] POST /v1/activity-days error body: ${response.data}',
+        );
+      }
     } catch (e) {
-      throw ApiException(message: 'Failed to log activity day: $e');
+      debugPrint('[UserApi] POST /v1/activity-days FAILED: $e');
     }
   }
 
-  /// Fetches the user's activity days within an optional date range.
-  ///
-  /// Returns a list of [DateTime] objects representing active days.
   Future<List<DateTime>> getActivityDays({
     DateTime? from,
     DateTime? to,
   }) async {
+    debugPrint('[UserApi] GET /v1/activity-days — getActivityDays');
     final queryParams = <String, dynamic>{};
     if (from != null) {
       queryParams['from'] =
@@ -159,26 +229,33 @@ class UserApiService {
     }
 
     try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/activity-days',
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/activity-days',
         queryParameters: queryParams,
+        options: Options(validateStatus: (_) => true),
       );
-
+      debugPrint('[UserApi] GET /v1/activity-days → ${response.statusCode}');
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        return [];
+      }
       final data = response.data;
-      if (data == null) {
-        return [];
-      }
-
-      final days = data['activity_days'] as List<dynamic>?;
-      if (days == null) {
-        return [];
-      }
-
-      return days.map((e) => DateTime.parse(e as String)).toList();
-    } on ApiException {
-      rethrow;
+      if (data == null) return [];
+      final days = (data['data'] ?? data['activity_days'] ?? data['items'])
+          as List<dynamic>?;
+      if (days == null) return [];
+      return days
+          .map((e) {
+            if (e is String) return DateTime.parse(e);
+            if (e is Map && e['date'] is String) {
+              return DateTime.parse(e['date'] as String);
+            }
+            return null;
+          })
+          .whereType<DateTime>()
+          .toList();
     } catch (e) {
-      throw ApiException(message: 'Failed to fetch activity days: $e');
+      debugPrint('[UserApi] GET /v1/activity-days FAILED: $e');
+      return [];
     }
   }
 
@@ -186,58 +263,86 @@ class UserApiService {
   // Bookmarks
   // ---------------------------------------------------------------------------
 
-  /// Adds a bookmark for a specific verse.
+  /// Adds an ayah bookmark.
+  ///
+  /// [verseKey] is in `surah:ayah` format (e.g. `2:255`). Parsed into
+  /// the `{key, verseNumber}` pair QF expects.
   Future<void> addBookmark(String verseKey) async {
+    debugPrint('[UserApi] POST /v1/bookmarks — addBookmark($verseKey)');
     try {
-      await _client.post<Map<String, dynamic>>(
-        '/user/bookmarks',
+      final parts = verseKey.split(':');
+      if (parts.length != 2) {
+        debugPrint('[UserApi] invalid verseKey: $verseKey');
+        return;
+      }
+      final surah = int.tryParse(parts[0]);
+      final ayah = int.tryParse(parts[1]);
+      if (surah == null || ayah == null) {
+        debugPrint('[UserApi] could not parse verseKey: $verseKey');
+        return;
+      }
+
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/v1/bookmarks',
+        options: Options(validateStatus: (_) => true),
         data: {
-          'bookmark': {
-            'verse_key': verseKey,
-          },
+          'key': surah,
+          'type': 'ayah',
+          'verseNumber': ayah,
+          'mushaf': _mushafId,
         },
       );
-    } on ApiException {
-      rethrow;
+      debugPrint(
+        '[UserApi] POST /v1/bookmarks → ${response.statusCode}',
+      );
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint(
+          '[UserApi] POST /v1/bookmarks error body: ${response.data}',
+        );
+      }
     } catch (e) {
-      throw ApiException(message: 'Failed to add bookmark: $e');
+      debugPrint('[UserApi] POST /v1/bookmarks FAILED: $e');
     }
   }
 
   /// Fetches all of the user's bookmarks.
-  ///
-  /// Returns a list of raw bookmark maps containing at minimum
-  /// `id` and `verse_key`.
   Future<List<Map<String, dynamic>>> getBookmarks() async {
+    debugPrint('[UserApi] GET /v1/bookmarks — getBookmarks');
     try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/user/bookmarks',
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/bookmarks',
+        options: Options(validateStatus: (_) => true),
       );
-
-      final data = response.data;
-      if (data == null || data['bookmarks'] == null) {
+      debugPrint('[UserApi] GET /v1/bookmarks → ${response.statusCode}');
+      if (response.statusCode == null || response.statusCode! >= 400) {
+        debugPrint('[UserApi] GET /v1/bookmarks error: ${response.data}');
         return [];
       }
-
-      final bookmarksList = data['bookmarks'] as List<dynamic>;
-      return bookmarksList.map((e) => e as Map<String, dynamic>).toList();
-    } on ApiException {
-      rethrow;
+      final data = response.data;
+      if (data == null) return [];
+      final list = (data['data'] ?? data['bookmarks'] ?? data['items'])
+          as List<dynamic>?;
+      if (list == null) return [];
+      return list.map((e) => e as Map<String, dynamic>).toList();
     } catch (e) {
-      throw ApiException(message: 'Failed to fetch bookmarks: $e');
+      debugPrint('[UserApi] GET /v1/bookmarks FAILED: $e');
+      return [];
     }
   }
 
-  /// Removes a bookmark by its ID.
-  Future<void> removeBookmark(int bookmarkId) async {
+  /// Removes a bookmark by its id.
+  Future<void> removeBookmark(dynamic bookmarkId) async {
+    debugPrint('[UserApi] DELETE /v1/bookmarks/$bookmarkId');
     try {
-      await _client.delete<Map<String, dynamic>>(
-        '/user/bookmarks/$bookmarkId',
+      final response = await _dio.delete<Map<String, dynamic>>(
+        '/v1/bookmarks/$bookmarkId',
+        options: Options(validateStatus: (_) => true),
       );
-    } on ApiException {
-      rethrow;
+      debugPrint(
+        '[UserApi] DELETE /v1/bookmarks/$bookmarkId → ${response.statusCode}',
+      );
     } catch (e) {
-      throw ApiException(message: 'Failed to remove bookmark: $e');
+      debugPrint('[UserApi] DELETE /v1/bookmarks FAILED: $e');
     }
   }
 
@@ -245,47 +350,33 @@ class UserApiService {
   // Preferences
   // ---------------------------------------------------------------------------
 
-  /// Fetches the user's preferences.
-  ///
-  /// Returns a map of preference key-value pairs.
   Future<Map<String, dynamic>> getPreferences() async {
+    debugPrint('[UserApi] GET /v1/preferences — getPreferences');
     try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/user/preferences',
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/preferences',
+        options: Options(validateStatus: (_) => true),
       );
-
-      final data = response.data;
-      if (data == null) {
+      if (response.statusCode == null || response.statusCode! >= 400) {
         return {};
       }
-
-      // Unwrap if nested under a "preferences" key.
-      if (data.containsKey('preferences')) {
-        return data['preferences'] as Map<String, dynamic>;
-      }
-      return data;
-    } on ApiException {
-      rethrow;
+      return response.data ?? {};
     } catch (e) {
-      throw ApiException(message: 'Failed to fetch preferences: $e');
+      debugPrint('[UserApi] GET /v1/preferences FAILED: $e');
+      return {};
     }
   }
 
-  /// Updates the user's preferences.
-  ///
-  /// [prefs] is a map of preference key-value pairs to set or update.
   Future<void> updatePreferences(Map<String, dynamic> prefs) async {
+    debugPrint('[UserApi] POST /v1/preferences — updatePreferences');
     try {
-      await _client.put<Map<String, dynamic>>(
-        '/user/preferences',
-        data: {
-          'preferences': prefs,
-        },
+      await _dio.post<Map<String, dynamic>>(
+        '/v1/preferences',
+        data: prefs,
+        options: Options(validateStatus: (_) => true),
       );
-    } on ApiException {
-      rethrow;
     } catch (e) {
-      throw ApiException(message: 'Failed to update preferences: $e');
+      debugPrint('[UserApi] POST /v1/preferences FAILED: $e');
     }
   }
 }

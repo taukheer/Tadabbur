@@ -1085,11 +1085,14 @@ class _AccountTile extends StatelessWidget {
     if (isGuest) {
       return GestureDetector(
         onTap: () async {
-          final authService = ref.read(authServiceProvider);
-          final user = await authService.signInWithGoogle();
-          if (user != null) {
-            ref.read(authUserProvider.notifier).state = user;
-          }
+          debugPrint('[Button] Settings: Sign in tapped');
+          // Use the Quran Foundation OAuth flow — this populates the
+          // User API access token so bookmarks, reflections, streaks
+          // and activity-days sync to QF. The deep-link handler in
+          // main.dart + app_router /oauth/callback finishes the flow
+          // and updates authUserProvider when the browser returns.
+          final qfAuth = ref.read(qfAuthServiceProvider);
+          await qfAuth.launchLogin();
         },
         child: Container(
           width: double.infinity,

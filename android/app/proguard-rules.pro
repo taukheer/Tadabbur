@@ -22,6 +22,22 @@
 -keep public class * extends java.lang.Exception
 -keepattributes *Annotation*
 
+# ─── Gson generic signatures (required by flutter_local_notifications) ───
+# Without these R8 strips generic type info and Gson's TypeToken<...> fails at
+# runtime with: "TypeToken must be created with a type argument". This breaks
+# flutter_local_notifications' ability to persist and load scheduled alarms.
+-keepattributes Signature
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-dontwarn sun.misc.**
+-keep class com.google.gson.** { *; }
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep class * extends com.google.gson.TypeAdapter
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
 # ─── Google Sign-In / GMS ───
 -keep class com.google.android.gms.auth.** { *; }
 -keep class com.google.android.gms.common.** { *; }
@@ -41,7 +57,15 @@
 -dontwarn androidx.security.crypto.**
 
 # ─── flutter_local_notifications ───
+# Model classes are serialized to disk via Gson and must preserve their
+# fields + generic signatures so the plugin can restore scheduled
+# notifications after the app is killed or the device reboots.
 -keep class com.dexterous.flutterlocalnotifications.** { *; }
+-keep class com.dexterous.flutterlocalnotifications.models.** { *; }
+-keepclassmembers class com.dexterous.flutterlocalnotifications.models.** {
+    <fields>;
+    <init>(...);
+}
 
 # ─── in_app_review (uses Play Core) ───
 -dontwarn com.google.android.play.core.review.**

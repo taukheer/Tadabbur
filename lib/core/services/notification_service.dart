@@ -54,6 +54,44 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings);
+
+    // Pre-create the notification channel on Android so it shows up
+    // in Samsung's Settings → Apps → Tadabbur → Notifications list
+    // even before the first notification fires. Samsung sometimes
+    // silently drops alarms from channels that were only auto-created
+    // lazily by zonedSchedule.
+    if (Platform.isAndroid) {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (android != null) {
+        const channel = AndroidNotificationChannel(
+          'daily_ayah_v3',
+          'Daily Ayah Reminder',
+          description: 'Your daily ayah reminder',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        );
+        await android.createNotificationChannel(channel);
+        debugPrint('[NotificationService] channel daily_ayah_v3 created');
+
+        // Verify exact alarms are actually permitted. On Android 12+
+        // this requires SCHEDULE_EXACT_ALARM, which Samsung may revoke.
+        try {
+          final canExact = await android.canScheduleExactNotifications();
+          debugPrint(
+            '[NotificationService] canScheduleExactNotifications: $canExact',
+          );
+        } catch (e) {
+          debugPrint(
+            '[NotificationService] canScheduleExactNotifications check failed: $e',
+          );
+        }
+      }
+    }
+
     _initialized = true;
   }
 
@@ -134,10 +172,11 @@ class NotificationService {
       ),
     );
 
-    // Schedule using periodicallyShowWithDuration as a workaround for Samsung
-    // Also schedule with zonedSchedule for other devices
     final scheduledTime = _nextInstanceOfTime(hour, minute);
-    debugPrint('[NotificationService] Scheduling at: $scheduledTime (local tz: ${tz.local.name})');
+    debugPrint(
+      '[NotificationService] Scheduling daily at: $scheduledTime '
+      '(local tz: ${tz.local.name})',
+    );
 
     const notifDetails = NotificationDetails(
       iOS: DarwinNotificationDetails(
@@ -146,7 +185,7 @@ class NotificationService {
         presentSound: true,
       ),
       android: AndroidNotificationDetails(
-        'daily_ayah_v2',
+        'daily_ayah_v3',
         'Daily Ayah Reminder',
         channelDescription: 'Your daily ayah reminder',
         importance: Importance.max,
@@ -159,17 +198,101 @@ class NotificationService {
       ),
     );
 
-    await _plugin.zonedSchedule(
-      0,
-      msg.title,
-      msg.body,
-      scheduledTime,
-      notifDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
+    // `exactAllowWhileIdle` is the right mode for a repeating daily
+    // notification (matchDateTimeComponents.time). `alarmClock` is
+    // reserved for one-shot tests — combining alarmClock with
+    // matchDateTimeComponents crashed on flutter_local_notifications
+    // 18.x. Samsung battery optimization is addressed separately by
+    // asking the user to exempt the app via OS settings.
+    try {
+      await _plugin.zonedSchedule(
+        0,
+        msg.title,
+        msg.body,
+        scheduledTime,
+        notifDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+      debugPrint('[NotificationService] zonedSchedule call returned');
+    } catch (e, st) {
+      debugPrint(
+        '[NotificationService] zonedSchedule FAILED: $e\n$st',
+      );
+      rethrow;
+    }
+
+    // Verify the scheduled notification was actually registered with
+    // the OS. If this list is empty after scheduling, the schedule
+    // call silently failed — usually a permission or channel issue.
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      debugPrint(
+        '[NotificationService] Pending notifications after schedule: '
+        '${pending.length} — IDs: ${pending.map((p) => p.id).toList()}',
+      );
+      for (final p in pending) {
+        debugPrint(
+          '[NotificationService]   - id=${p.id} title=${p.title} body=${p.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] pendingNotificationRequests failed: $e');
+    }
+  }
+
+  /// Schedule a one-shot test notification [seconds] from now.
+  /// Used to verify the whole pipeline (permissions, channels, alarms)
+  /// without waiting for tomorrow morning. Call from a settings debug
+  /// button or a dev action.
+  Future<void> scheduleTestNotification({int seconds = 60}) async {
+    await init();
+    final fireAt =
+        tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
+    debugPrint(
+      '[NotificationService] Test notification scheduled for: $fireAt',
     );
+
+    try {
+      await _plugin.zonedSchedule(
+        99,
+        'Tadabbur test',
+        'If you see this, notifications are working.',
+        fireAt,
+        const NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+          android: AndroidNotificationDetails(
+            'daily_ayah_v3',
+            'Daily Ayah Reminder',
+            channelDescription: 'Your daily ayah reminder',
+            importance: Importance.max,
+            priority: Priority.max,
+            playSound: true,
+            enableVibration: true,
+            visibility: NotificationVisibility.public,
+            category: AndroidNotificationCategory.reminder,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint(
+        '[NotificationService] Test notification scheduled — expect it in ${seconds}s',
+      );
+      final pending = await _plugin.pendingNotificationRequests();
+      debugPrint(
+        '[NotificationService] Pending after test schedule: ${pending.length}',
+      );
+    } catch (e, st) {
+      debugPrint('[NotificationService] test schedule FAILED: $e\n$st');
+    }
   }
 
   /// Get the next occurrence of the given time.

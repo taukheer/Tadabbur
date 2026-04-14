@@ -151,6 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _loginWithQuranFoundation() async {
+    debugPrint('[Button] LoginScreen: Continue with Quran.com tapped');
     setState(() => _isLoading = true);
 
     try {

@@ -38,7 +38,12 @@ final quranApiProvider = Provider<QuranApiService>((ref) {
 });
 
 final userApiProvider = Provider<UserApiService>((ref) {
-  return UserApiService(ref.watch(apiClientProvider));
+  // UserApiService has its own Dio instance pointed at the QF User API
+  // host (apis-prelive.quran.foundation / apis.quran.foundation). It
+  // only needs LocalStorageService to read the live auth token on each
+  // request via its interceptor — the content-API ApiClient is not
+  // involved in User API calls.
+  return UserApiService(ref.watch(localStorageProvider));
 });
 
 final editorialServiceProvider = Provider<EditorialService>((ref) {

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart' show LocalStorageService, AuthType;
+import 'package:tadabbur/core/services/auth_service.dart' show AuthUser;
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
@@ -37,6 +38,12 @@ class QFAuthService {
 
   QFAuthService(this._storage);
 
+  // Deduplication guard — when two deep-link handlers fire in parallel
+  // for the same OAuth callback, we reuse the in-flight Future instead
+  // of running two concurrent token exchanges (which race to redeem
+  // the same single-use authorization code).
+  Future<AuthUser?>? _inFlightExchange;
+
   String? get accessToken => _storage.authToken;
   bool get isAuthenticated =>
       _storage.authToken != null &&
@@ -71,11 +78,24 @@ class QFAuthService {
     );
     await _storage.setOAuthState(state);
 
+    // Scopes requested. Per QF support: pre-live clients only accept
+    // *parent* scope names (`note`, `bookmark`, `activity_day`, ...),
+    // not the dotted child forms (`note.create`, `note.read`, ...).
+    // Each parent scope grants read + write on that resource family.
+    //   openid, offline_access — OIDC auth + refresh tokens
+    //   note                     — POST/GET /v1/notes (reflections)
+    //   bookmark                 — POST/GET/DELETE /v1/bookmarks
+    //   activity_day             — POST/GET /v1/activity-days
+    //   streak                   — GET /v1/streaks
+    //   preference               — GET/POST /v1/preferences
+    const scopes = 'openid offline_access '
+        'note bookmark activity_day streak preference';
+
     final params = {
       'client_id': _clientId,
       'response_type': 'code',
       'redirect_uri': _redirectUri,
-      'scope': 'openid offline_access',
+      'scope': scopes,
       'code_challenge': pkce.challenge,
       'code_challenge_method': 'S256',
       'state': state,
@@ -97,85 +117,188 @@ class QFAuthService {
 
   /// Exchange the authorization code for tokens.
   /// [state] is validated against the stored value for CSRF protection.
-  Future<bool> exchangeCode(String code, {required String state}) async {
+  ///
+  /// Uses HTTP Basic auth for client credentials (`client_secret_basic`),
+  /// which is the OAuth2 RFC 6749 recommended method and Ory Hydra's
+  /// default `token_endpoint_auth_method`.
+  ///
+  /// Returns the authenticated [AuthUser] parsed from the id_token on
+  /// success, or `null` on failure. Safe to call multiple times with the
+  /// same code — duplicate concurrent calls reuse the same in-flight
+  /// Future instead of double-redeeming.
+  Future<AuthUser?> exchangeCode(String code, {required String state}) {
+    final existing = _inFlightExchange;
+    if (existing != null) {
+      debugPrint('[QFAuth] exchange already in flight — reusing future');
+      return existing;
+    }
+    final future = _doExchange(code, state: state);
+    _inFlightExchange = future;
+    future.whenComplete(() => _inFlightExchange = null);
+    return future;
+  }
+
+  Future<AuthUser?> _doExchange(String code, {required String state}) async {
     // Validate state parameter before proceeding
-    if (!await validateState(state)) return false;
+    if (!await validateState(state)) return null;
 
     final verifier = await _storage.getCodeVerifier();
-    if (verifier == null) return false;
+    if (verifier == null) return null;
 
     try {
       final dio = Dio();
-      final response = await dio.post(
+      final basicAuth =
+          base64.encode(utf8.encode('$_clientId:$_clientSecret'));
+
+      debugPrint('[QFAuth] POST $_tokenUrl (exchange)');
+      final response = await dio.post<Map<String, dynamic>>(
         _tokenUrl,
         options: Options(
-          contentType: 'application/x-www-form-urlencoded',
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'Authorization': 'Basic $basicAuth',
+            'Accept': 'application/json',
+          },
+          validateStatus: (status) => true,
         ),
         data: {
           'grant_type': 'authorization_code',
-          'client_id': _clientId,
-          'client_secret': _clientSecret,
           'code': code,
           'redirect_uri': _redirectUri,
           'code_verifier': verifier,
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        final accessToken = data['access_token'] as String?;
-        final refreshToken = data['refresh_token'] as String?;
+      debugPrint('[QFAuth] exchange response: ${response.statusCode}');
+      if (response.statusCode != 200) {
+        debugPrint('[QFAuth] exchange error body: ${response.data}');
+        return null;
+      }
 
-        if (accessToken != null) {
-          await _storage.setAuthToken(accessToken);
-          if (refreshToken != null) {
-            await _storage.setRefreshToken(refreshToken);
-          }
-          // Clear the code verifier and OAuth state — no longer needed
-          await _storage.setCodeVerifier(null);
-          await _storage.setOAuthState(null);
-          debugPrint('[QFAuth] Successfully authenticated with QF OAuth2');
-          return true;
+      final data = response.data;
+      if (data == null) {
+        debugPrint('[QFAuth] exchange response empty body');
+        return null;
+      }
+
+      final accessToken = data['access_token'] as String?;
+      final refreshToken = data['refresh_token'] as String?;
+      final idToken = data['id_token'] as String?;
+
+      if (accessToken != null) {
+        await _storage.setAuthToken(accessToken);
+        if (refreshToken != null) {
+          await _storage.setRefreshToken(refreshToken);
         }
+        // Mark the user as authenticated via Quran Foundation so the
+        // settings screen and any other auth-aware UI show the right
+        // state.
+        await _storage.setAuthType(AuthType.quranFoundation);
+        // Clear the code verifier and OAuth state — no longer needed
+        await _storage.setCodeVerifier(null);
+        await _storage.setOAuthState(null);
+
+        // Parse the OIDC id_token to extract the real user profile
+        // (name, email, sub, picture). Falls back to a placeholder
+        // AuthUser if the id_token is missing or can't be parsed.
+        final user = _parseIdToken(idToken) ??
+            const AuthUser(
+              id: 'qf-user',
+              name: 'Quran.com User',
+              email: '',
+              photoUrl: null,
+            );
+        debugPrint('[QFAuth] Successfully authenticated as ${user.name}');
+        return user;
       }
     } catch (e) {
       debugPrint('[QFAuth] Token exchange failed: $e');
     }
-    return false;
+    return null;
+  }
+
+  /// Parses a base64url-encoded OIDC id_token JWT and builds an [AuthUser]
+  /// from the standard claims. Returns `null` on any parse failure.
+  ///
+  /// Note: we intentionally do NOT validate the JWT signature here — the
+  /// id_token arrived over TLS from the token endpoint we just successfully
+  /// authenticated against, so we already trust its contents.
+  AuthUser? _parseIdToken(String? idToken) {
+    if (idToken == null) return null;
+    try {
+      final parts = idToken.split('.');
+      if (parts.length != 3) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      ) as Map<String, dynamic>;
+
+      final name = payload['name'] as String? ??
+          payload['preferred_username'] as String? ??
+          payload['given_name'] as String? ??
+          payload['email'] as String? ??
+          'Quran.com User';
+      final email = payload['email'] as String? ?? '';
+      final id = payload['sub'] as String? ?? 'qf-user';
+      final photoUrl = payload['picture'] as String?;
+
+      return AuthUser(
+        id: id,
+        name: name,
+        email: email,
+        photoUrl: photoUrl,
+      );
+    } catch (e) {
+      debugPrint('[QFAuth] failed to parse id_token: $e');
+      return null;
+    }
   }
 
   /// Refresh the access token using the refresh token.
+  /// Uses HTTP Basic auth to match Hydra's default `client_secret_basic`.
   Future<bool> refreshAccessToken() async {
     final refreshToken = _storage.refreshToken;
     if (refreshToken == null) return false;
 
     try {
       final dio = Dio();
-      final response = await dio.post(
+      final basicAuth =
+          base64.encode(utf8.encode('$_clientId:$_clientSecret'));
+
+      final response = await dio.post<Map<String, dynamic>>(
         _tokenUrl,
         options: Options(
-          contentType: 'application/x-www-form-urlencoded',
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'Authorization': 'Basic $basicAuth',
+            'Accept': 'application/json',
+          },
+          validateStatus: (status) => true,
         ),
         data: {
           'grant_type': 'refresh_token',
-          'client_id': _clientId,
-          'client_secret': _clientSecret,
           'refresh_token': refreshToken,
         },
       );
 
-      if (response.statusCode == 200) {
-        final data = response.data as Map<String, dynamic>;
-        final newAccessToken = data['access_token'] as String?;
-        final newRefreshToken = data['refresh_token'] as String?;
+      if (response.statusCode != 200) {
+        debugPrint(
+          '[QFAuth] refresh error: ${response.statusCode} ${response.data}',
+        );
+        return false;
+      }
 
-        if (newAccessToken != null) {
-          await _storage.setAuthToken(newAccessToken);
-          if (newRefreshToken != null) {
-            await _storage.setRefreshToken(newRefreshToken);
-          }
-          return true;
+      final data = response.data;
+      if (data == null) return false;
+
+      final newAccessToken = data['access_token'] as String?;
+      final newRefreshToken = data['refresh_token'] as String?;
+
+      if (newAccessToken != null) {
+        await _storage.setAuthToken(newAccessToken);
+        if (newRefreshToken != null) {
+          await _storage.setRefreshToken(newRefreshToken);
         }
+        return true;
       }
     } catch (e) {
       debugPrint('[QFAuth] Token refresh failed: $e');
@@ -185,6 +308,7 @@ class QFAuthService {
 
   /// Open the QF login page in browser.
   Future<void> launchLogin() async {
+    debugPrint('[QFAuth] launchLogin() — opening browser to QF authorize URL');
     final url = await getAuthorizationUrl();
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
