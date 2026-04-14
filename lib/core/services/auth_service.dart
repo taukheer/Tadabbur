@@ -38,16 +38,19 @@ class AuthService {
     try {
       final account = await _googleSignIn.signInSilently();
       if (account != null) {
+        final googleAuth = await account.authentication;
         _currentUser = AuthUser(
           id: account.id,
           name: account.displayName ?? 'User',
           email: account.email,
           photoUrl: account.photoUrl,
         );
-        await _saveUser();
+        await _saveUser(googleIdToken: googleAuth.idToken);
         return _currentUser;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AuthService] tryAutoSignIn (Google silent) failed: $e');
+    }
 
     // Check local storage for cached user
     final id = _storage.userId;
@@ -59,7 +62,9 @@ class AuthService {
       );
       _firestore.setUser(id);
       // Replay any writes that failed to sync before this session.
-      _firestore.flushPendingSyncs(_storage).catchError((_) {});
+      _firestore.flushPendingSyncs(_storage).catchError(
+        (e) => debugPrint('[AuthService] flushPendingSyncs failed: $e'),
+      );
     }
     return _currentUser;
   }
@@ -70,6 +75,8 @@ class AuthService {
       final account = await _googleSignIn.signIn();
       if (account == null) return null; // User cancelled
 
+      final googleAuth = await account.authentication;
+
       _currentUser = AuthUser(
         id: account.id,
         name: account.displayName ?? 'User',
@@ -77,9 +84,10 @@ class AuthService {
         photoUrl: account.photoUrl,
       );
 
-      await _saveUser();
+      await _saveUser(googleIdToken: googleAuth.idToken);
       return _currentUser;
     } catch (e) {
+      debugPrint('[AuthService] signInWithGoogle failed: $e');
       return null;
     }
   }
@@ -100,20 +108,35 @@ class AuthService {
         ],
       );
 
+      // Apple's userIdentifier is the only stable per-user ID across sessions.
+      // authorizationCode is single-use and invalid after exchange — using it
+      // as a fallback would create a fresh "account" on every reinstall and
+      // orphan the user's journal/bookmarks.
+      final userIdentifier = credential.userIdentifier;
+      if (userIdentifier == null || userIdentifier.isEmpty) {
+        debugPrint('[AuthService] Apple Sign-In returned no userIdentifier');
+        return null;
+      }
+
       final name = [
         credential.givenName,
         credential.familyName,
       ].where((n) => n != null).join(' ');
 
       _currentUser = AuthUser(
-        id: 'apple_${credential.userIdentifier ?? credential.authorizationCode}',
+        id: 'apple_$userIdentifier',
         name: name.isNotEmpty ? name : 'User',
         email: credential.email ?? '',
       );
 
-      await _saveUser();
+      // Apple Sign-In gives us an identityToken JWT we can use as a
+      // bearer-style identifier. It is NOT a QF API token — User APIs
+      // remain unavailable for Apple-signed-in users until we add a
+      // backend exchange.
+      await _saveUser(appleIdToken: credential.identityToken);
       return _currentUser;
     } catch (e) {
+      debugPrint('[AuthService] signInWithApple failed: $e');
       return null;
     }
   }
@@ -122,8 +145,11 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _googleSignIn.signOut();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AuthService] Google signOut failed: $e');
+    }
     _currentUser = null;
+    _firestore.resetUser();
     await _storage.clearAuth();
   }
 
@@ -155,20 +181,40 @@ class AuthService {
     _currentUser = null;
   }
 
-  Future<void> _saveUser() async {
+  Future<void> _saveUser({String? googleIdToken, String? appleIdToken}) async {
     if (_currentUser != null) {
       await _storage.setUserId(_currentUser!.id);
       await _storage.setUserName(_currentUser!.name);
-      await _storage.setAuthToken('google_${_currentUser!.id}');
-      // Connect Firestore so cloud sync works
+
+      // Store the real id_token where available so it can be used for
+      // identity verification. Fall back to a sentinel marker so the
+      // app can still tell that the user is signed-in without leaking
+      // a fake bearer to the User API client (which now skips auth-
+      // requiring calls when authType != quranFoundation).
+      if (googleIdToken != null && googleIdToken.isNotEmpty) {
+        await _storage.setAuthToken(googleIdToken);
+        await _storage.setAuthType(AuthType.google);
+      } else if (appleIdToken != null && appleIdToken.isNotEmpty) {
+        await _storage.setAuthToken(appleIdToken);
+        await _storage.setAuthType(AuthType.google); // treated as 3rd-party
+      } else {
+        await _storage.setAuthToken(null);
+        await _storage.setAuthType(AuthType.google);
+      }
+
+      // Connect Firestore so cloud sync works for non-QF users.
       _firestore.setUser(_currentUser!.id);
       _firestore.saveUserProfile(
         name: _currentUser!.name,
         email: _currentUser!.email,
         photoUrl: _currentUser!.photoUrl,
-      ).catchError((_) {});
+      ).catchError(
+        (e) => debugPrint('[AuthService] saveUserProfile failed: $e'),
+      );
       // Replay any writes that failed to sync before this session.
-      _firestore.flushPendingSyncs(_storage).catchError((_) {});
+      _firestore.flushPendingSyncs(_storage).catchError(
+        (e) => debugPrint('[AuthService] flushPendingSyncs failed: $e'),
+      );
       // Restore cloud data if local is empty (new device / reinstall)
       await _restoreFromCloud();
     }

@@ -13,6 +13,12 @@ class NotificationService {
 
   bool _initialized = false;
 
+  /// Last error encountered while (re)scheduling the daily reminder.
+  /// `null` when the most recent attempt succeeded. Surface this from
+  /// the Settings screen so users can tell when their reminder isn't
+  /// actually armed.
+  String? lastScheduleError;
+
   NotificationService(this._storage);
 
   /// Initialize the notification plugin and timezone data.
@@ -198,12 +204,19 @@ class NotificationService {
       ),
     );
 
-    // `exactAllowWhileIdle` is the right mode for a repeating daily
-    // notification (matchDateTimeComponents.time). `alarmClock` is
-    // reserved for one-shot tests — combining alarmClock with
-    // matchDateTimeComponents crashed on flutter_local_notifications
-    // 18.x. Samsung battery optimization is addressed separately by
-    // asking the user to exempt the app via OS settings.
+    // Samsung's "Put unused apps to sleep" kills alarms scheduled
+    // with exactAllowWhileIdle + matchDateTimeComponents before their
+    // BroadcastReceiver can fire, so the notification never posts.
+    // `alarmClock` mode registers the alarm at the system alarm-clock
+    // level (same API used by the actual Alarm Clock app), which
+    // survives battery optimization.
+    //
+    // alarmClock is one-shot only (combining it with
+    // matchDateTimeComponents crashes flutter_local_notifications
+    // 18.x). We work around that by rescheduling on every app launch
+    // via `ensureDailyScheduled()` — if the stored notification time
+    // exists and no future alarm is pending, we re-arm it for the
+    // next occurrence.
     try {
       await _plugin.zonedSchedule(
         0,
@@ -211,13 +224,14 @@ class NotificationService {
         msg.body,
         scheduledTime,
         notifDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.alarmClock,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
       );
-      debugPrint('[NotificationService] zonedSchedule call returned');
+      lastScheduleError = null;
+      debugPrint('[NotificationService] zonedSchedule (alarmClock) returned');
     } catch (e, st) {
+      lastScheduleError = e.toString();
       debugPrint(
         '[NotificationService] zonedSchedule FAILED: $e\n$st',
       );
@@ -312,6 +326,92 @@ class NotificationService {
     await init();
     await _plugin.cancelAll();
     await _storage.setNotificationTime('');
+  }
+
+  /// Re-arms the daily reminder on app launch. Call from main.dart
+  /// after services are initialized.
+  ///
+  /// We use `AndroidScheduleMode.alarmClock` for the daily reminder
+  /// because it's the only mode Samsung reliably fires after the app
+  /// is backgrounded. alarmClock is one-shot (can't combine with
+  /// `matchDateTimeComponents`), so every app launch we look at the
+  /// stored notification time and, if there's no pending alarm yet
+  /// (or the last one already fired), schedule the next occurrence.
+  Future<void> ensureDailyScheduled() async {
+    await init();
+    final scheduled = getScheduledTime();
+    if (scheduled == null) {
+      debugPrint('[NotificationService] ensureDailyScheduled: none set');
+      return;
+    }
+
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      final hasDaily = pending.any((p) => p.id == 0);
+      if (hasDaily) {
+        debugPrint(
+          '[NotificationService] ensureDailyScheduled: daily already pending',
+        );
+        return;
+      }
+    } catch (e) {
+      debugPrint(
+        '[NotificationService] ensureDailyScheduled: check failed: $e',
+      );
+    }
+
+    debugPrint(
+      '[NotificationService] ensureDailyScheduled: re-arming daily at '
+      '${scheduled.hour}:${scheduled.minute}',
+    );
+    // Re-run the scheduling logic without blowing away the stored
+    // preference or showing the "Reminder set" confirmation toast
+    // again. We just quietly re-post the zonedSchedule.
+    final scheduledTime =
+        _nextInstanceOfTime(scheduled.hour, scheduled.minute);
+    final totalAyat = _storage.getProgress()?.totalAyatCompleted ?? 0;
+    final msg = getMessageForDay(totalAyat + 1);
+
+    const notifDetails = NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+      android: AndroidNotificationDetails(
+        'daily_ayah_v3',
+        'Daily Ayah Reminder',
+        channelDescription: 'Your daily ayah reminder',
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        visibility: NotificationVisibility.public,
+        category: AndroidNotificationCategory.reminder,
+      ),
+    );
+
+    try {
+      await _plugin.zonedSchedule(
+        0,
+        msg.title,
+        msg.body,
+        scheduledTime,
+        notifDetails,
+        androidScheduleMode: AndroidScheduleMode.alarmClock,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      lastScheduleError = null;
+      debugPrint(
+        '[NotificationService] ensureDailyScheduled: re-armed for $scheduledTime',
+      );
+    } catch (e) {
+      lastScheduleError = e.toString();
+      debugPrint(
+        '[NotificationService] ensureDailyScheduled: re-arm failed: $e',
+      );
+    }
   }
 
   /// Get the stored notification time as (hour, minute), or null if not set.

@@ -9,6 +9,15 @@ abstract final class AppConstants {
   static const int appBuildNumber = 1;
 
   // ---------------------------------------------------------------------------
+  // Canonical text
+  // ---------------------------------------------------------------------------
+
+  /// Bismillah text in Uthmani script. Universally canonical — matches
+  /// the Mushaf and is identical across every QF translation/edition.
+  static const String bismillahUthmani =
+      'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ';
+
+  // ---------------------------------------------------------------------------
   // Quran Foundation API
   // ---------------------------------------------------------------------------
   static const String qfApiBaseUrl = 'https://api.qurancdn.com/api/qdc';

@@ -25,7 +25,8 @@ class DailyAyahState {
   final String? tafsirSummary;
   final bool isFromCache;
 
-  /// The 14 sajdah (prostration) verses in the Quran.
+  /// The 15 sajdah (prostration) verses in the Quran (Shafi'i/Hanbali count;
+  /// Hanafi school omits 22:77).
   static const sajdahVerses = {
     '7:206', '13:15', '16:50', '17:109', '19:58', '22:18', '22:77',
     '25:60', '27:26', '32:15', '38:24', '41:38', '53:62', '84:21',
@@ -34,6 +35,15 @@ class DailyAyahState {
 
   bool get isSajdahVerse =>
       ayah != null && sajdahVerses.contains(ayah!.verseKey);
+
+  /// True when the verse was revealed in Makkah. Normalizes the API's
+  /// free-form `revelation_place` string ("makkah", "Makkah", "makki")
+  /// so screens can branch on a single canonical predicate instead of
+  /// brittle case-sensitive equality checks.
+  bool get isMakki {
+    final r = revelationType?.toLowerCase().trim();
+    return r == 'makkah' || r == 'makki' || r == 'meccan';
+  }
 
   const DailyAyahState({
     this.loadingState = AyahLoadingState.loading,
@@ -82,11 +92,65 @@ class DailyAyahState {
       isFromCache: isFromCache ?? this.isFromCache,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DailyAyahState &&
+        other.loadingState == loadingState &&
+        other.ayah == ayah &&
+        // Word lists compare by reference — the notifier replaces the
+        // whole list on load, so identity equality is correct here.
+        identical(other.words, words) &&
+        other.editorial == editorial &&
+        other.audioUrl == audioUrl &&
+        other.errorMessage == errorMessage &&
+        other.showWordByWord == showWordByWord &&
+        other.showContext == showContext &&
+        other.showScholar == showScholar &&
+        other.todayCompleted == todayCompleted &&
+        other.revelationType == revelationType &&
+        other.tafsirSummary == tafsirSummary &&
+        other.isFromCache == isFromCache;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        loadingState,
+        ayah,
+        words,
+        editorial,
+        audioUrl,
+        errorMessage,
+        showWordByWord,
+        showContext,
+        showScholar,
+        todayCompleted,
+        revelationType,
+        tafsirSummary,
+        isFromCache,
+      );
 }
 
 final dailyAyahProvider =
     StateNotifierProvider<DailyAyahNotifier, DailyAyahState>((ref) {
   return DailyAyahNotifier(ref);
+});
+
+/// Memoized transliteration string for the current ayah.
+///
+/// The screen previously rebuilt this `.where().map().join()` chain on
+/// every widget rebuild (e.g. font-size slider, theme change). Lifting
+/// it into a derived Provider means it only recomputes when the
+/// underlying word list actually changes.
+final ayahTransliterationProvider = Provider<String>((ref) {
+  final words = ref.watch(
+    dailyAyahProvider.select((s) => s.words),
+  );
+  return words
+      .where((w) => w.charTypeName == 'word' && w.transliteration != null)
+      .map((w) => w.transliteration!.replaceAll(',', ''))
+      .join(' ');
 });
 
 class DailyAyahNotifier extends StateNotifier<DailyAyahState> {

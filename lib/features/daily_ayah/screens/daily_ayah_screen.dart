@@ -236,15 +236,15 @@ class DailyAyahScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
-                      color: state.revelationType == 'makkah'
+                      color: state.isMakki
                           ? AppColors.makkiSurface
                           : AppColors.madaniSurface,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      state.revelationType == 'makkah' ? 'Makki' : 'Madani',
+                      state.isMakki ? 'Makki' : 'Madani',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: state.revelationType == 'makkah'
+                        color: state.isMakki
                             ? AppColors.makkiText
                             : AppColors.madaniText,
                         fontSize: 10,
@@ -323,10 +323,7 @@ class DailyAyahScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(32, 8, 32, 0),
               child: Text(
-                words
-                    .where((w) => w.transliteration != null)
-                    .map((w) => w.transliteration!.replaceAll(',', ''))
-                    .join(' '),
+                ref.watch(ayahTransliterationProvider),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
@@ -1027,7 +1024,15 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
     if (isPlaying) {
       await audioService.pause();
     } else {
-      await audioService.playAyah(widget.audioUrl!);
+      try {
+        await audioService.playAyah(widget.audioUrl!);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Audio failed: $e')),
+          );
+        }
+      }
     }
   }
 }

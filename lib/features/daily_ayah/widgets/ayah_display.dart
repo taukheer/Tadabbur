@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 
 class AyahDisplay extends StatelessWidget {
@@ -40,7 +41,7 @@ class AyahDisplay extends StatelessWidget {
           // Bismillah ornament for first ayah of surahs (except Al-Fatiha and At-Tawbah)
           if (ayahNum == 1 && surahNum != 1 && surahNum != 9) ...[
             Text(
-              'بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ',
+              AppConstants.bismillahUthmani,
               locale: const Locale('ar'),
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,

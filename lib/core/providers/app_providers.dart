@@ -43,7 +43,13 @@ final userApiProvider = Provider<UserApiService>((ref) {
   // only needs LocalStorageService to read the live auth token on each
   // request via its interceptor — the content-API ApiClient is not
   // involved in User API calls.
-  return UserApiService(ref.watch(localStorageProvider));
+  //
+  // The refresh callback lets the User API interceptor recover from
+  // 401 responses by triggering a single QF token refresh + retry.
+  return UserApiService(
+    ref.watch(localStorageProvider),
+    onRefreshToken: () => ref.read(qfAuthServiceProvider).refreshAccessToken(),
+  );
 });
 
 final editorialServiceProvider = Provider<EditorialService>((ref) {

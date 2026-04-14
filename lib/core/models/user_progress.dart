@@ -113,6 +113,7 @@ class UserProgress {
         other.totalAyatCompleted == totalAyatCompleted &&
         other.totalReflections == totalReflections &&
         other.lastCompletedAt == lastCompletedAt &&
+        other.startedAt == startedAt &&
         other.streakFreezes == streakFreezes &&
         other.isTravelMode == isTravelMode;
   }
@@ -127,6 +128,7 @@ class UserProgress {
       totalAyatCompleted,
       totalReflections,
       lastCompletedAt,
+      startedAt,
       streakFreezes,
       isTravelMode,
     );

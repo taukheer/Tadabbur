@@ -32,7 +32,11 @@ class EditorialService {
   /// Supported editorial languages — only show editorial for these.
   static const supportedLanguages = {'en', 'ar'};
 
-  /// In-memory cache of editorial content, keyed by language then verse_key.
+  /// In-memory cache of editorial content, keyed by language then
+  /// verse_key. Bounded by [supportedLanguages] (currently 2 entries:
+  /// `en`, `ar`), so total memory is `O(verses_per_language × 2)` and
+  /// no eviction is needed. Add an LRU here if [supportedLanguages]
+  /// ever grows beyond a handful.
   final Map<String, Map<String, EditorialContent>> _cache = {};
 
   /// Loads and caches the editorial JSON for a given language.

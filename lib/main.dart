@@ -48,12 +48,20 @@ void main() async {
   final localStorage = LocalStorageService();
   await localStorage.init();
 
-  // Initialize notifications (non-blocking)
+  // Initialize notifications (non-blocking). Failures are captured on
+  // the service itself so the Settings screen can read
+  // `notifService.lastScheduleError` and tell users their reminder
+  // didn't actually arm.
+  final notifService = NotificationService(localStorage);
   try {
-    final notifService = NotificationService(localStorage);
     await notifService.init();
     notifService.requestPermission(); // fire-and-forget
+    notifService.ensureDailyScheduled().catchError((Object e) {
+      notifService.lastScheduleError = e.toString();
+      debugPrint('[Notifications] ensureDailyScheduled failed: $e');
+    });
   } catch (e) {
+    notifService.lastScheduleError = e.toString();
     debugPrint('[Notifications] Initialization failed: $e');
   }
 
@@ -61,6 +69,7 @@ void main() async {
     ProviderScope(
       overrides: [
         localStorageProvider.overrideWithValue(localStorage),
+        notificationServiceProvider.overrideWithValue(notifService),
       ],
       child: const TadabburApp(),
     ),
@@ -81,17 +90,37 @@ class TadabburApp extends ConsumerStatefulWidget {
 class _TadabburAppState extends ConsumerState<TadabburApp> {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSub;
+  ProviderSubscription<AsyncValue<bool>>? _connectivitySub;
 
   @override
   void initState() {
     super.initState();
     _appLinks = AppLinks();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initDeepLinks());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initDeepLinks();
+      _wireConnectivity();
+    });
+  }
+
+  /// Forward connectivity changes into FirestoreService so writes stop
+  /// hammering the network when offline. The pending-sync queue takes
+  /// over once the device reconnects.
+  void _wireConnectivity() {
+    _connectivitySub = ref.listenManual<AsyncValue<bool>>(
+      connectivityProvider,
+      (prev, next) {
+        final online = next.valueOrNull ?? true;
+        ref.read(firestoreServiceProvider).setOnline(online);
+        debugPrint('[Connectivity] online=$online');
+      },
+      fireImmediately: true,
+    );
   }
 
   @override
   void dispose() {
     _linkSub?.cancel();
+    _connectivitySub?.close();
     super.dispose();
   }
 

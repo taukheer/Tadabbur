@@ -23,10 +23,29 @@ class FirestoreService {
   String? _lastSyncError;
   String? get lastSyncError => _lastSyncError;
 
+  /// Connectivity gate. When false, writes return immediately and rely
+  /// on pending-sync replay (`flushPendingSyncs`) to catch up once the
+  /// device is back online. Driven by a connectivity listener wired in
+  /// the app bootstrap so we don't burn battery hammering DNS while
+  /// disconnected.
+  bool _isOnline = true;
+  void setOnline(bool online) {
+    _isOnline = online;
+  }
+
   bool _flushing = false;
 
   void setUser(String userId) {
     _userId = userId;
+  }
+
+  /// Clear the in-memory user binding. Call on sign-out so a subsequent
+  /// sign-in as a different user can't accidentally write to the previous
+  /// user's document via leftover pending writes.
+  void resetUser() {
+    _userId = null;
+    _syncStatus = SyncStatus.idle;
+    _lastSyncError = null;
   }
 
   bool get hasUser => _userId != null;
@@ -38,10 +57,17 @@ class FirestoreService {
       (storage.hasPendingProgressSync ? 1 : 0);
 
   /// Retry a failed write up to [maxAttempts] times with linear backoff.
+  /// Skips immediately when offline so the pending-sync queue can replay
+  /// it on reconnect instead of burning attempts against a dead network.
   Future<void> _withRetry(
     Future<void> Function() operation, {
     int maxAttempts = 3,
   }) async {
+    if (!_isOnline) {
+      _syncStatus = SyncStatus.failed;
+      _lastSyncError = 'offline';
+      throw const _OfflineException();
+    }
     for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         await operation();
@@ -394,4 +420,10 @@ class FirestoreService {
       return ReflectionTier.acknowledge;
     }
   }
+}
+
+class _OfflineException implements Exception {
+  const _OfflineException();
+  @override
+  String toString() => 'Offline — sync deferred';
 }

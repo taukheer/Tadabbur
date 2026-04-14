@@ -38,11 +38,11 @@ class QFAuthService {
 
   QFAuthService(this._storage);
 
-  // Deduplication guard — when two deep-link handlers fire in parallel
-  // for the same OAuth callback, we reuse the in-flight Future instead
-  // of running two concurrent token exchanges (which race to redeem
-  // the same single-use authorization code).
-  Future<AuthUser?>? _inFlightExchange;
+  // Per-code dedup: keyed by the authorization code so re-entry after
+  // the first call has completed (e.g. go_router re-evaluating the
+  // redirect, or two parallel deep-link fires) returns the same result
+  // instead of re-redeeming a now-consumed single-use code.
+  final Map<String, Future<AuthUser?>> _exchangesByCode = {};
 
   String? get accessToken => _storage.authToken;
   bool get isAuthenticated =>
@@ -72,9 +72,10 @@ class QFAuthService {
     // Store verifier for token exchange
     await _storage.setCodeVerifier(pkce.verifier);
 
-    // Generate and store state parameter for CSRF protection
+    // Generate and store state parameter for CSRF protection.
+    // 32 bytes = 256 bits of entropy.
     final state = base64UrlEncode(
-      List<int>.generate(16, (_) => Random.secure().nextInt(256)),
+      List<int>.generate(32, (_) => Random.secure().nextInt(256)),
     );
     await _storage.setOAuthState(state);
 
@@ -123,18 +124,17 @@ class QFAuthService {
   /// default `token_endpoint_auth_method`.
   ///
   /// Returns the authenticated [AuthUser] parsed from the id_token on
-  /// success, or `null` on failure. Safe to call multiple times with the
-  /// same code — duplicate concurrent calls reuse the same in-flight
-  /// Future instead of double-redeeming.
+  /// success, or `null` on failure. Safe to call multiple times with
+  /// the same code — every subsequent call returns the same Future
+  /// (kept indefinitely) instead of re-redeeming the now-consumed code.
   Future<AuthUser?> exchangeCode(String code, {required String state}) {
-    final existing = _inFlightExchange;
-    if (existing != null) {
-      debugPrint('[QFAuth] exchange already in flight — reusing future');
-      return existing;
+    final cached = _exchangesByCode[code];
+    if (cached != null) {
+      debugPrint('[QFAuth] exchange already seen for this code — reusing');
+      return cached;
     }
     final future = _doExchange(code, state: state);
-    _inFlightExchange = future;
-    future.whenComplete(() => _inFlightExchange = null);
+    _exchangesByCode[code] = future;
     return future;
   }
 

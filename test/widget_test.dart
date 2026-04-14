@@ -5,7 +5,6 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
-import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
@@ -44,13 +43,17 @@ class FakeLocalStorageService extends LocalStorageService {
 /// A minimal fake for [UserApiService].
 /// All methods are no-ops so they don't make real HTTP calls.
 class FakeUserApiService extends UserApiService {
-  FakeUserApiService() : super(ApiClient());
+  FakeUserApiService() : super(FakeLocalStorageService());
 
   @override
   Future<void> updateStreak() async {}
 
   @override
-  Future<void> logActivityDay(DateTime date) async {}
+  Future<void> logActivityDay(
+    DateTime date, {
+    String verseKey = '1:1',
+    int seconds = 60,
+  }) async {}
 
   @override
   Future<void> saveReflection(

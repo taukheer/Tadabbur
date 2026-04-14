@@ -14,6 +14,7 @@ import 'package:tadabbur/core/services/local_storage_service.dart';
 /// Base URL and client id are injected at build time via --dart-define.
 class UserApiService {
   final LocalStorageService _storage;
+  final Future<bool> Function()? _onRefreshToken;
   late final Dio _dio;
 
   static const _baseUrl = String.fromEnvironment(
@@ -29,7 +30,8 @@ class UserApiService {
   // text_uthmani in the content API.
   static const _mushafId = 4;
 
-  UserApiService(this._storage) {
+  UserApiService(this._storage, {Future<bool> Function()? onRefreshToken})
+      : _onRefreshToken = onRefreshToken {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 15),
@@ -43,14 +45,53 @@ class UserApiService {
     ));
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        final token = _storage.authToken;
-        if (token != null && token.isNotEmpty && token != 'guest') {
-          options.headers['x-auth-token'] = token;
+        // Only attach the QF bearer token when the user is actually
+        // signed in via Quran Foundation OAuth. Google/Apple sign-ins
+        // give us tokens that the QF User API will reject with 401.
+        if (_storage.authType == AuthType.quranFoundation) {
+          final token = _storage.authToken;
+          if (token != null && token.isNotEmpty) {
+            options.headers['x-auth-token'] = token;
+          }
         }
         handler.next(options);
       },
+      onError: (DioException err, handler) async {
+        // 401 → try a single token refresh + retry. Anything else
+        // (or a second 401 after refresh) flows through unchanged.
+        if (err.response?.statusCode == 401 &&
+            _onRefreshToken != null &&
+            _storage.authType == AuthType.quranFoundation &&
+            err.requestOptions.extra['__retried'] != true) {
+          debugPrint('[UserApi] 401 → attempting token refresh');
+          try {
+            final refreshed = await _onRefreshToken();
+            if (refreshed) {
+              final newToken = _storage.authToken;
+              if (newToken != null && newToken.isNotEmpty) {
+                final retryOptions = err.requestOptions
+                  ..headers['x-auth-token'] = newToken
+                  ..extra['__retried'] = true;
+                final response = await _dio.fetch(retryOptions);
+                return handler.resolve(response);
+              }
+            }
+          } catch (e) {
+            debugPrint('[UserApi] refresh+retry failed: $e');
+          }
+        }
+        handler.next(err);
+      },
     ));
   }
+
+  /// Whether the current user is signed in via QF OAuth (the only auth
+  /// type that can use the User APIs). Methods short-circuit on false so
+  /// guest / Google / Apple users don't generate 401 noise.
+  bool get _canCallUserApi =>
+      _storage.authType == AuthType.quranFoundation &&
+      _storage.authToken != null &&
+      _storage.authToken!.isNotEmpty;
 
   // ---------------------------------------------------------------------------
   // Reflections (Notes)
@@ -70,6 +111,7 @@ class UserApiService {
     String body, {
     Map<String, dynamic>? metadata,
   }) async {
+    if (!_canCallUserApi) return;
     debugPrint('[UserApi] POST /v1/notes — saveReflection($verseKey)');
     try {
       final safeBody = body.length >= 6
@@ -78,7 +120,6 @@ class UserApiService {
 
       final response = await _dio.post<Map<String, dynamic>>(
         '/v1/notes',
-        options: Options(validateStatus: (_) => true),
         data: {
           'body': safeBody,
           'saveToQR': false,
@@ -86,19 +127,16 @@ class UserApiService {
         },
       );
       debugPrint('[UserApi] POST /v1/notes → ${response.statusCode}');
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint('[UserApi] POST /v1/notes error body: ${response.data}');
-        throw ApiException(
-          message: 'Save reflection failed: ${response.statusCode}',
-          statusCode: response.statusCode,
-          data: response.data,
-        );
-      }
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      debugPrint('[UserApi] POST /v1/notes FAILED: $e');
-      throw ApiException(message: 'Failed to save reflection: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] POST /v1/notes failed: ${e.response?.statusCode} '
+        '${e.response?.data}',
+      );
+      throw ApiException(
+        message: 'Save reflection failed: ${e.response?.statusCode}',
+        statusCode: e.response?.statusCode,
+        data: e.response?.data,
+      );
     }
   }
 
@@ -107,6 +145,7 @@ class UserApiService {
     int? first,
     String? after,
   }) async {
+    if (!_canCallUserApi) return [];
     debugPrint('[UserApi] GET /v1/notes — getReflections');
     final queryParams = <String, dynamic>{};
     if (first != null) queryParams['first'] = first;
@@ -116,21 +155,18 @@ class UserApiService {
       final response = await _dio.get<Map<String, dynamic>>(
         '/v1/notes',
         queryParameters: queryParams,
-        options: Options(validateStatus: (_) => true),
       );
-      debugPrint('[UserApi] GET /v1/notes → ${response.statusCode}');
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint('[UserApi] GET /v1/notes error: ${response.data}');
-        return [];
-      }
       final data = response.data;
       if (data == null) return [];
       final list = (data['data'] ?? data['items'] ?? data['edges'])
           as List<dynamic>?;
       if (list == null) return [];
       return list.map((e) => e as Map<String, dynamic>).toList();
-    } catch (e) {
-      debugPrint('[UserApi] GET /v1/notes FAILED: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/notes failed: ${e.response?.statusCode} '
+        '${e.response?.data}',
+      );
       return [];
     }
   }
@@ -140,20 +176,15 @@ class UserApiService {
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> getStreak() async {
+    if (!_canCallUserApi) return {};
     debugPrint('[UserApi] GET /v1/streaks — getStreak');
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/v1/streaks',
-        options: Options(validateStatus: (_) => true),
-      );
-      debugPrint('[UserApi] GET /v1/streaks → ${response.statusCode}');
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint('[UserApi] GET /v1/streaks error: ${response.data}');
-        return {};
-      }
+      final response = await _dio.get<Map<String, dynamic>>('/v1/streaks');
       return response.data ?? {};
-    } catch (e) {
-      debugPrint('[UserApi] GET /v1/streaks FAILED: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/streaks failed: ${e.response?.statusCode}',
+      );
       return {};
     }
   }
@@ -182,6 +213,7 @@ class UserApiService {
     String verseKey = '1:1',
     int seconds = 60,
   }) async {
+    if (!_canCallUserApi) return;
     final dateString =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
@@ -189,9 +221,8 @@ class UserApiService {
       '[UserApi] POST /v1/activity-days — logActivityDay($dateString, $verseKey)',
     );
     try {
-      final response = await _dio.post<Map<String, dynamic>>(
+      await _dio.post<Map<String, dynamic>>(
         '/v1/activity-days',
-        options: Options(validateStatus: (_) => true),
         data: {
           'date': dateString,
           'type': 'QURAN',
@@ -200,16 +231,11 @@ class UserApiService {
           'mushafId': _mushafId,
         },
       );
+    } on DioException catch (e) {
       debugPrint(
-        '[UserApi] POST /v1/activity-days → ${response.statusCode}',
+        '[UserApi] POST /v1/activity-days failed: ${e.response?.statusCode} '
+        '${e.response?.data}',
       );
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint(
-          '[UserApi] POST /v1/activity-days error body: ${response.data}',
-        );
-      }
-    } catch (e) {
-      debugPrint('[UserApi] POST /v1/activity-days FAILED: $e');
     }
   }
 
@@ -217,6 +243,7 @@ class UserApiService {
     DateTime? from,
     DateTime? to,
   }) async {
+    if (!_canCallUserApi) return [];
     debugPrint('[UserApi] GET /v1/activity-days — getActivityDays');
     final queryParams = <String, dynamic>{};
     if (from != null) {
@@ -232,12 +259,7 @@ class UserApiService {
       final response = await _dio.get<Map<String, dynamic>>(
         '/v1/activity-days',
         queryParameters: queryParams,
-        options: Options(validateStatus: (_) => true),
       );
-      debugPrint('[UserApi] GET /v1/activity-days → ${response.statusCode}');
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        return [];
-      }
       final data = response.data;
       if (data == null) return [];
       final days = (data['data'] ?? data['activity_days'] ?? data['items'])
@@ -253,8 +275,10 @@ class UserApiService {
           })
           .whereType<DateTime>()
           .toList();
-    } catch (e) {
-      debugPrint('[UserApi] GET /v1/activity-days FAILED: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/activity-days failed: ${e.response?.statusCode}',
+      );
       return [];
     }
   }
@@ -268,23 +292,23 @@ class UserApiService {
   /// [verseKey] is in `surah:ayah` format (e.g. `2:255`). Parsed into
   /// the `{key, verseNumber}` pair QF expects.
   Future<void> addBookmark(String verseKey) async {
+    if (!_canCallUserApi) return;
     debugPrint('[UserApi] POST /v1/bookmarks — addBookmark($verseKey)');
-    try {
-      final parts = verseKey.split(':');
-      if (parts.length != 2) {
-        debugPrint('[UserApi] invalid verseKey: $verseKey');
-        return;
-      }
-      final surah = int.tryParse(parts[0]);
-      final ayah = int.tryParse(parts[1]);
-      if (surah == null || ayah == null) {
-        debugPrint('[UserApi] could not parse verseKey: $verseKey');
-        return;
-      }
+    final parts = verseKey.split(':');
+    if (parts.length != 2) {
+      debugPrint('[UserApi] invalid verseKey: $verseKey');
+      return;
+    }
+    final surah = int.tryParse(parts[0]);
+    final ayah = int.tryParse(parts[1]);
+    if (surah == null || ayah == null) {
+      debugPrint('[UserApi] could not parse verseKey: $verseKey');
+      return;
+    }
 
-      final response = await _dio.post<Map<String, dynamic>>(
+    try {
+      await _dio.post<Map<String, dynamic>>(
         '/v1/bookmarks',
-        options: Options(validateStatus: (_) => true),
         data: {
           'key': surah,
           'type': 'ayah',
@@ -292,57 +316,44 @@ class UserApiService {
           'mushaf': _mushafId,
         },
       );
+    } on DioException catch (e) {
       debugPrint(
-        '[UserApi] POST /v1/bookmarks → ${response.statusCode}',
+        '[UserApi] POST /v1/bookmarks failed: ${e.response?.statusCode} '
+        '${e.response?.data}',
       );
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint(
-          '[UserApi] POST /v1/bookmarks error body: ${response.data}',
-        );
-      }
-    } catch (e) {
-      debugPrint('[UserApi] POST /v1/bookmarks FAILED: $e');
     }
   }
 
   /// Fetches all of the user's bookmarks.
   Future<List<Map<String, dynamic>>> getBookmarks() async {
+    if (!_canCallUserApi) return [];
     debugPrint('[UserApi] GET /v1/bookmarks — getBookmarks');
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/v1/bookmarks',
-        options: Options(validateStatus: (_) => true),
-      );
-      debugPrint('[UserApi] GET /v1/bookmarks → ${response.statusCode}');
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        debugPrint('[UserApi] GET /v1/bookmarks error: ${response.data}');
-        return [];
-      }
+      final response = await _dio.get<Map<String, dynamic>>('/v1/bookmarks');
       final data = response.data;
       if (data == null) return [];
       final list = (data['data'] ?? data['bookmarks'] ?? data['items'])
           as List<dynamic>?;
       if (list == null) return [];
       return list.map((e) => e as Map<String, dynamic>).toList();
-    } catch (e) {
-      debugPrint('[UserApi] GET /v1/bookmarks FAILED: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/bookmarks failed: ${e.response?.statusCode}',
+      );
       return [];
     }
   }
 
   /// Removes a bookmark by its id.
   Future<void> removeBookmark(dynamic bookmarkId) async {
+    if (!_canCallUserApi) return;
     debugPrint('[UserApi] DELETE /v1/bookmarks/$bookmarkId');
     try {
-      final response = await _dio.delete<Map<String, dynamic>>(
-        '/v1/bookmarks/$bookmarkId',
-        options: Options(validateStatus: (_) => true),
-      );
+      await _dio.delete<Map<String, dynamic>>('/v1/bookmarks/$bookmarkId');
+    } on DioException catch (e) {
       debugPrint(
-        '[UserApi] DELETE /v1/bookmarks/$bookmarkId → ${response.statusCode}',
+        '[UserApi] DELETE /v1/bookmarks failed: ${e.response?.statusCode}',
       );
-    } catch (e) {
-      debugPrint('[UserApi] DELETE /v1/bookmarks FAILED: $e');
     }
   }
 
@@ -351,32 +362,29 @@ class UserApiService {
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> getPreferences() async {
+    if (!_canCallUserApi) return {};
     debugPrint('[UserApi] GET /v1/preferences — getPreferences');
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/v1/preferences',
-        options: Options(validateStatus: (_) => true),
-      );
-      if (response.statusCode == null || response.statusCode! >= 400) {
-        return {};
-      }
+      final response =
+          await _dio.get<Map<String, dynamic>>('/v1/preferences');
       return response.data ?? {};
-    } catch (e) {
-      debugPrint('[UserApi] GET /v1/preferences FAILED: $e');
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/preferences failed: ${e.response?.statusCode}',
+      );
       return {};
     }
   }
 
   Future<void> updatePreferences(Map<String, dynamic> prefs) async {
+    if (!_canCallUserApi) return;
     debugPrint('[UserApi] POST /v1/preferences — updatePreferences');
     try {
-      await _dio.post<Map<String, dynamic>>(
-        '/v1/preferences',
-        data: prefs,
-        options: Options(validateStatus: (_) => true),
+      await _dio.post<Map<String, dynamic>>('/v1/preferences', data: prefs);
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] POST /v1/preferences failed: ${e.response?.statusCode}',
       );
-    } catch (e) {
-      debugPrint('[UserApi] POST /v1/preferences FAILED: $e');
     }
   }
 }

@@ -134,12 +134,18 @@ class LocalStorageService {
     }
   }
 
-  bool get isLoggedIn => authToken != null;
+  /// True when the user has signed in via any provider (QF, Google, Apple,
+  /// or guest mode). Checking authType is more robust than checking the
+  /// token, since 3rd-party auth providers may not give us a usable token.
+  bool get isLoggedIn {
+    final t = authType;
+    return t != AuthType.none;
+  }
 
   AuthType get authType {
     final stored = _prefs.getString(_keyAuthType);
     if (stored == null) {
-      // Legacy fallback: infer from token
+      // Legacy fallback for installs that pre-date authType persistence.
       if (_authToken == null) return AuthType.none;
       if (_authToken == 'guest') return AuthType.guest;
       if (_authToken!.startsWith('google_')) return AuthType.google;

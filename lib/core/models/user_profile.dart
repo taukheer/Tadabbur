@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show debugPrint;
+
 enum ArabicLevel {
   fluent,    // "I can read Arabic fluently"
   basic,     // "I can read Arabic slowly"
@@ -47,22 +49,35 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     ArabicLevel arabicLevel;
     try {
-      arabicLevel = ArabicLevel.values.byName(json['arabic_level']);
+      arabicLevel = ArabicLevel.values.byName(json['arabic_level'] as String);
     } catch (_) {
+      debugPrint(
+        '[UserProfile] unknown arabic_level=${json['arabic_level']} '
+        '— defaulting to none',
+      );
       arabicLevel = ArabicLevel.none;
     }
 
     UnderstandingLevel understandingLevel;
     try {
-      understandingLevel = UnderstandingLevel.values.byName(json['understanding_level']);
+      understandingLevel =
+          UnderstandingLevel.values.byName(json['understanding_level'] as String);
     } catch (_) {
+      debugPrint(
+        '[UserProfile] unknown understanding_level=${json['understanding_level']} '
+        '— defaulting to none',
+      );
       understandingLevel = UnderstandingLevel.none;
     }
 
     Motivation motivation;
     try {
-      motivation = Motivation.values.byName(json['motivation']);
+      motivation = Motivation.values.byName(json['motivation'] as String);
     } catch (_) {
+      debugPrint(
+        '[UserProfile] unknown motivation=${json['motivation']} '
+        '— defaulting to connection',
+      );
       motivation = Motivation.connection;
     }
 
@@ -70,7 +85,25 @@ class UserProfile {
       arabicLevel: arabicLevel,
       understandingLevel: understandingLevel,
       motivation: motivation,
-      preferredTime: json['preferred_time'],
+      preferredTime: json['preferred_time'] as String?,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is UserProfile &&
+        other.arabicLevel == arabicLevel &&
+        other.understandingLevel == understandingLevel &&
+        other.motivation == motivation &&
+        other.preferredTime == preferredTime;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        arabicLevel,
+        understandingLevel,
+        motivation,
+        preferredTime,
+      );
 }

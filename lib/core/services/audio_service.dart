@@ -53,12 +53,23 @@ class AudioService {
   ///
   /// If audio is already playing, it is stopped first before loading
   /// the new source. Throws an [AudioServiceException] if the audio
-  /// cannot be loaded.
-  Future<void> playAyah(String audioUrl) async {
+  /// cannot be loaded or load takes longer than [loadTimeout]
+  /// (default 30 seconds).
+  Future<void> playAyah(
+    String audioUrl, {
+    Duration loadTimeout = const Duration(seconds: 30),
+  }) async {
     try {
       await _player.stop();
-      await _player.setUrl(audioUrl);
+      await _player.setUrl(audioUrl).timeout(
+            loadTimeout,
+            onTimeout: () => throw AudioServiceException(
+              message: 'Audio load timed out after ${loadTimeout.inSeconds}s',
+            ),
+          );
       _player.play(); // Don't await — returns immediately so UI can update
+    } on AudioServiceException {
+      rethrow;
     } on PlayerException catch (e) {
       throw AudioServiceException(
         message: 'Failed to play audio: ${e.message}',
