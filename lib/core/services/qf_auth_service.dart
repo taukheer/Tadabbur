@@ -232,7 +232,18 @@ class QFAuthService {
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       ) as Map<String, dynamic>;
 
-      final name = payload['name'] as String? ??
+      // QF emits `first_name` + `last_name` when the user has set them on
+      // their profile. Fall back to standard OIDC claims, then email,
+      // then a generic placeholder. Per QF support: a user with no
+      // first/last name will only have `sub` + `email` in the token.
+      final firstName = payload['first_name'] as String?;
+      final lastName = payload['last_name'] as String?;
+      final qfFullName = [firstName, lastName]
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
+          .join(' ');
+      final name = (qfFullName.isNotEmpty ? qfFullName : null) ??
+          payload['name'] as String? ??
           payload['preferred_username'] as String? ??
           payload['given_name'] as String? ??
           payload['email'] as String? ??

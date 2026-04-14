@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:just_audio/just_audio.dart';
 
 /// Service that wraps [AudioPlayer] for Quran audio playback.
@@ -6,12 +8,29 @@ import 'package:just_audio/just_audio.dart';
 /// with reactive streams for UI binding and proper resource cleanup.
 class AudioService {
   final AudioPlayer _player;
+  StreamSubscription<ProcessingState>? _completionSub;
 
   /// Creates an [AudioService].
   ///
   /// An optional [player] can be injected for testing; otherwise a new
   /// [AudioPlayer] instance is created.
-  AudioService({AudioPlayer? player}) : _player = player ?? AudioPlayer();
+  AudioService({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
+    // When a track finishes playing, just_audio leaves `playing` as `true`
+    // and only flips `processingState` to `completed`. UIs that watch
+    // `playerState.playing` would render the pause icon forever. Force a
+    // pause + rewind on completion so every consumer sees `playing == false`
+    // and the play icon flips back automatically.
+    _completionSub = _player.processingStateStream
+        .where((s) => s == ProcessingState.completed)
+        .listen((_) async {
+      try {
+        await _player.pause();
+        await _player.seek(Duration.zero);
+      } catch (_) {
+        // Best-effort reset; ignore if the player was disposed mid-flight.
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // Reactive streams
@@ -139,6 +158,7 @@ class AudioService {
   /// Call this when the service is no longer needed (e.g. when the
   /// parent widget or provider is disposed).
   void dispose() {
+    _completionSub?.cancel();
     _player.dispose();
   }
 }
