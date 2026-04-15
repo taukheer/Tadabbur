@@ -22,11 +22,22 @@ class BookmarksScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
+        child: RefreshIndicator(
+          // Pull-to-refresh hydrates bookmarks from QF so a user who
+          // added a bookmark on quran.com from another device can
+          // swipe down to pull it into the app. Safe to call while
+          // already in-flight — the notifier's concurrency guard
+          // reuses the running Future.
+          onRefresh: () =>
+              ref.read(bookmarkProvider.notifier).hydrateFromQF(),
+          color: theme.colorScheme.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              // Header
+              SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                 child: Column(
@@ -119,8 +130,9 @@ class BookmarksScreen extends ConsumerWidget {
                 ),
               ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
         ),
       ),
     );

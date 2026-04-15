@@ -109,11 +109,21 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ── Header ──
-            SliverToBoxAdapter(
+        child: RefreshIndicator(
+          // Pull-to-refresh hydrates notes from QF so reflections the
+          // user wrote on quran.com from another device get pulled in
+          // on demand. Safe to call while already hydrating — the
+          // notifier's concurrency guard reuses the in-flight Future.
+          onRefresh: () =>
+              ref.read(journalProvider.notifier).hydrateFromQF(),
+          color: theme.colorScheme.primary,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              // ── Header ──
+              SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                 child: Column(
@@ -396,8 +406,9 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               ),
             ],
 
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
         ),
       ),
     );

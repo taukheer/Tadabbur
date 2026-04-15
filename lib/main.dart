@@ -15,6 +15,11 @@ import 'package:tadabbur/core/services/notification_service.dart';
 import 'package:tadabbur/core/theme/app_theme.dart';
 import 'package:tadabbur/firebase_options.dart';
 
+/// How long to wait between foreground-resume triggered hydrations.
+/// Prevents spamming the QF API on rapid app-switching (e.g. user
+/// flipping between Tadabbur and a browser while debugging).
+const _kForegroundHydrateCooldown = Duration(seconds: 30);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -87,15 +92,22 @@ class TadabburApp extends ConsumerStatefulWidget {
   ConsumerState<TadabburApp> createState() => _TadabburAppState();
 }
 
-class _TadabburAppState extends ConsumerState<TadabburApp> {
+class _TadabburAppState extends ConsumerState<TadabburApp>
+    with WidgetsBindingObserver {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSub;
   ProviderSubscription<AsyncValue<bool>>? _connectivitySub;
+
+  /// Timestamp of the last foreground-resume hydrate run. Used with
+  /// [_kForegroundHydrateCooldown] to throttle refresh calls so the
+  /// app doesn't hit QF repeatedly during rapid app-switching.
+  DateTime? _lastForegroundHydrate;
 
   @override
   void initState() {
     super.initState();
     _appLinks = AppLinks();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initDeepLinks();
       _wireConnectivity();
@@ -119,9 +131,40 @@ class _TadabburAppState extends ConsumerState<TadabburApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _linkSub?.cancel();
     _connectivitySub?.close();
     super.dispose();
+  }
+
+  /// Silently refresh bookmarks + notes from QF whenever the app comes
+  /// back to the foreground. This is the "real-time enough" path for
+  /// two-way sync — if a user is signed in on mobile and adds a
+  /// bookmark on quran.com from their laptop, the phone will pull it
+  /// in the next time they switch back to the app. Throttled so rapid
+  /// app-switching doesn't spam the API.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed) return;
+
+    // Only hydrate when the user is authenticated via QF — other
+    // auth types (Google/Apple/guest) don't have QF User API access.
+    final storage = ref.read(localStorageProvider);
+    if (storage.authType != AuthType.quranFoundation) return;
+    if (storage.authToken == null || storage.authToken!.isEmpty) return;
+
+    final now = DateTime.now();
+    final lastRun = _lastForegroundHydrate;
+    if (lastRun != null &&
+        now.difference(lastRun) < _kForegroundHydrateCooldown) {
+      return;
+    }
+    _lastForegroundHydrate = now;
+
+    debugPrint('[Foreground] refreshing bookmarks + notes from QF');
+    unawaited(ref.read(bookmarkProvider.notifier).hydrateFromQF());
+    unawaited(ref.read(journalProvider.notifier).hydrateFromQF());
   }
 
   Future<void> _initDeepLinks() async {
