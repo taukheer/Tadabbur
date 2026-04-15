@@ -140,6 +140,10 @@ class DailyAyahScreen extends ConsumerWidget {
                   ),
                 const SizedBox(width: 8),
                 _BookmarkButton(
+                  // Keying on verseKey forces a fresh Element when the
+                  // user advances to the next ayah, so the bookmark
+                  // state can't leak across verses.
+                  key: ValueKey('bookmark-${ayah.verseKey}'),
                   verseKey: ayah.verseKey,
                   arabicText: ayah.textUthmani,
                   translationText: ayah.translationText ?? '',
@@ -1687,6 +1691,7 @@ class _BookmarkButton extends ConsumerWidget {
   final String translationText;
 
   const _BookmarkButton({
+    super.key,
     required this.verseKey,
     required this.arabicText,
     required this.translationText,
@@ -1748,7 +1753,11 @@ class _BookmarkButton extends ConsumerWidget {
               isBookmarked
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
-              key: ValueKey(isBookmarked),
+              // Include verseKey in the key so the AnimatedSwitcher
+              // transitions correctly when the user advances to a
+              // different ayah (even if the bookmarked-ness happens
+              // to match the previous verse's state).
+              key: ValueKey('$verseKey-$isBookmarked'),
               size: 20,
               color: isBookmarked
                   ? AppColors.primary

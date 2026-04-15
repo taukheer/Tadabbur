@@ -140,22 +140,17 @@ class UserApiService {
     }
   }
 
-  /// Fetches the user's notes (pagination via cursor).
-  Future<List<Map<String, dynamic>>> getReflections({
-    int? first,
-    String? after,
-  }) async {
+  /// Fetches the user's notes. QF's `/v1/notes` endpoint does not
+  /// accept a `first` cursor parameter (returns 422 "first is not
+  /// allowed") — it returns all notes in one call, so we pass no
+  /// query params.
+  Future<List<Map<String, dynamic>>> getReflections() async {
     if (!_canCallUserApi) return [];
     debugPrint('[UserApi] GET /v1/notes — getReflections');
-    final queryParams = <String, dynamic>{};
-    if (first != null) queryParams['first'] = first;
-    if (after != null) queryParams['after'] = after;
 
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/v1/notes',
-        queryParameters: queryParams,
-      );
+      final response = await _dio.get<Map<String, dynamic>>('/v1/notes');
+      debugPrint('[UserApi] GET /v1/notes → ${response.statusCode}');
       final data = response.data;
       if (data == null) return [];
       final list = (data['data'] ?? data['items'] ?? data['edges'])
@@ -325,11 +320,29 @@ class UserApiService {
   }
 
   /// Fetches all of the user's bookmarks.
+  ///
+  /// QF's GET `/v1/bookmarks` endpoint has two required query params:
+  /// - `mushafId` (camelCase — note the inconsistency with the POST
+  ///   body which accepts `mushaf`).
+  /// - `first` or `last` — cursor pagination, capped at 20 per page.
+  ///   Notes rejects `first`, bookmarks requires it. For hydration
+  ///   we ask for the first page (20); users with more than 20
+  ///   bookmarks would need cursor follow-up (see TODO).
+  // TODO: walk the cursor (`endCursor` from response) when a user
+  // has >20 bookmarks. Not a priority for the hackathon demo since
+  // the vast majority of users are well under the cap.
   Future<List<Map<String, dynamic>>> getBookmarks() async {
     if (!_canCallUserApi) return [];
     debugPrint('[UserApi] GET /v1/bookmarks — getBookmarks');
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/v1/bookmarks');
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/bookmarks',
+        queryParameters: {
+          'mushafId': _mushafId,
+          'first': 20,
+        },
+      );
+      debugPrint('[UserApi] GET /v1/bookmarks → ${response.statusCode}');
       final data = response.data;
       if (data == null) return [];
       final list = (data['data'] ?? data['bookmarks'] ?? data['items'])
@@ -338,7 +351,8 @@ class UserApiService {
       return list.map((e) => e as Map<String, dynamic>).toList();
     } on DioException catch (e) {
       debugPrint(
-        '[UserApi] GET /v1/bookmarks failed: ${e.response?.statusCode}',
+        '[UserApi] GET /v1/bookmarks failed: '
+        '${e.response?.statusCode} ${e.response?.data}',
       );
       return [];
     }

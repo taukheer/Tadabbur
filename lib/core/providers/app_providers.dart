@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/services/api_client.dart';
@@ -283,16 +284,133 @@ final bookmarkProvider =
   final storage = ref.watch(localStorageProvider);
   final userApi = ref.watch(userApiProvider);
   final firestore = ref.watch(firestoreServiceProvider);
-  return BookmarkNotifier(storage, userApi, firestore);
+  final quranApi = ref.watch(quranApiProvider);
+  return BookmarkNotifier(storage, userApi, firestore, quranApi);
 });
 
 class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
   final LocalStorageService _storage;
   final UserApiService _userApi;
   final FirestoreService _firestore;
+  final QuranApiService _quranApi;
 
-  BookmarkNotifier(this._storage, this._userApi, this._firestore)
+  /// Guard against concurrent hydration runs. The `/oauth/callback`
+  /// redirect handler can fire twice for a single sign-in (deep link
+  /// stream + router rebuild race), and without this gate the second
+  /// run would start its dedup pass before the first's writes landed,
+  /// inserting duplicate entries.
+  Future<void>? _hydrateInFlight;
+
+  BookmarkNotifier(
+      this._storage, this._userApi, this._firestore, this._quranApi)
       : super(_storage.getBookmarks());
+
+  /// Two-way sync: pull bookmarks the user already has on quran.com
+  /// (via QF `/v1/bookmarks`) and merge into local state.
+  ///
+  /// Called after a successful QF OAuth sign-in so a user who has
+  /// existing bookmarks on the website sees them immediately in the
+  /// app. Dedup is by `verseKey` — local wins on conflict because
+  /// local is the last-written source.
+  ///
+  /// The QF bookmark response only contains `{key, verseNumber}`
+  /// (the surah + ayah coordinates). Verse text for display is
+  /// fetched from the content API for each new bookmark; this adds
+  /// latency on first sign-in but hits QuranApiService's in-memory
+  /// cache on reload.
+  ///
+  /// Safe against concurrent calls — a second invocation during an
+  /// in-flight run reuses the same Future instead of starting a new
+  /// dedup race against half-applied state.
+  Future<void> hydrateFromQF() {
+    return _hydrateInFlight ??= _hydrateFromQF().whenComplete(() {
+      _hydrateInFlight = null;
+    });
+  }
+
+  Future<void> _hydrateFromQF() async {
+    try {
+      final remote = await _userApi.getBookmarks();
+      if (remote.isEmpty) return;
+
+      final localKeys = state.map((b) => b.verseKey).toSet();
+      final additions = <Bookmark>[];
+
+      for (final raw in remote) {
+        final verseKey = _parseVerseKey(raw);
+        if (verseKey == null || localKeys.contains(verseKey)) continue;
+
+        String arabicText = '';
+        String translationText = '';
+        try {
+          final ayah = await _quranApi.getVerseByKey(verseKey);
+          arabicText = ayah.textUthmani;
+          translationText = ayah.translationText ?? '';
+        } catch (e) {
+          debugPrint(
+            '[BookmarkNotifier] hydrate verse $verseKey failed: $e',
+          );
+        }
+
+        additions.add(Bookmark(
+          verseKey: verseKey,
+          arabicText: arabicText,
+          translationText: translationText,
+          bookmarkedAt: _parseDate(raw) ?? DateTime.now(),
+          qfBookmarkId: _parseInt(raw['id']),
+        ));
+        localKeys.add(verseKey);
+      }
+
+      if (additions.isEmpty) return;
+      // Sort newest first (matches local insertion order)
+      additions.sort((a, b) => b.bookmarkedAt.compareTo(a.bookmarkedAt));
+      state = [...additions, ...state];
+      await _storage.saveBookmarks(state);
+      debugPrint(
+        '[BookmarkNotifier] hydrated ${additions.length} bookmarks from QF',
+      );
+    } catch (e) {
+      debugPrint('[BookmarkNotifier] hydrateFromQF failed: $e');
+    }
+  }
+
+  /// Extract a `surah:ayah` key from a QF bookmark payload. QF emits
+  /// `{key, verseNumber, type, mushaf}` where `key` is the surah
+  /// number and `verseNumber` is the ayah. Falls back to a handful of
+  /// alternative field names so a schema change on QF's side doesn't
+  /// silently break hydration.
+  static String? _parseVerseKey(Map<String, dynamic> raw) {
+    final key = _parseInt(raw['key']) ??
+        _parseInt(raw['surah']) ??
+        _parseInt(raw['chapter_id']) ??
+        _parseInt(raw['chapterId']);
+    final ayah = _parseInt(raw['verseNumber']) ??
+        _parseInt(raw['verse_number']) ??
+        _parseInt(raw['ayah']) ??
+        _parseInt(raw['ayahNumber']);
+    if (key == null || ayah == null) {
+      // Some QF payloads encode a single verseKey string directly.
+      final vk = raw['verseKey'] as String? ?? raw['verse_key'] as String?;
+      if (vk != null && vk.contains(':')) return vk;
+      return null;
+    }
+    return '$key:$ayah';
+  }
+
+  static int? _parseInt(dynamic v) {
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  static DateTime? _parseDate(Map<String, dynamic> raw) {
+    final s = raw['createdAt'] as String? ??
+        raw['created_at'] as String? ??
+        raw['bookmarked_at'] as String?;
+    if (s == null) return null;
+    return DateTime.tryParse(s);
+  }
 
   bool isBookmarked(String verseKey) {
     return state.any((b) => b.verseKey == verseKey);
@@ -373,16 +491,137 @@ final journalProvider =
   final storage = ref.watch(localStorageProvider);
   final userApi = ref.watch(userApiProvider);
   final firestore = ref.watch(firestoreServiceProvider);
-  return JournalNotifier(storage, userApi, firestore);
+  final quranApi = ref.watch(quranApiProvider);
+  return JournalNotifier(storage, userApi, firestore, quranApi);
 });
 
 class JournalNotifier extends StateNotifier<List<JournalEntry>> {
   final LocalStorageService _storage;
   final UserApiService _userApi;
   final FirestoreService _firestore;
+  final QuranApiService _quranApi;
 
-  JournalNotifier(this._storage, this._userApi, this._firestore)
+  /// Same concurrency guard as [BookmarkNotifier._hydrateInFlight] —
+  /// the double-firing OAuth callback would otherwise insert
+  /// duplicate journal entries on fresh sign-ins.
+  Future<void>? _hydrateInFlight;
+
+  JournalNotifier(
+      this._storage, this._userApi, this._firestore, this._quranApi)
       : super(_storage.getJournalEntries());
+
+  /// Two-way sync: pull notes the user already has on quran.com (via
+  /// QF `/v1/notes`) and merge into the local journal.
+  ///
+  /// Called after a successful QF OAuth sign-in. Each QF note has a
+  /// `body` and a `ranges` array like `["1:1-1:1"]`; we use the first
+  /// range to determine the verseKey, fetch the verse text for display,
+  /// and insert the note as a [ReflectionTier.respond] entry
+  /// (the tier isn't stored on QF side so we pick a reasonable default).
+  ///
+  /// Dedup is by a stable `qf-{note_id}` identifier on the local
+  /// [JournalEntry.id] field so re-hydrating doesn't create duplicates.
+  /// Safe against concurrent calls via [_hydrateInFlight].
+  Future<void> hydrateFromQF() {
+    return _hydrateInFlight ??= _hydrateFromQF().whenComplete(() {
+      _hydrateInFlight = null;
+    });
+  }
+
+  Future<void> _hydrateFromQF() async {
+    try {
+      final remote = await _userApi.getReflections();
+      if (remote.isEmpty) return;
+
+      final localIds = state.map((e) => e.id).toSet();
+      final additions = <JournalEntry>[];
+
+      for (final raw in remote) {
+        final noteId = raw['id']?.toString();
+        final localId = noteId != null ? 'qf-$noteId' : null;
+        if (localId != null && localIds.contains(localId)) continue;
+
+        final body = (raw['body'] as String?)?.trim() ?? '';
+        if (body.isEmpty) continue;
+
+        final verseKey = _parseFirstVerseFromRanges(raw['ranges']);
+        if (verseKey == null) continue;
+
+        // Skip if we already have a local entry with the same verseKey
+        // + body (best-effort dedup for entries that predate QF IDs).
+        final alreadyLocal = state.any((e) =>
+            e.verseKey == verseKey &&
+            (e.responseText ?? '').trim() == body);
+        if (alreadyLocal) continue;
+
+        String arabicText = '';
+        String translationText = '';
+        try {
+          final ayah = await _quranApi.getVerseByKey(verseKey);
+          arabicText = ayah.textUthmani;
+          translationText = ayah.translationText ?? '';
+        } catch (e) {
+          debugPrint(
+            '[JournalNotifier] hydrate verse $verseKey failed: $e',
+          );
+        }
+
+        additions.add(JournalEntry(
+          id: localId ??
+              'qf-${DateTime.now().microsecondsSinceEpoch}-${additions.length}',
+          verseKey: verseKey,
+          arabicText: arabicText,
+          translationText: translationText,
+          // QF doesn't expose our app's tier taxonomy, so any pulled
+          // note is treated as a "respond" tier — the user wrote
+          // something meaningful.
+          tier: ReflectionTier.respond,
+          responseText: body,
+          completedAt: _parseDate(raw) ?? DateTime.now(),
+          streakDay: 0,
+        ));
+      }
+
+      if (additions.isEmpty) return;
+      additions.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      state = [...additions, ...state];
+      await _storage.saveJournalEntries(state);
+      debugPrint(
+        '[JournalNotifier] hydrated ${additions.length} notes from QF',
+      );
+    } catch (e) {
+      debugPrint('[JournalNotifier] hydrateFromQF failed: $e');
+    }
+  }
+
+  /// Parse a verseKey from QF's `ranges` field. Ranges are strings
+  /// like `"1:1-1:1"` (single verse) or `"2:255-2:256"` (span). For
+  /// single-verse notes we use the start of the range. Defensive
+  /// against string, list, and object shapes in case the QF response
+  /// schema drifts.
+  static String? _parseFirstVerseFromRanges(dynamic ranges) {
+    if (ranges is List && ranges.isNotEmpty) {
+      final first = ranges.first;
+      if (first is String) {
+        final start = first.split('-').first;
+        if (start.contains(':')) return start;
+      } else if (first is Map) {
+        final from = first['from'] ?? first['start'];
+        if (from is String && from.contains(':')) return from;
+      }
+    } else if (ranges is String && ranges.contains(':')) {
+      return ranges.split('-').first;
+    }
+    return null;
+  }
+
+  static DateTime? _parseDate(Map<String, dynamic> raw) {
+    final s = raw['createdAt'] as String? ??
+        raw['created_at'] as String? ??
+        raw['completed_at'] as String?;
+    if (s == null) return null;
+    return DateTime.tryParse(s);
+  }
 
   Future<void> addEntry(JournalEntry entry) async {
     // Save locally first (always works)

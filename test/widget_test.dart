@@ -5,7 +5,9 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/services/quran_api_service.dart';
 import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
 
@@ -108,6 +110,12 @@ UserProgressNotifier createProgressNotifier({
   );
 }
 
+/// Creates a throwaway [QuranApiService] for notifier tests.
+/// None of the existing tests invoke hydrate flows, so this instance
+/// is never actually exercised against the network — it just needs
+/// to type-check.
+QuranApiService _fakeQuranApi() => QuranApiService(ApiClient());
+
 /// Creates a [JournalNotifier] seeded with [initialEntries].
 JournalNotifier createJournalNotifier({
   List<JournalEntry> initialEntries = const [],
@@ -118,6 +126,7 @@ JournalNotifier createJournalNotifier({
     storage,
     FakeUserApiService(),
     FakeFirestoreService(),
+    _fakeQuranApi(),
   );
 }
 

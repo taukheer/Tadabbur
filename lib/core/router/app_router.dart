@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,6 +121,19 @@ final routerProvider = Provider<GoRouter>((ref) {
                 debugPrint(
                   '[OAuth] refreshed ApiClient token '
                   '(len=${storage.authToken?.length ?? 0})',
+                );
+
+                // Two-way sync: pull existing bookmarks and notes the
+                // user already has on quran.com into local state so
+                // they see their prior reading history in the app.
+                // Fire-and-forget — the UI can land on /home while
+                // this runs in the background; the bookmark/journal
+                // lists will update reactively as entries stream in.
+                unawaited(
+                  ref.read(bookmarkProvider.notifier).hydrateFromQF(),
+                );
+                unawaited(
+                  ref.read(journalProvider.notifier).hydrateFromQF(),
                 );
 
                 debugPrint('[OAuth] signed in as ${user.name} -> /home');
