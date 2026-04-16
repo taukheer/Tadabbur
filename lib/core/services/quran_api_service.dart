@@ -390,9 +390,25 @@ class QuranApiService {
       // Strip HTML tags and footnote references from translation
       if (translationText != null) {
         translationText = translationText
-            .replaceAll(RegExp(r'<[^>]*>'), '')    // HTML tags
+            // Strip `<sup>…</sup>` *including* its digit content before
+            // the generic tag pass. Otherwise the next line only
+            // removes the angle brackets and we're left with "Lord1"
+            // where the source was "Lord<sup>1</sup>".
+            .replaceAll(RegExp(r'<sup[^>]*>.*?</sup>', dotAll: true), '')
+            .replaceAll(RegExp(r'<[^>]*>'), '')    // remaining HTML tags
             .replaceAll(RegExp(r',\d+'), '')        // ",1" footnote refs anywhere
             .replaceAll(RegExp(r'\[\d+\]'), '')     // [1] style footnotes
+            // Defensive: a footnote digit glued directly to a word
+            // (e.g. "Lord1 of"). Triggers only when the digit is
+            // followed by whitespace, punctuation, or end-of-string
+            // so legitimate number words ("the 7 heavens") are safe.
+            // Must be `replaceAllMapped`, not `replaceAll` — Dart's
+            // `replaceAll` takes the replacement as a literal string
+            // and doesn't expand `$1` capture-group back-references.
+            .replaceAllMapped(
+              RegExp(r'(\w)\d+(?=\s|[,.!?;:"]|$)'),
+              (m) => m.group(1)!,
+            )
             .replaceAll(RegExp(r'\s+'), ' ')        // collapse whitespace
             .trim();
       }

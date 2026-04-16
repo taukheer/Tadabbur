@@ -1,7 +1,7 @@
 name: tadabbur
 description: "One Ayah. Every Day. For Life. Your spiritual autobiography through the Quran."
 publish_to: 'none'
-version: 1.0.6+7
+version: 1.0.6+8
 
 environment:
   sdk: ^3.11.0
@@ -30,6 +30,10 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   timezone: ^0.10.0
   flutter_timezone: ^3.0.1
+
+  # Home screen widget — writes today's ayah to a shared store that
+  # Android AppWidgetProvider (and later iOS WidgetKit) reads from.
+  home_widget: ^0.7.0
 
   # Auth & Firebase
   google_sign_in: ^6.2.2

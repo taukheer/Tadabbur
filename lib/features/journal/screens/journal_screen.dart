@@ -6,52 +6,30 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
+import 'package:tadabbur/features/journal/widgets/activity_heatmap.dart';
 
-/// All 114 surah names for display.
-const _surahNames = [
-  '', 'Al-Fatiha', 'Al-Baqarah', 'Ali Imran', 'An-Nisa', 'Al-Maidah',
-  "Al-An'am", "Al-A'raf", 'Al-Anfal', 'At-Tawbah', 'Yunus',
-  'Hud', 'Yusuf', "Ar-Ra'd", 'Ibrahim', 'Al-Hijr',
-  'An-Nahl', 'Al-Isra', 'Al-Kahf', 'Maryam', 'Ta-Ha',
-  'Al-Anbiya', 'Al-Hajj', "Al-Mu'minun", 'An-Nur', 'Al-Furqan',
-  "Ash-Shu'ara", 'An-Naml', 'Al-Qasas', 'Al-Ankabut', 'Ar-Rum',
-  'Luqman', 'As-Sajdah', 'Al-Ahzab', 'Saba', 'Fatir',
-  'Ya-Sin', 'As-Saffat', 'Sad', 'Az-Zumar', 'Ghafir',
-  'Fussilat', 'Ash-Shura', 'Az-Zukhruf', 'Ad-Dukhan', 'Al-Jathiyah',
-  'Al-Ahqaf', 'Muhammad', 'Al-Fath', 'Al-Hujurat', 'Qaf',
-  'Adh-Dhariyat', 'At-Tur', 'An-Najm', 'Al-Qamar', 'Ar-Rahman',
-  "Al-Waqi'ah", 'Al-Hadid', 'Al-Mujadilah', 'Al-Hashr', 'Al-Mumtahanah',
-  'As-Saff', "Al-Jumu'ah", 'Al-Munafiqun', 'At-Taghabun', 'At-Talaq',
-  'At-Tahrim', 'Al-Mulk', 'Al-Qalam', 'Al-Haqqah', "Al-Ma'arij",
-  'Nuh', 'Al-Jinn', 'Al-Muzzammil', 'Al-Muddaththir', 'Al-Qiyamah',
-  'Al-Insan', 'Al-Mursalat', "An-Naba'", "An-Nazi'at", 'Abasa',
-  'At-Takwir', 'Al-Infitar', 'Al-Mutaffifin', 'Al-Inshiqaq', 'Al-Buruj',
-  'At-Tariq', "Al-A'la", 'Al-Ghashiyah', 'Al-Fajr', 'Al-Balad',
-  'Ash-Shams', 'Al-Layl', 'Ad-Duha', 'Ash-Sharh', 'At-Tin',
-  'Al-Alaq', 'Al-Qadr', 'Al-Bayyinah', 'Az-Zalzalah', 'Al-Adiyat',
-  "Al-Qari'ah", 'At-Takathur', 'Al-Asr', 'Al-Humazah', 'Al-Fil',
-  'Quraysh', "Al-Ma'un", 'Al-Kawthar', 'Al-Kafirun', 'An-Nasr',
-  'Al-Masad', 'Al-Ikhlas', 'Al-Falaq', 'An-Nas',
-];
-
-/// Clean trailing dashes, footnote refs (e.g. ".2"), and whitespace from translations.
+/// Clean trailing dashes, footnote refs, and whitespace from translations.
+/// Covers the few ways footnote numbers leak into cached translation
+/// text so the render layer stays defensive even if the API parser
+/// ever regresses.
 String _cleanTranslation(String text) {
   return text
-      .replaceAll(RegExp(r'\.\d+'), '')  // Remove ".2", ".1" footnote refs
-      .replaceAll(RegExp(r'\s*-\s*$'), '') // Remove trailing " -"
+      .replaceAll(RegExp(r'\.\d+'), '')  // ".2", ".1" footnote refs
+      // Word-glued digits (e.g. "Lord1 of") — only strip when the
+      // digit is followed by whitespace, punctuation, or end.
+      // Use `replaceAllMapped`; `replaceAll` treats `$1` as literal.
+      .replaceAllMapped(
+        RegExp(r'(\w)\d+(?=\s|[,.!?;:"]|$)'),
+        (m) => m.group(1)!,
+      )
+      .replaceAll(RegExp(r'\s*-\s*$'), '') // trailing " -"
       .trim();
-}
-
-String _surahNameFromKey(String verseKey) {
-  final surah = int.tryParse(verseKey.split(':').first) ?? 1;
-  return (surah > 0 && surah < _surahNames.length)
-      ? _surahNames[surah]
-      : 'Surah $surah';
 }
 
 class JournalScreen extends ConsumerStatefulWidget {
@@ -100,13 +78,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     final progress = ref.watch(userProgressProvider);
     final streak = progress.currentStreak;
 
-    // Continuity cue: did the user reflect yesterday?
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final reflectedYesterday = allEntries.any((e) =>
-        e.completedAt.year == yesterday.year &&
-        e.completedAt.month == yesterday.month &&
-        e.completedAt.day == yesterday.day);
-
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -142,8 +113,13 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           ),
                         ),
                         const Spacer(),
-                        // Streak badge — human language
-                        if (streak > 0)
+                        // Streak badge — human language. Hidden when
+                        // the activity heatmap below is visible since
+                        // it already carries the same streak info, and
+                        // duplicating the number makes the header feel
+                        // noisy. Still shown on the empty-state and
+                        // search-result paths where the heatmap is not.
+                        if (streak > 0 && (!hasContent || _searchQuery.isNotEmpty))
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
@@ -184,14 +160,15 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       ),
                     ),
 
-                    if (hasContent) ...[
+                    // Only surface a count line here when reflections
+                    // are absent — bookmarks-only users need somewhere
+                    // to see their count. With reflections, the
+                    // "Your Reflections · N" section header carries
+                    // the number; doubling it up reads as clutter.
+                    if (hasContent && allEntries.isEmpty) ...[
                       const SizedBox(height: 12),
                       Text(
-                        allEntries.isEmpty
-                            ? '${bookmarks.length} ${t('saved_count')}'
-                            : allEntries.length < 5
-                                ? '${allEntries.length} ${allEntries.length == 1 ? t('reflection_count') : t('reflections_count')}  ·  ${bookmarks.length} ${t('saved_count')}'
-                                : '${allEntries.length} ${t('reflected_times_suffix')}',
+                        '${bookmarks.length} ${t('saved_count')}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.3),
@@ -203,44 +180,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               ),
             ),
 
-            // ── Continuity cue (animated fade-in) ──
-            if (reflectedYesterday && _searchQuery.isEmpty)
+            // ── Activity heatmap — the emotional proof of practice ──
+            if (hasContent && _searchQuery.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.warmSurfaceLight,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.warmBorder.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          '☀️',
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            t('reflected_yesterday'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.warmBrown.withValues(alpha: 0.7),
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(duration: 800.ms).slideY(
-                    begin: 0.1,
-                    end: 0,
-                    duration: 600.ms,
-                    curve: Curves.easeOut,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: const ActivityHeatmap(),
                 ),
               ),
 
@@ -816,6 +761,16 @@ class _JournalCard extends StatelessWidget {
     }
   }
 
+  String get _tierLabel {
+    switch (entry.tier) {
+      case ReflectionTier.acknowledge:
+        return 'Acknowledged';
+      case ReflectionTier.respond:
+        return 'Responded';
+      case ReflectionTier.reflect:
+        return 'Reflected';
+    }
+  }
 
   String _relativeDate(DateTime date) {
     final now = DateTime.now();
@@ -833,6 +788,8 @@ class _JournalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dateStr = _relativeDate(entry.completedAt);
+    final response = entry.responseText?.trim() ?? '';
+    final hasReflection = response.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -855,115 +812,272 @@ class _JournalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Date + tier icon
+          // Date · tier label · tier icon. The label tells the
+          // *quality* of the entry (acknowledged / responded /
+          // reflected) so scanning the journal reveals the user's
+          // depth over time, not just their cadence.
           Row(
             children: [
               if (showDate)
                 Text(
                   dateStr,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               const Spacer(),
               Icon(
                 _tierIcon,
-                size: 14,
-                color: AppColors.warmBrown.withValues(alpha: 0.4),
+                size: 13,
+                color: AppColors.warmBrown.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                _tierLabel,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.warmBrown.withValues(alpha: 0.55),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.3,
+                ),
               ),
             ],
           ),
 
           const SizedBox(height: 16),
 
-          // Arabic text
-          Center(
-            child: Text(
-              entry.arabicText,
-              locale: const Locale('ar'),
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'AmiriQuran',
-                fontSize: 20,
-                color: AppColors.textPrimaryLight,
-                height: 1.8,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          if (hasReflection) ...[
+            // HERO: the user's own words. Gold-accent left border and
+            // darker typography signal "this is *your* voice" — the
+            // ayah below is the context for these words.
+            _ReflectionBlock(
+              promptText: entry.promptText,
+              responseText: response,
             ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Translation
-          Center(
-            child: Text(
-              '"${_cleanTranslation(entry.translationText)}"',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface
-                    .withValues(alpha: 0.4),
-                fontStyle: FontStyle.italic,
-                height: 1.4,
+            const SizedBox(height: 18),
+            // Ayah as context beneath. Divider makes the demotion
+            // clear: below the line is what you were reflecting *on*.
+            _AyahContext(entry: entry),
+          ] else ...[
+            // No reflection body — this is an "acknowledge" entry.
+            // The ayah stays as the hero since the user chose to sit
+            // with it silently. A small footer notes that choice.
+            _AyahHero(entry: entry),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 6,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Surah pill
-          Center(
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.warmSurface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppColors.warmBorder.withValues(alpha: 0.5),
+                  width: 0.5,
+                ),
               ),
               child: Text(
-                '${_surahNameFromKey(entry.verseKey)}  ·  ${entry.verseKey}',
+                'This spoke to me',
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: AppColors.warmBrown,
                   fontSize: 11,
+                  fontStyle: FontStyle.italic,
                 ),
-              ),
-            ),
-          ),
-
-          // Prompt + response
-          if (entry.responseText != null &&
-              entry.responseText!.isNotEmpty) ...[
-            const SizedBox(height: 16),
-
-            if (entry.promptText != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '"${entry.promptText!}"',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.accentDark,
-                    fontStyle: FontStyle.italic,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-
-            Text(
-              entry.responseText!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface
-                    .withValues(alpha: 0.7),
-                height: 1.7,
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Hero block for entries where the user wrote a reflection. The
+/// optional prompt appears as a small gold-accent quote above the
+/// user's response so the reader sees both the question and the
+/// answer, without the ayah competing for attention yet.
+class _ReflectionBlock extends StatelessWidget {
+  final String? promptText;
+  final String responseText;
+
+  const _ReflectionBlock({
+    required this.promptText,
+    required this.responseText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: AppColors.accent.withValues(alpha: 0.6),
+            width: 2.5,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (promptText != null && promptText!.trim().isNotEmpty) ...[
+            Text(
+              promptText!.trim(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.accentDark.withValues(alpha: 0.8),
+                fontStyle: FontStyle.italic,
+                height: 1.4,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            responseText,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.textPrimaryLight,
+              height: 1.65,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ayah as supporting context below a reflection. Compact — one line
+/// of Arabic, one line of translation, and the reference pill.
+class _AyahContext extends StatelessWidget {
+  final JournalEntry entry;
+
+  const _AyahContext({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final translation = _cleanTranslation(entry.translationText);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Thin warm divider signals: below = context.
+        Container(
+          height: 0.5,
+          color: AppColors.warmBorder.withValues(alpha: 0.6),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          entry.arabicText,
+          locale: const Locale('ar'),
+          textDirection: TextDirection.rtl,
+          textAlign: TextAlign.right,
+          style: const TextStyle(
+            fontFamily: 'AmiriQuran',
+            fontSize: 16,
+            color: AppColors.textPrimaryLight,
+            height: 1.9,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (translation.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            '"$translation"',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              fontStyle: FontStyle.italic,
+              fontSize: 12,
+              height: 1.4,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppColors.warmSurface,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '${surahNameFromKey(entry.verseKey)} · ${entry.verseKey}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.warmBrown,
+              fontSize: 10,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ayah as hero (when no reflection text was written). Gets the
+/// centered, larger treatment since the ayah itself is the subject.
+class _AyahHero extends StatelessWidget {
+  final JournalEntry entry;
+
+  const _AyahHero({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final translation = _cleanTranslation(entry.translationText);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Center(
+          child: Text(
+            entry.arabicText,
+            locale: const Locale('ar'),
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'AmiriQuran',
+              fontSize: 20,
+              color: AppColors.textPrimaryLight,
+              height: 1.9,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (translation.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            '"$translation"',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              fontStyle: FontStyle.italic,
+              height: 1.4,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.warmSurface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '${surahNameFromKey(entry.verseKey)}  ·  ${entry.verseKey}',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppColors.warmBrown,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1052,7 +1166,7 @@ class _BookmarkCardCompact extends ConsumerWidget {
               children: [
                 // Surah · verse key
                 Text(
-                  '${_surahNameFromKey(bookmark.verseKey)}  ·  ${bookmark.verseKey}',
+                  '${surahNameFromKey(bookmark.verseKey)}  ·  ${bookmark.verseKey}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: AppColors.warmBrown.withValues(alpha: 0.6),
                     fontSize: 10,

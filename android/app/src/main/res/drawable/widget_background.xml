@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Warm cream card with subtle border. Rounded corners picked up from
+  the system widget background radius on Android 12+ via layer/theme
+  integration; on older devices we fall back to 16dp.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:startColor="@color/widget_bg_top"
+        android:endColor="@color/widget_bg_bottom"
+        android:angle="270" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/widget_border" />
+    <corners android:radius="20dp" />
+</shape>

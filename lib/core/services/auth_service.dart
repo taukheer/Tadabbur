@@ -93,9 +93,11 @@ class AuthService {
   }
 
   /// Check if Apple Sign-In is available (iOS 13+).
-  Future<bool> get isAppleSignInAvailable async {
-    if (defaultTargetPlatform != TargetPlatform.iOS) return false;
-    return await SignInWithApple.isAvailable();
+  Future<bool> get isAppleSignInAvailable {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return Future.value(false);
+    }
+    return SignInWithApple.isAvailable();
   }
 
   /// Sign in with Apple.

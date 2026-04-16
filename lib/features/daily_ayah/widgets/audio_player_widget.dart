@@ -24,6 +24,13 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
   Duration _position = Duration.zero;
   Duration _duration = const Duration(seconds: 1);
 
+  /// Selected loop count persisted across sessions. 1 = play once.
+  /// Higher values (3, 5, 10) enable memorization mode: the ayah
+  /// repeats N times before stopping automatically.
+  int _loopCount = 1;
+  int _loopCurrent = 0;
+  int _loopActiveTotal = 0;
+
   late final List<StreamSubscription<dynamic>> _subs;
 
   @override
@@ -48,6 +55,13 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       audioService.durationStream.listen((d) {
         if (!mounted || d == null) return;
         setState(() => _duration = d);
+      }),
+      audioService.loopStream.listen((s) {
+        if (!mounted) return;
+        setState(() {
+          _loopCurrent = s.current;
+          _loopActiveTotal = s.total;
+        });
       }),
     ];
   }
@@ -141,18 +155,31 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
             ),
           ),
 
-          // Repeat button
-          IconButton(
-            onPressed: () => _replay(audioService),
-            tooltip: 'Replay recitation',
-            icon: const Icon(Icons.replay_rounded,
-                size: 22, semanticLabel: 'Replay recitation'),
-            color: theme.colorScheme.primary.withValues(alpha: 0.7),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: 36,
-              minHeight: 36,
-            ),
+          // Loop-count button — opens a quick menu to pick 1×/3×/5×/10×.
+          // When a loop is in flight the icon shows "N/M" to give the
+          // user an honest counter without another row of chrome.
+          _LoopMenuButton(
+            selected: _loopCount,
+            activeCurrent: _loopCurrent,
+            activeTotal: _loopActiveTotal,
+            onChanged: (n) {
+              setState(() => _loopCount = n);
+              if (_isPlaying && n > 1) {
+                // Picking a new count while already playing restarts
+                // with the new loop target so the choice takes effect
+                // immediately rather than on next tap of play.
+                final messenger = ScaffoldMessenger.of(context);
+                audioService.playAyahLooped(widget.audioUrl!, n)
+                    .catchError((Object e) {
+                  if (mounted) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Audio failed: $e')),
+                    );
+                  }
+                });
+              }
+            },
+            color: theme.colorScheme.primary,
           ),
         ],
       ),
@@ -164,7 +191,11 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       await audioService.pause();
     } else {
       try {
-        await audioService.playAyah(widget.audioUrl!);
+        if (_loopCount > 1) {
+          await audioService.playAyahLooped(widget.audioUrl!, _loopCount);
+        } else {
+          await audioService.playAyah(widget.audioUrl!);
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -174,17 +205,92 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
       }
     }
   }
+}
 
-  Future<void> _replay(AudioService audioService) async {
-    await audioService.seek(Duration.zero);
-    try {
-      await audioService.playAyah(widget.audioUrl!);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Audio failed: $e')),
-        );
-      }
-    }
+/// Button + popup menu for picking how many times the ayah loops.
+/// Renders either a plain repeat icon (when not looping) or an active
+/// iteration badge like "2/5" when a memorization session is running.
+class _LoopMenuButton extends StatelessWidget {
+  final int selected;
+  final int activeCurrent;
+  final int activeTotal;
+  final ValueChanged<int> onChanged;
+  final Color color;
+
+  const _LoopMenuButton({
+    required this.selected,
+    required this.activeCurrent,
+    required this.activeTotal,
+    required this.onChanged,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLooping = activeTotal > 1;
+    final hasSelection = selected > 1;
+
+    return PopupMenuButton<int>(
+      tooltip: 'Memorization loop',
+      initialValue: selected,
+      onSelected: onChanged,
+      position: PopupMenuPosition.over,
+      offset: const Offset(0, -120),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 1, child: Text('Play once')),
+        PopupMenuItem(value: 3, child: Text('Repeat 3×')),
+        PopupMenuItem(value: 5, child: Text('Repeat 5×')),
+        PopupMenuItem(value: 10, child: Text('Repeat 10×')),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: hasSelection
+              ? color.withValues(alpha: 0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isLooping ? Icons.repeat_on_rounded : Icons.repeat_rounded,
+              size: 18,
+              color: color.withValues(alpha: hasSelection ? 0.9 : 0.6),
+              semanticLabel: 'Memorization loop',
+            ),
+            if (isLooping) ...[
+              const SizedBox(width: 4),
+              Text(
+                // `activeCurrent` is already the 1-indexed iteration
+                // currently playing (see AudioService.loopStream).
+                // Previously we rendered `activeCurrent + 1`, which
+                // produced "2/5" on the very first iteration and the
+                // infamous "6/5" on the final one.
+                '$activeCurrent/$activeTotal',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color.withValues(alpha: 0.9),
+                ),
+              ),
+            ] else if (hasSelection) ...[
+              const SizedBox(width: 3),
+              Text(
+                '$selected×',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: color.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

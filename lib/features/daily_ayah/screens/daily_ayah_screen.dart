@@ -4,15 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
+import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
+import 'package:tadabbur/features/daily_ayah/widgets/share_card.dart';
 import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
@@ -475,7 +476,11 @@ class DailyAyahScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: TextButton.icon(
-                onPressed: () => _shareAyah(context, ayah, lang),
+                onPressed: () => openShareCardSheet(
+                  context: context,
+                  ayah: ayah,
+                  dayNumber: progress.dayNumber,
+                ),
                 icon: Icon(Icons.share_outlined,
                     size: 18,
                     color: theme.colorScheme.primary.withValues(alpha: 0.5)),
@@ -528,34 +533,8 @@ class DailyAyahScreen extends ConsumerWidget {
     );
   }
 
-  static const _surahNames = [
-    '', 'Al-Fatiha', 'Al-Baqarah', 'Ali Imran', 'An-Nisa', 'Al-Maidah',
-    'Al-An\'am', 'Al-A\'raf', 'Al-Anfal', 'At-Tawbah', 'Yunus',
-    'Hud', 'Yusuf', 'Ar-Ra\'d', 'Ibrahim', 'Al-Hijr',
-    'An-Nahl', 'Al-Isra', 'Al-Kahf', 'Maryam', 'Ta-Ha',
-    'Al-Anbiya', 'Al-Hajj', 'Al-Mu\'minun', 'An-Nur', 'Al-Furqan',
-    'Ash-Shu\'ara', 'An-Naml', 'Al-Qasas', 'Al-Ankabut', 'Ar-Rum',
-    'Luqman', 'As-Sajdah', 'Al-Ahzab', 'Saba', 'Fatir',
-    'Ya-Sin', 'As-Saffat', 'Sad', 'Az-Zumar', 'Ghafir',
-    'Fussilat', 'Ash-Shura', 'Az-Zukhruf', 'Ad-Dukhan', 'Al-Jathiyah',
-    'Al-Ahqaf', 'Muhammad', 'Al-Fath', 'Al-Hujurat', 'Qaf',
-    'Adh-Dhariyat', 'At-Tur', 'An-Najm', 'Al-Qamar', 'Ar-Rahman',
-    'Al-Waqi\'ah', 'Al-Hadid', 'Al-Mujadilah', 'Al-Hashr', 'Al-Mumtahanah',
-    'As-Saff', 'Al-Jumu\'ah', 'Al-Munafiqun', 'At-Taghabun', 'At-Talaq',
-    'At-Tahrim', 'Al-Mulk', 'Al-Qalam', 'Al-Haqqah', 'Al-Ma\'arij',
-    'Nuh', 'Al-Jinn', 'Al-Muzzammil', 'Al-Muddaththir', 'Al-Qiyamah',
-    'Al-Insan', 'Al-Mursalat', 'An-Naba', 'An-Nazi\'at', 'Abasa',
-    'At-Takwir', 'Al-Infitar', 'Al-Mutaffifin', 'Al-Inshiqaq', 'Al-Buruj',
-    'At-Tariq', 'Al-A\'la', 'Al-Ghashiyah', 'Al-Fajr', 'Al-Balad',
-    'Ash-Shams', 'Al-Layl', 'Ad-Duha', 'Ash-Sharh', 'At-Tin',
-    'Al-Alaq', 'Al-Qadr', 'Al-Bayyinah', 'Az-Zalzalah', 'Al-Adiyat',
-    'Al-Qari\'ah', 'At-Takathur', 'Al-Asr', 'Al-Humazah', 'Al-Fil',
-    'Quraysh', 'Al-Ma\'un', 'Al-Kawthar', 'Al-Kafirun', 'An-Nasr',
-    'Al-Masad', 'Al-Ikhlas', 'Al-Falaq', 'An-Nas',
-  ];
-
   static String _surahName(int num) =>
-      num > 0 && num < DailyAyahScreen._surahNames.length ? DailyAyahScreen._surahNames[num] : 'Surah $num';
+      num > 0 && num <= 114 ? kSurahNames[num] : 'Surah $num';
 
   /// Extract first 1-2 sentences as a short meaning.
   /// Extract first sentence only — keep it light.
@@ -646,30 +625,6 @@ class DailyAyahScreen extends ConsumerWidget {
     if (t.contains('moral') || t.contains('character') || t.contains('noble') || t.contains('virtue')) return 'character';
     if (t.contains('rememb') || t.contains('dhikr') || t.contains('mindful')) return 'remembrance';
     return null;
-  }
-
-  static Future<void> _shareAyah(BuildContext context, dynamic ayah, String lang) async {
-    final surahName = ayah.surahNumber > 0 && ayah.surahNumber < _surahNames.length
-        ? _surahNames[ayah.surahNumber]
-        : 'Surah ${ayah.surahNumber}';
-
-    // Share as beautifully formatted text
-    final text = StringBuffer();
-    text.writeln(ayah.textUthmani);
-    text.writeln();
-    if (ayah.translationText != null) {
-      text.writeln('"${ayah.translationText}"');
-      text.writeln();
-    }
-    text.writeln('— $surahName ${ayah.verseKey}');
-    text.writeln();
-    text.writeln('Tadabbur — To reflect deeply on the Qur\'an');
-    text.write('https://tadabbur.app');
-
-    await Share.share(
-      text.toString(),
-      subject: '$surahName ${ayah.verseKey}',
-    );
   }
 
   void _openFeelingMode(BuildContext context) {
@@ -1076,13 +1031,13 @@ class _CompletedState extends ConsumerWidget {
         justCompletedSurah ? currentSurahInProgress - 1 : null;
     final completedSurahName = completedSurahNumber != null &&
             completedSurahNumber > 0 &&
-            completedSurahNumber < DailyAyahScreen._surahNames.length
-        ? DailyAyahScreen._surahNames[completedSurahNumber]
+            completedSurahNumber <= 114
+        ? kSurahNames[completedSurahNumber]
         : null;
-    final nextSurahName = currentSurahInProgress > 0 &&
-            currentSurahInProgress < DailyAyahScreen._surahNames.length
-        ? DailyAyahScreen._surahNames[currentSurahInProgress]
-        : null;
+    final nextSurahName =
+        currentSurahInProgress > 0 && currentSurahInProgress <= 114
+            ? kSurahNames[currentSurahInProgress]
+            : null;
 
     // Special: Al-Fatiha completion + salah bridge
     final completedFatiha =
@@ -1318,8 +1273,8 @@ class _CompletedState extends ConsumerWidget {
                 itemCount: 114,
                 itemBuilder: (context, index) {
                   final surahNum = index + 1;
-                  final name = surahNum < DailyAyahScreen._surahNames.length
-                      ? DailyAyahScreen._surahNames[surahNum]
+                  final name = surahNum <= 114
+                      ? kSurahNames[surahNum]
                       : 'Surah $surahNum';
                   return ListTile(
                     leading: Container(

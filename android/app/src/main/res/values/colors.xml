@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="splash_bg">#0F3D1F</color>
+
+    <!-- Widget palette — matches AppColors on the Flutter side. -->
+    <color name="widget_bg_top">#FFFBF0</color>
+    <color name="widget_bg_bottom">#FFF4E0</color>
+    <color name="widget_border">#E8D5B0</color>
+    <color name="widget_primary">#1B5E20</color>
+    <color name="widget_accent">#D4A856</color>
+    <color name="widget_text_primary">#2C1810</color>
+    <color name="widget_text_secondary">#8B7355</color>
+    <color name="widget_pill_bg">#F5F0E8</color>
 </resources>

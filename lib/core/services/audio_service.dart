@@ -10,20 +10,55 @@ class AudioService {
   final AudioPlayer _player;
   StreamSubscription<ProcessingState>? _completionSub;
 
+  /// Remaining loop iterations after the current one. Decremented each
+  /// time the audio completes. When it hits zero the player falls back
+  /// to the default pause + rewind behaviour. The "memorization loop"
+  /// feature on the UI sets this via [playAyahLooped].
+  int _loopRemaining = 0;
+  int _loopTotal = 0;
+
+  /// True while a play/reset call is rewriting the loop counters. Any
+  /// completion event that fires during this window is discarded — the
+  /// handler would otherwise decrement the freshly-assigned
+  /// `_loopRemaining` belonging to a brand-new session, making the UI
+  /// show e.g. "2/10" on iteration 1 of a loop the user just started.
+  bool _suspendCompletion = false;
+
+  /// Emits `(current, total)` where `current` is the **1-indexed
+  /// iteration currently playing** (so UIs can render `"$current/$total"`
+  /// directly, no `+1`). When not looping the stream emits `(0, 0)` so
+  /// the loop counter can hide cleanly. When the loop finishes, the
+  /// final emit is also `(0, 0)` — there is never an emit with
+  /// `current > total`.
+  final StreamController<({int current, int total})> _loopCtrl =
+      StreamController<({int current, int total})>.broadcast();
+  Stream<({int current, int total})> get loopStream => _loopCtrl.stream;
+
   /// Creates an [AudioService].
   ///
   /// An optional [player] can be injected for testing; otherwise a new
   /// [AudioPlayer] instance is created.
   AudioService({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
-    // When a track finishes playing, just_audio leaves `playing` as `true`
-    // and only flips `processingState` to `completed`. UIs that watch
-    // `playerState.playing` would render the pause icon forever. Force a
-    // pause + rewind on completion so every consumer sees `playing == false`
+    // When a track finishes: if a memorization loop is active, restart
+    // from zero and decrement the remaining count. Otherwise reset the
+    // player (pause + seek to start) so listeners see `playing == false`
     // and the play icon flips back automatically.
     _completionSub = _player.processingStateStream
         .where((s) => s == ProcessingState.completed)
         .listen((_) async {
+      // Drop this completion if a newer session is being configured —
+      // see `_suspendCompletion` for the race it closes.
+      if (_suspendCompletion) return;
       try {
+        if (_loopRemaining > 0) {
+          _loopRemaining--;
+          _emitLoopState();
+          await _player.seek(Duration.zero);
+          await _player.play();
+          return;
+        }
+        _loopTotal = 0;
+        _emitLoopState();
         await _player.pause();
         await _player.seek(Duration.zero);
       } catch (_) {
@@ -31,6 +66,19 @@ class AudioService {
       }
     });
   }
+
+  void _emitLoopState() {
+    final completed = _loopTotal - _loopRemaining;
+    _loopCtrl.add((current: completed, total: _loopTotal));
+  }
+
+  /// Current loop iteration index (0 when not looping) — how many times
+  /// the track has completed so far in the active loop.
+  int get loopCurrent => _loopTotal - _loopRemaining;
+
+  /// Total iterations the current loop is configured for. Zero means
+  /// not looping.
+  int get loopTotal => _loopTotal;
 
   // ---------------------------------------------------------------------------
   // Reactive streams
@@ -78,6 +126,48 @@ class AudioService {
     String audioUrl, {
     Duration loadTimeout = const Duration(seconds: 30),
   }) async {
+    _suspendCompletion = true;
+    try {
+      _resetLoop();
+      await _play(audioUrl, loadTimeout: loadTimeout);
+    } finally {
+      _suspendCompletion = false;
+    }
+  }
+
+  /// Plays an ayah and repeats it [count] times total.
+  ///
+  /// Used by the memorization loop mode. A count of 1 plays once with
+  /// no repeats (equivalent to [playAyah]); higher counts cause the
+  /// completion handler to seek to zero and play again automatically.
+  /// The current loop state is broadcast on [loopStream] so the UI can
+  /// render a "2 of 5" counter.
+  Future<void> playAyahLooped(
+    String audioUrl,
+    int count, {
+    Duration loadTimeout = const Duration(seconds: 30),
+  }) async {
+    if (count < 1) {
+      throw ArgumentError.value(count, 'count', 'must be >= 1');
+    }
+    // Suspend completion handling across the whole reconfiguration
+    // so an in-flight completion event from the previous session
+    // can't clobber the counters we're about to write.
+    _suspendCompletion = true;
+    try {
+      _loopTotal = count;
+      _loopRemaining = count - 1;
+      _emitLoopState();
+      await _play(audioUrl, loadTimeout: loadTimeout);
+    } finally {
+      _suspendCompletion = false;
+    }
+  }
+
+  Future<void> _play(
+    String audioUrl, {
+    required Duration loadTimeout,
+  }) async {
     try {
       await _player.stop();
       await _player.setUrl(audioUrl).timeout(
@@ -104,11 +194,19 @@ class AudioService {
     }
   }
 
-  /// Pauses the current playback.
+  void _resetLoop() {
+    if (_loopTotal == 0 && _loopRemaining == 0) return;
+    _loopTotal = 0;
+    _loopRemaining = 0;
+    _emitLoopState();
+  }
+
+  /// Pauses the current playback and cancels any active loop.
   ///
   /// No-op if nothing is playing.
   Future<void> pause() async {
     try {
+      _resetLoop();
       await _player.pause();
     } catch (e) {
       throw AudioServiceException(message: 'Failed to pause: $e');
@@ -129,6 +227,7 @@ class AudioService {
   /// Stops playback and resets the position to the beginning.
   Future<void> stop() async {
     try {
+      _resetLoop();
       await _player.stop();
     } catch (e) {
       throw AudioServiceException(message: 'Failed to stop: $e');
@@ -159,6 +258,7 @@ class AudioService {
   /// parent widget or provider is disposed).
   void dispose() {
     _completionSub?.cancel();
+    _loopCtrl.close();
     _player.dispose();
   }
 }

@@ -508,8 +508,9 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
       },
     );
 
-    if (bookmark?.qfBookmarkId != null) {
-      _userApi.removeBookmark(bookmark!.qfBookmarkId!).catchError((Object e) {
+    final qfBookmarkId = bookmark?.qfBookmarkId;
+    if (qfBookmarkId != null) {
+      _userApi.removeBookmark(qfBookmarkId).catchError((Object e) {
         SyncReporter.report('bookmark · quran.com', e);
       });
     }

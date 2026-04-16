@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
@@ -7,6 +9,8 @@ import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/word.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/home_widget_service.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 
 enum AyahLoadingState { loading, loaded, error }
 
@@ -228,11 +232,26 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         tafsirSummary: tafsirSummary,
         isFromCache: false,
       );
+
+      // Push today's ayah to the home screen widget so it stays in
+      // sync with what the user sees in the app — without this the
+      // widget would show stale content from whenever the user first
+      // added it.
+      unawaited(HomeWidgetService.updateWithAyah(
+        ayah: ayah,
+        dayNumber: progress.dayNumber,
+      ));
     } catch (e) {
       // API failed — try to restore the last successful load from cache.
       final cached = _restoreFromCache(storage, verseKey, todayCompleted);
       if (cached != null) {
         state = cached;
+        if (cached.ayah != null) {
+          unawaited(HomeWidgetService.updateWithAyah(
+            ayah: cached.ayah!,
+            dayNumber: progress.dayNumber,
+          ));
+        }
         return;
       }
       state = state.copyWith(
@@ -245,6 +264,12 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   /// Resolve the audio URL for a verse via the QF recitations endpoint.
   /// Falls back to the legacy verses.quran.com path if the API call fails,
   /// so audio still works when the recitations endpoint is unavailable.
+  ///
+  /// Fallback triggers are reported to Crashlytics (non-fatal) and
+  /// Analytics so silent 404s from a stale [reciterPath] or a QF outage
+  /// become visible instead of leaving users with broken audio and no
+  /// signal. If [reciterPath] is empty, the fallback URL would 404, so
+  /// we rethrow the original error rather than return a known-bad URL.
   Future<String> _resolveAudioUrl(
     dynamic quranApi,
     int reciterId,
@@ -253,7 +278,41 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   ) async {
     try {
       return await quranApi.getAudioUrl(reciterId, verseKey) as String;
-    } catch (_) {
+    } catch (error, stack) {
+      if (reciterPath.isEmpty) {
+        SyncReporter.report(
+          'audio · no fallback path',
+          error,
+          severity: SyncSeverity.quiet,
+        );
+        rethrow;
+      }
+
+      SyncReporter.report(
+        'audio · QF fallback',
+        error,
+        severity: SyncSeverity.quiet,
+      );
+      unawaited(FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        reason: 'audio fallback to verses.quran.com CDN',
+        information: [
+          'reciterId=$reciterId',
+          'verseKey=$verseKey',
+          'reciterPath=$reciterPath',
+        ],
+        fatal: false,
+      ));
+      unawaited(FirebaseAnalytics.instance.logEvent(
+        name: 'audio_fallback_used',
+        parameters: {
+          'reciter_id': reciterId,
+          'reciter_path': reciterPath,
+          'verse_key': verseKey,
+        },
+      ).catchError((Object _) {}));
+
       final parts = verseKey.split(':');
       final chapterPadded = parts[0].padLeft(3, '0');
       final versePadded = parts[1].padLeft(3, '0');

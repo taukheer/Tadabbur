@@ -28,6 +28,14 @@ class ReflectionScreen extends ConsumerStatefulWidget {
 class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
   static const _maxReflectionLength = 2000;
 
+  /// Minimum meaningful content length for [ReflectionTier.respond].
+  /// Below this we consider the entry too shallow to count as a tier-2
+  /// response and either nudge the user to write more or offer to save
+  /// as [ReflectionTier.acknowledge] instead. Without this, an
+  /// accidental "ok" becomes a permanent "I responded to this ayah"
+  /// journal entry, muddying the tier system's meaning.
+  static const _minRespondLength = 15;
+
   final _textController = TextEditingController();
   bool _isSaving = false;
   bool _isComplete = false;
@@ -271,29 +279,56 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
   Future<void> _save({required bool withText}) async {
     final text = _textController.text.trim();
 
-    // If they clicked "Save Reflection" but wrote nothing, nudge gently
-    if (withText && text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+    // If they clicked "Save Reflection" but the input can't carry a
+    // tier-2 response (empty or too shallow), nudge rather than persist
+    // a junk entry. The "This spoke to me" button is always one tap
+    // away for users who genuinely want a zero-text acknowledgement.
+    if (withText && text.length < _minRespondLength) {
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
-          content: const Text('Write a reflection, or tap "This spoke to me" below'),
+          content: Text(
+            text.isEmpty
+                ? 'Write a reflection, or tap "This spoke to me" below'
+                : 'A little more? Or tap "This spoke to me" below',
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppColors.primary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          action: text.isEmpty
+              ? null
+              : SnackBarAction(
+                  label: 'Save as-is',
+                  textColor: Colors.white,
+                  onPressed: () => _persist(text: text, asAcknowledge: true),
+                ),
         ),
       );
       return;
     }
 
+    await _persist(text: withText ? text : null, asAcknowledge: !withText);
+  }
+
+  Future<void> _persist({
+    required String? text,
+    required bool asAcknowledge,
+  }) async {
+    if (_isSaving) return;
     setState(() => _isSaving = true);
 
     try {
-      // Determine tier naturally from what they did
+      // Determine tier from intent + depth. `asAcknowledge` covers
+      // both the "This spoke to me" button and the short-text "Save
+      // as-is" snackbar action — either way, the entry is tier 1.
       ReflectionTier tier;
       String? responseText;
       String? promptText;
 
-      if (!withText) {
+      if (asAcknowledge || text == null || text.isEmpty) {
         tier = ReflectionTier.acknowledge;
+        responseText = (text != null && text.isNotEmpty) ? text : null;
       } else if (text.length < 80) {
         tier = ReflectionTier.respond;
         responseText = text;
