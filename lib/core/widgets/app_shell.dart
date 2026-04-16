@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -44,6 +45,7 @@ class AppShell extends ConsumerWidget {
                 ),
               ),
             ),
+          const _SyncErrorBanner(),
           Expanded(child: child),
         ],
       ),
@@ -107,6 +109,59 @@ class AppShell extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dismissible banner that surfaces the most-recent user-visible sync
+/// failure reported via [SyncReporter]. Auto-hides after 30 seconds so
+/// a transient network blip doesn't linger forever.
+class _SyncErrorBanner extends StatelessWidget {
+  const _SyncErrorBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ValueListenableBuilder<SyncError?>(
+      valueListenable: SyncReporter.lastError,
+      builder: (context, err, _) {
+        if (err == null) return const SizedBox.shrink();
+        // Auto-expire stale errors so the banner doesn't get stuck if
+        // the user is offline for a while then comes back.
+        if (DateTime.now().difference(err.at) > const Duration(seconds: 30)) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          color: const Color(0xFFFFF4E5),
+          child: Row(
+            children: [
+              const Icon(Icons.sync_problem_rounded,
+                  size: 14, color: Color(0xFFB07700)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Couldn't sync ${err.what} · saved locally",
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF7A5600),
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: SyncReporter.dismiss,
+                borderRadius: BorderRadius.circular(12),
+                child: const Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Icon(Icons.close_rounded,
+                      size: 14, color: Color(0xFFB07700)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

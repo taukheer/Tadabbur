@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:tadabbur/core/constants/translations.dart';
@@ -289,17 +290,25 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               SliverFillRemaining(
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(48),
+                    padding: const EdgeInsets.all(40),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.book_outlined,
-                          size: 36,
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.1),
+                        // Layered icon — outer ring + inner book.
+                        // Feels like a held moment rather than a grey void.
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary.withValues(alpha: 0.04),
+                          ),
+                          child: Icon(
+                            Icons.auto_stories_outlined,
+                            size: 32,
+                            color: AppColors.primary.withValues(alpha: 0.45),
+                          ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Text(
                           allEntries.isEmpty && _searchQuery.isEmpty
                               ? t('journal_begins')
@@ -307,11 +316,41 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.3),
+                                .withValues(alpha: 0.55),
+                            height: 1.5,
                           ),
                         ),
+                        if (allEntries.isEmpty && _searchQuery.isEmpty) ...[
+                          const SizedBox(height: 24),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              HapticFeedback.lightImpact();
+                              context.go('/home');
+                            },
+                            icon: const Icon(Icons.arrow_forward_rounded,
+                                size: 16),
+                            label: Text(t('today')),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: BorderSide(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.3),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ),
+                    ).animate().fadeIn(duration: 600.ms).slideY(
+                          begin: 0.08,
+                          end: 0,
+                          duration: 500.ms,
+                          curve: Curves.easeOut,
+                        ),
                   ),
                 ),
               ),

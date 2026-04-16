@@ -17,6 +17,7 @@ import 'package:tadabbur/core/services/auth_service.dart';
 import 'package:tadabbur/core/services/qf_auth_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 
 // --- Core Services ---
 
@@ -135,15 +136,18 @@ final userProgressProvider =
   final storage = ref.watch(localStorageProvider);
   final userApi = ref.watch(userApiProvider);
   final firestore = ref.watch(firestoreServiceProvider);
-  return UserProgressNotifier(storage, userApi, firestore);
+  final notifService = ref.watch(notificationServiceProvider);
+  return UserProgressNotifier(storage, userApi, firestore, notifService);
 });
 
 class UserProgressNotifier extends StateNotifier<UserProgress> {
   final LocalStorageService _storage;
   final UserApiService _userApi;
   final FirestoreService _firestore;
+  final NotificationService _notifService;
 
-  UserProgressNotifier(this._storage, this._userApi, this._firestore)
+  UserProgressNotifier(
+      this._storage, this._userApi, this._firestore, this._notifService)
       : super(
           _storage.getProgress() ??
               UserProgress(
@@ -202,22 +206,44 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
         'streak': newStreak,
         'total_ayat': state.totalAyatCompleted,
       },
-    ).catchError((_) {});
+    ).catchError((Object e) {
+      SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
+    });
 
     // Sync with QF User APIs (fire-and-forget, don't block UI)
     _syncWithQF(now);
 
-    // Sync progress to Firestore (pending flag tracked in storage for replay)
-    _firestore.saveProgress(state.toJson(), storage: _storage).catchError((_) {});
+    // Sync progress to Firestore. The pending flag on storage tracks
+    // unsynced writes so the next launch replays them — this failure
+    // is transient, not data loss, so keep it quiet.
+    _firestore.saveProgress(state.toJson(), storage: _storage).catchError(
+      (Object e) {
+        SyncReporter.report('progress', e, severity: SyncSeverity.quiet);
+      },
+    );
+
+    // Re-arm tomorrow's reminder so its body reflects the new
+    // totalAyatCompleted count and the next ayah's surah/reference.
+    // Without this, the already-pending notification fires with stale
+    // content ("Your first ayah is waiting") even after the user has
+    // completed several ayat.
+    _notifService.ensureDailyScheduled(forceReplace: true).catchError((e) {
+      debugPrint('[UserProgress] re-arm after completion failed: $e');
+    });
   }
 
   /// Sync activity with Quran Foundation APIs.
-  /// Non-blocking — failures are silently ignored so the app works offline.
+  /// Non-blocking — local writes already succeeded, so a QF failure
+  /// means the quran.com mirror is lagging, not that the user lost
+  /// data. Surfaced to the UI as a subtle banner so the user knows
+  /// their stats on quran.com may be out of date.
   void _syncWithQF(DateTime now) {
-    // Update streak on QF
-    _userApi.updateStreak().catchError((_) {});
-    // Log activity day on QF
-    _userApi.logActivityDay(now).catchError((_) {});
+    _userApi.updateStreak().catchError((Object e) {
+      SyncReporter.report('streak · quran.com', e);
+    });
+    _userApi.logActivityDay(now).catchError((Object e) {
+      SyncReporter.report('activity · quran.com', e);
+    });
   }
 
   /// All 114 surah verse counts
@@ -449,17 +475,24 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     state = [bookmark, ...state];
     await _storage.saveBookmarks(state);
 
-    // Sync to QF API (fire-and-forget)
-    _userApi.addBookmark(verseKey).catchError((_) {});
+    _userApi.addBookmark(verseKey).catchError((Object e) {
+      SyncReporter.report('bookmark · quran.com', e);
+    });
 
-    // Sync to Firestore (pending key tracked in storage for replay)
-    _firestore.saveBookmark(bookmark, storage: _storage).catchError((_) {});
+    // Firestore write is queued for replay via the pending key, so
+    // keep the failure quiet to avoid two banners for the same issue.
+    _firestore.saveBookmark(bookmark, storage: _storage).catchError(
+      (Object e) {
+        SyncReporter.report('bookmark', e, severity: SyncSeverity.quiet);
+      },
+    );
 
-    // Analytics
     FirebaseAnalytics.instance.logEvent(
       name: 'bookmark_added',
       parameters: {'verse_key': verseKey},
-    ).catchError((_) {});
+    ).catchError((Object e) {
+      SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
+    });
   }
 
   Future<void> remove(String verseKey) async {
@@ -469,18 +502,24 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     state = state.where((b) => b.verseKey != verseKey).toList();
     await _storage.saveBookmarks(state);
 
-    // Sync removal to Firestore (pending key tracked for replay)
-    _firestore.removeBookmark(verseKey, storage: _storage).catchError((_) {});
+    _firestore.removeBookmark(verseKey, storage: _storage).catchError(
+      (Object e) {
+        SyncReporter.report('bookmark', e, severity: SyncSeverity.quiet);
+      },
+    );
 
-    // If we have a QF bookmark ID, remove via API too
     if (bookmark?.qfBookmarkId != null) {
-      _userApi.removeBookmark(bookmark!.qfBookmarkId!).catchError((_) {});
+      _userApi.removeBookmark(bookmark!.qfBookmarkId!).catchError((Object e) {
+        SyncReporter.report('bookmark · quran.com', e);
+      });
     }
 
     FirebaseAnalytics.instance.logEvent(
       name: 'bookmark_removed',
       parameters: {'verse_key': verseKey},
-    ).catchError((_) {});
+    ).catchError((Object e) {
+      SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
+    });
   }
 }
 
@@ -628,7 +667,6 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
     state = [entry, ...state];
     await _storage.saveJournalEntries(state);
 
-    // Log analytics
     FirebaseAnalytics.instance.logEvent(
       name: 'reflection_added',
       parameters: {
@@ -636,22 +674,31 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
         'tier': entry.tier.name,
         'has_text': entry.responseText != null,
       },
-    ).catchError((_) {});
+    ).catchError((Object e) {
+      SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
+    });
 
-    // Sync to Firestore (pending ID tracked in storage for replay)
-    _firestore.saveJournalEntry(entry, storage: _storage).catchError((_) {});
+    // Firestore write is queued for replay; the local journal entry is
+    // already persisted so there's no data loss to surface.
+    _firestore.saveJournalEntry(entry, storage: _storage).catchError(
+      (Object e) {
+        SyncReporter.report('reflection', e, severity: SyncSeverity.quiet);
+      },
+    );
 
-    // Sync to QF Post API (fire-and-forget)
     _syncReflectionToQF(entry);
 
     // Auto-bookmark on QF when user wrote a reflection (Tier 2/3)
     if (entry.tier != ReflectionTier.acknowledge && entry.responseText != null) {
-      _userApi.addBookmark(entry.verseKey).catchError((_) {});
+      _userApi.addBookmark(entry.verseKey).catchError((Object e) {
+        SyncReporter.report('bookmark · quran.com', e);
+      });
     }
   }
 
   /// Save reflection to QF Post API.
-  /// Non-blocking — failures silently ignored for offline support.
+  /// Non-blocking — the local journal entry is already saved so a
+  /// failure here only means the quran.com mirror is lagging.
   void _syncReflectionToQF(JournalEntry entry) {
     final body = entry.responseText ?? 'Acknowledged: ${entry.verseKey}';
     _userApi
@@ -663,7 +710,9 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
             'app': 'tadabbur',
           },
         )
-        .catchError((_) {});
+        .catchError((Object e) {
+      SyncReporter.report('reflection · quran.com', e);
+    });
   }
 
   List<JournalEntry> filterBySurah(int surahNumber) {

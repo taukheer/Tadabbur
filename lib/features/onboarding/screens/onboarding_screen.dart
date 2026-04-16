@@ -7,6 +7,7 @@ import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
 
@@ -232,7 +233,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         reciterPath: storage.reciterPath,
         arabicFont: storage.arabicFont,
         arabicFontSize: storage.arabicFontSize,
-      ).catchError((_) {});
+      ).catchError((Object e) {
+        SyncReporter.report('profile', e);
+      });
     }
 
     if (mounted) context.go('/home');

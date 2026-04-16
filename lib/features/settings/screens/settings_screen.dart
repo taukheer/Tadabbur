@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -226,7 +227,10 @@ class SettingsScreen extends ConsumerWidget {
                       ref.read(reciterPathProvider.notifier).state = r.cdnPath;
                       ref.read(firestoreServiceProvider)
                           .saveUserProfile(reciterPath: r.cdnPath)
-                          .catchError((_) {});
+                          .catchError((Object e) {
+                        SyncReporter.report('reciter preference', e,
+                            severity: SyncSeverity.quiet);
+                      });
                     },
                     theme: theme,
                   )),
@@ -299,7 +303,10 @@ class SettingsScreen extends ConsumerWidget {
                       ref.read(arabicFontSizeProvider.notifier).state = size;
                       ref.read(firestoreServiceProvider)
                           .saveUserProfile(arabicFontSize: size)
-                          .catchError((_) {});
+                          .catchError((Object e) {
+                        SyncReporter.report('font-size preference', e,
+                            severity: SyncSeverity.quiet);
+                      });
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -348,7 +355,10 @@ class SettingsScreen extends ConsumerWidget {
                       ref.read(arabicFontProvider.notifier).state = font.id;
                       ref.read(firestoreServiceProvider)
                           .saveUserProfile(arabicFont: font.id)
-                          .catchError((_) {});
+                          .catchError((Object e) {
+                        SyncReporter.report('font preference', e,
+                            severity: SyncSeverity.quiet);
+                      });
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
@@ -575,7 +585,10 @@ class SettingsScreen extends ConsumerWidget {
                       ref.read(languageProvider.notifier).state = lang.code;
                       ref.read(firestoreServiceProvider)
                           .saveUserProfile(language: lang.code)
-                          .catchError((_) {});
+                          .catchError((Object e) {
+                        SyncReporter.report('language preference', e,
+                            severity: SyncSeverity.quiet);
+                      });
                       // Reload ayah with new translation
                       ref.invalidate(dailyAyahProvider);
                       if (ctx.mounted) Navigator.of(ctx).pop();
@@ -1010,7 +1023,9 @@ class _NotificationTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isEnabled ? 'Daily reminder at $timeStr' : 'Set a daily reminder',
+                    isEnabled
+                        ? 'Daily reminder at $timeStr'
+                        : 'Set a daily reminder',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                       color: isEnabled
@@ -1052,19 +1067,17 @@ class _NotificationTile extends StatelessWidget {
       context: context,
       initialTime: current != null
           ? TimeOfDay(hour: current.hour, minute: current.minute)
-          : const TimeOfDay(hour: 5, minute: 30), // Default: after Fajr
+          : const TimeOfDay(hour: 5, minute: 30),
       helpText: 'When should we remind you?',
     );
 
     if (picked != null) {
-      // Request permission first
       final granted = await notifService.requestPermission();
       if (granted) {
         await notifService.scheduleDailyNotification(
           hour: picked.hour,
           minute: picked.minute,
         );
-        // Force rebuild
         ref.invalidate(notificationServiceProvider);
       }
     }

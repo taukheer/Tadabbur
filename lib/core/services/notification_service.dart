@@ -14,9 +14,7 @@ class NotificationService {
   bool _initialized = false;
 
   /// Last error encountered while (re)scheduling the daily reminder.
-  /// `null` when the most recent attempt succeeded. Surface this from
-  /// the Settings screen so users can tell when their reminder isn't
-  /// actually armed.
+  /// `null` when the most recent attempt succeeded.
   String? lastScheduleError;
 
   NotificationService(this._storage);
@@ -27,14 +25,12 @@ class NotificationService {
 
     tz_data.initializeTimeZones();
 
-    // Set local timezone from device's native timezone (e.g. "Asia/Kolkata")
     try {
       final tzName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(tzName));
       debugPrint('[NotificationService] Timezone: $tzName');
     } catch (e) {
       debugPrint('[NotificationService] Timezone detection failed: $e');
-      // Fallback: match by UTC offset
       try {
         final offset = DateTime.now().timeZoneOffset;
         final match = tz.timeZoneDatabase.locations.values.where(
@@ -61,11 +57,6 @@ class NotificationService {
 
     await _plugin.initialize(settings);
 
-    // Pre-create the notification channel on Android so it shows up
-    // in Samsung's Settings → Apps → Tadabbur → Notifications list
-    // even before the first notification fires. Samsung sometimes
-    // silently drops alarms from channels that were only auto-created
-    // lazily by zonedSchedule.
     if (Platform.isAndroid) {
       final android = _plugin
           .resolvePlatformSpecificImplementation<
@@ -82,19 +73,6 @@ class NotificationService {
         );
         await android.createNotificationChannel(channel);
         debugPrint('[NotificationService] channel daily_ayah_v3 created');
-
-        // Verify exact alarms are actually permitted. On Android 12+
-        // this requires SCHEDULE_EXACT_ALARM, which Samsung may revoke.
-        try {
-          final canExact = await android.canScheduleExactNotifications();
-          debugPrint(
-            '[NotificationService] canScheduleExactNotifications: $canExact',
-          );
-        } catch (e) {
-          debugPrint(
-            '[NotificationService] canScheduleExactNotifications check failed: $e',
-          );
-        }
       }
     }
 
@@ -103,7 +81,6 @@ class NotificationService {
 
   /// Request notification permissions (iOS + Android 13+).
   Future<bool> requestPermission() async {
-    // iOS
     final ios = _plugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>();
@@ -116,14 +93,12 @@ class NotificationService {
       return granted ?? false;
     }
 
-    // Android 13+ needs POST_NOTIFICATIONS permission
     if (Platform.isAndroid) {
       final android = _plugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       if (android != null) {
         final granted = await android.requestNotificationsPermission();
-        // Also request exact alarms for reliable scheduling
         await android.requestExactAlarmsPermission();
         return granted ?? true;
       }
@@ -132,63 +107,129 @@ class NotificationService {
     return true;
   }
 
-  /// Schedule a daily notification at the given hour and minute.
-  /// Cancels any existing scheduled notification first.
+  /// Schedule the daily reminder from scratch. Cancels any prior
+  /// schedule, saves the preference, shows an immediate confirmation
+  /// toast, and arms tomorrow's (or today's) reminder with fresh
+  /// content based on the user's progress.
   Future<void> scheduleDailyNotification({
     required int hour,
     required int minute,
   }) async {
     await init();
 
-    // Save preference
     final timeStr =
         '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
     await _storage.setNotificationTime(timeStr);
 
-    // Cancel existing
     await _plugin.cancelAll();
 
-    // Get the message
-    final totalAyat = _storage.getProgress()?.totalAyatCompleted ?? 0;
-    final msg = getMessageForDay(totalAyat + 1);
-
-    // First: show an immediate confirmation notification
+    // Immediate confirmation toast so the user knows the reminder was
+    // accepted. Uses the same channel as the scheduled alert.
     await _plugin.show(
       1,
       'Reminder set',
       'You\'ll receive your daily ayah at $timeStr',
-      const NotificationDetails(
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-        android: AndroidNotificationDetails(
-          'daily_ayah_v2',
-          'Daily Ayah Reminder',
-          channelDescription: 'Your daily ayah reminder',
-          importance: Importance.max,
-          priority: Priority.max,
-          playSound: true,
-          enableVibration: true,
-          visibility: NotificationVisibility.public,
-          category: AndroidNotificationCategory.reminder,
-          fullScreenIntent: false,
-        ),
+      _notifDetails(
+        body: 'You\'ll receive your daily ayah at $timeStr',
+        bigText: 'You\'ll receive your daily ayah at $timeStr.',
       ),
     );
 
-    final scheduledTime = _nextInstanceOfTime(hour, minute);
-    debugPrint(
-      '[NotificationService] Scheduling daily at: $scheduledTime '
-      '(local tz: ${tz.local.name})',
-    );
+    await _armDaily(hour, minute);
+  }
 
-    const notifDetails = NotificationDetails(
+  /// Re-arm the daily reminder on app launch or after an ayah is
+  /// completed. Safe to call as often as you want.
+  ///
+  /// Because `alarmClock` is a one-shot schedule mode (combining it
+  /// with `matchDateTimeComponents` crashes flutter_local_notifications
+  /// 18.x), we re-arm every app launch and every time the user's
+  /// progress changes so the notification body stays fresh.
+  ///
+  /// When [forceReplace] is true the pending daily alarm is cancelled
+  /// and re-scheduled even if one already exists — use this after a
+  /// state change (e.g. user completed today's ayah) so tomorrow's
+  /// reminder reflects the new count and next ayah.
+  Future<void> ensureDailyScheduled({bool forceReplace = false}) async {
+    await init();
+    final scheduled = getScheduledTime();
+    if (scheduled == null) {
+      return;
+    }
+
+    if (!forceReplace) {
+      try {
+        final pending = await _plugin.pendingNotificationRequests();
+        final hasDaily = pending.any((p) => p.id == 0);
+        if (hasDaily) {
+          return;
+        }
+      } catch (e) {
+        debugPrint(
+          '[NotificationService] ensureDailyScheduled: check failed: $e',
+        );
+      }
+    } else {
+      try {
+        await _plugin.cancel(0);
+      } catch (_) {}
+    }
+
+    await _armDaily(scheduled.hour, scheduled.minute, silent: true);
+  }
+
+  /// Core scheduling primitive. Computes the next fire time and the
+  /// message for the user's current progress state, then hands it off
+  /// to the OS via `alarmClock` mode (the only mode Samsung reliably
+  /// honours while backgrounded).
+  Future<void> _armDaily(int hour, int minute, {bool silent = false}) async {
+    final scheduledTime = _nextInstanceOfTime(hour, minute);
+    final progress = _storage.getProgress();
+    final totalAyat = progress?.totalAyatCompleted ?? 0;
+    final nextVerseKey = progress?.currentVerseKey ?? '1:1';
+    final msg = buildMessage(dayNumber: totalAyat + 1, verseKey: nextVerseKey);
+
+    if (!silent) {
+      debugPrint(
+        '[NotificationService] Arming daily at $scheduledTime '
+        '(local tz: ${tz.local.name}) for $nextVerseKey',
+      );
+    }
+
+    try {
+      await _plugin.zonedSchedule(
+        0,
+        msg.title,
+        msg.body,
+        scheduledTime,
+        _notifDetails(body: msg.body, bigText: msg.bigText),
+        androidScheduleMode: AndroidScheduleMode.alarmClock,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      lastScheduleError = null;
+    } catch (e, st) {
+      lastScheduleError = e.toString();
+      debugPrint('[NotificationService] _armDaily FAILED: $e\n$st');
+      if (!silent) rethrow;
+    }
+  }
+
+  /// Build the [NotificationDetails] used for both immediate and
+  /// scheduled posts. The shade preview stays tight (single-line
+  /// [body]) while [bigText] is revealed when the user pulls the
+  /// notification down — giving the notification a real collapsed →
+  /// expanded gradient rather than a wall of text in both states.
+  NotificationDetails _notifDetails({
+    required String body,
+    required String bigText,
+  }) {
+    return NotificationDetails(
       iOS: DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
+        subtitle: body,
       ),
       android: AndroidNotificationDetails(
         'daily_ayah_v3',
@@ -200,221 +241,26 @@ class NotificationService {
         enableVibration: true,
         visibility: NotificationVisibility.public,
         category: AndroidNotificationCategory.reminder,
-        fullScreenIntent: false,
+        styleInformation: BigTextStyleInformation(bigText),
       ),
     );
-
-    // Samsung's "Put unused apps to sleep" kills alarms scheduled
-    // with exactAllowWhileIdle + matchDateTimeComponents before their
-    // BroadcastReceiver can fire, so the notification never posts.
-    // `alarmClock` mode registers the alarm at the system alarm-clock
-    // level (same API used by the actual Alarm Clock app), which
-    // survives battery optimization.
-    //
-    // alarmClock is one-shot only (combining it with
-    // matchDateTimeComponents crashes flutter_local_notifications
-    // 18.x). We work around that by rescheduling on every app launch
-    // via `ensureDailyScheduled()` — if the stored notification time
-    // exists and no future alarm is pending, we re-arm it for the
-    // next occurrence.
-    try {
-      await _plugin.zonedSchedule(
-        0,
-        msg.title,
-        msg.body,
-        scheduledTime,
-        notifDetails,
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-      lastScheduleError = null;
-      debugPrint('[NotificationService] zonedSchedule (alarmClock) returned');
-    } catch (e, st) {
-      lastScheduleError = e.toString();
-      debugPrint(
-        '[NotificationService] zonedSchedule FAILED: $e\n$st',
-      );
-      rethrow;
-    }
-
-    // Verify the scheduled notification was actually registered with
-    // the OS. If this list is empty after scheduling, the schedule
-    // call silently failed — usually a permission or channel issue.
-    try {
-      final pending = await _plugin.pendingNotificationRequests();
-      debugPrint(
-        '[NotificationService] Pending notifications after schedule: '
-        '${pending.length} — IDs: ${pending.map((p) => p.id).toList()}',
-      );
-      for (final p in pending) {
-        debugPrint(
-          '[NotificationService]   - id=${p.id} title=${p.title} body=${p.body}',
-        );
-      }
-    } catch (e) {
-      debugPrint('[NotificationService] pendingNotificationRequests failed: $e');
-    }
   }
 
-  /// Schedule a one-shot test notification [seconds] from now.
-  /// Used to verify the whole pipeline (permissions, channels, alarms)
-  /// without waiting for tomorrow morning. Call from a settings debug
-  /// button or a dev action.
-  Future<void> scheduleTestNotification({int seconds = 60}) async {
-    await init();
-    final fireAt =
-        tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
-    debugPrint(
-      '[NotificationService] Test notification scheduled for: $fireAt',
-    );
-
-    try {
-      await _plugin.zonedSchedule(
-        99,
-        'Tadabbur test',
-        'If you see this, notifications are working.',
-        fireAt,
-        const NotificationDetails(
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-          android: AndroidNotificationDetails(
-            'daily_ayah_v3',
-            'Daily Ayah Reminder',
-            channelDescription: 'Your daily ayah reminder',
-            importance: Importance.max,
-            priority: Priority.max,
-            playSound: true,
-            enableVibration: true,
-            visibility: NotificationVisibility.public,
-            category: AndroidNotificationCategory.reminder,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-      debugPrint(
-        '[NotificationService] Test notification scheduled — expect it in ${seconds}s',
-      );
-      final pending = await _plugin.pendingNotificationRequests();
-      debugPrint(
-        '[NotificationService] Pending after test schedule: ${pending.length}',
-      );
-    } catch (e, st) {
-      debugPrint('[NotificationService] test schedule FAILED: $e\n$st');
-    }
-  }
-
-  /// Get the next occurrence of the given time.
   tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
-    // Build from device's DateTime.now() to get correct local time
     final now = DateTime.now();
     var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
-    // Convert device local DateTime to TZDateTime
     return tz.TZDateTime.from(scheduled, tz.local);
   }
 
-  /// Cancel all notifications.
   Future<void> cancelAll() async {
     await init();
     await _plugin.cancelAll();
     await _storage.setNotificationTime('');
   }
 
-  /// Re-arms the daily reminder on app launch. Call from main.dart
-  /// after services are initialized.
-  ///
-  /// We use `AndroidScheduleMode.alarmClock` for the daily reminder
-  /// because it's the only mode Samsung reliably fires after the app
-  /// is backgrounded. alarmClock is one-shot (can't combine with
-  /// `matchDateTimeComponents`), so every app launch we look at the
-  /// stored notification time and, if there's no pending alarm yet
-  /// (or the last one already fired), schedule the next occurrence.
-  Future<void> ensureDailyScheduled() async {
-    await init();
-    final scheduled = getScheduledTime();
-    if (scheduled == null) {
-      debugPrint('[NotificationService] ensureDailyScheduled: none set');
-      return;
-    }
-
-    try {
-      final pending = await _plugin.pendingNotificationRequests();
-      final hasDaily = pending.any((p) => p.id == 0);
-      if (hasDaily) {
-        debugPrint(
-          '[NotificationService] ensureDailyScheduled: daily already pending',
-        );
-        return;
-      }
-    } catch (e) {
-      debugPrint(
-        '[NotificationService] ensureDailyScheduled: check failed: $e',
-      );
-    }
-
-    debugPrint(
-      '[NotificationService] ensureDailyScheduled: re-arming daily at '
-      '${scheduled.hour}:${scheduled.minute}',
-    );
-    // Re-run the scheduling logic without blowing away the stored
-    // preference or showing the "Reminder set" confirmation toast
-    // again. We just quietly re-post the zonedSchedule.
-    final scheduledTime =
-        _nextInstanceOfTime(scheduled.hour, scheduled.minute);
-    final totalAyat = _storage.getProgress()?.totalAyatCompleted ?? 0;
-    final msg = getMessageForDay(totalAyat + 1);
-
-    const notifDetails = NotificationDetails(
-      iOS: DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      ),
-      android: AndroidNotificationDetails(
-        'daily_ayah_v3',
-        'Daily Ayah Reminder',
-        channelDescription: 'Your daily ayah reminder',
-        importance: Importance.max,
-        priority: Priority.max,
-        playSound: true,
-        enableVibration: true,
-        visibility: NotificationVisibility.public,
-        category: AndroidNotificationCategory.reminder,
-      ),
-    );
-
-    try {
-      await _plugin.zonedSchedule(
-        0,
-        msg.title,
-        msg.body,
-        scheduledTime,
-        notifDetails,
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-      lastScheduleError = null;
-      debugPrint(
-        '[NotificationService] ensureDailyScheduled: re-armed for $scheduledTime',
-      );
-    } catch (e) {
-      lastScheduleError = e.toString();
-      debugPrint(
-        '[NotificationService] ensureDailyScheduled: re-arm failed: $e',
-      );
-    }
-  }
-
-  /// Get the stored notification time as (hour, minute), or null if not set.
   ({int hour, int minute})? getScheduledTime() {
     final timeStr = _storage.notificationTime;
     if (timeStr == null || timeStr.isEmpty || !timeStr.contains(':')) {
@@ -427,90 +273,165 @@ class NotificationService {
     return (hour: hour, minute: minute);
   }
 
-  /// Identity-based notification messages — reinforce the habit, not the app.
-  ({String title, String body}) getMessageForDay(int dayNumber,
-      {String? theme}) {
-    final themeHook =
-        theme != null ? ' Today\'s ayah is about $theme.' : '';
+  /// Build the daily reminder copy for the user's current progress.
+  ///
+  /// Returns three layers:
+  /// - [title]: the notification headline. Always specific — either the
+  ///   ayah reference ("At-Tur · 52:2") or a milestone hook ("One week
+  ///   with the Quran"). Never the generic app name.
+  /// - [body]: single-line shade preview. Short on purpose — the pull-
+  ///   down card reveals the richer text.
+  /// - [bigText]: the expanded body shown after the user pulls the
+  ///   notification down. Two beats: the invitation + one line of
+  ///   identity reinforcement.
+  ///
+  /// Copy principles: identity over instruction ("you're someone who
+  /// returns" vs. "please come back"), specificity over vague prompts
+  /// (the actual ayah reference vs. "your ayah"), and no trailing
+  /// marketing — the tone is a quiet nudge, not an engagement push.
+  ({String title, String body, String bigText}) buildMessage({
+    required int dayNumber,
+    required String verseKey,
+  }) {
+    final surahName = _surahNameFromKey(verseKey);
+    final ayahRef = '$surahName · $verseKey';
 
-    // Milestone days — celebrate identity
+    // Milestones: the title carries the celebration, the body carries
+    // the specific ayah so the two lines say different things.
     switch (dayNumber) {
       case 1:
         return (
-          title: 'Tadabbur',
-          body: 'Your first ayah is waiting.$themeHook',
+          title: 'Your first ayah',
+          body: 'Begin with $ayahRef',
+          bigText: 'Begin with $ayahRef.\n\n'
+              'One breath. One ayah. That\'s all this is.',
         );
       case 2:
         return (
-          title: 'Day 2',
-          body: 'You came back. That matters.$themeHook',
+          title: 'You came back',
+          body: 'Day 2 · $ayahRef',
+          bigText: 'Day 2 · $ayahRef.\n\n'
+              'Coming back on day two is what makes a life of showing up.',
         );
       case 3:
         return (
-          title: 'Day 3',
-          body: 'You\'re building something.$themeHook',
+          title: 'The habit is forming',
+          body: 'Day 3 · $ayahRef',
+          bigText: 'Day 3 · $ayahRef.\n\n'
+              'This is how habits build — quietly, daily, no announcement.',
         );
       case 7:
         return (
-          title: 'One week',
-          body: 'Seven days. You\'re someone who shows up.$themeHook',
+          title: 'One week with the Quran',
+          body: 'Day 7 · $ayahRef',
+          bigText: 'Seven days of showing up.\n\n'
+              'You\'re someone who returns. $ayahRef today.',
         );
       case 14:
         return (
-          title: 'Two weeks',
-          body: 'This is becoming part of who you are.$themeHook',
+          title: 'Two weeks — this is becoming you',
+          body: 'Day 14 · $ayahRef',
+          bigText: 'Day 14 · $ayahRef.\n\n'
+              'This is who you are now — the one who keeps coming back.',
         );
       case 30:
         return (
-          title: 'Day 30',
-          body: 'A month of showing up. This is you now.$themeHook',
+          title: 'A month with the Quran',
+          body: 'Day 30 · $ayahRef',
+          bigText: 'Thirty days of showing up.\n\n'
+              'This is who you are now. $ayahRef today.',
         );
       case 100:
         return (
-          title: 'Day 100',
-          body: '100 days with the Quran. SubhanAllah.$themeHook',
+          title: 'Day 100 · SubhanAllah',
+          body: ayahRef,
+          bigText: '100 days with the Quran.\n\n'
+              'Today: $ayahRef. Keep showing up.',
         );
       case 365:
         return (
-          title: 'One year',
-          body: 'Your spiritual autobiography.$themeHook',
+          title: 'One year with the Quran',
+          body: 'Day 365 · $ayahRef',
+          bigText: 'A full year of returning to the Book.\n\n'
+              'Your spiritual autobiography. $ayahRef today.',
         );
     }
 
-    // Identity-reinforcing messages for regular days
+    // Non-milestone days: title = ayah reference (the what), so the
+    // body and bigText must say something *else* — day count + a
+    // rotating identity hook. bigText never repeats the title; the
+    // first line stands alone next to the ayah ref in the expanded
+    // view.
+    final String bodyHook;
+    final String bigHook;
     if (dayNumber > 30) {
-      final messages = [
-        'Day $dayNumber. You\'re consistent.',
-        'Your ayah is ready. You always show up.',
-        'Day $dayNumber with the Quran.',
+      const hooks = [
+        'you always return',
+        'one quiet minute',
+        'this is who you are',
       ];
-      return (
-        title: 'Tadabbur',
-        body: messages[dayNumber % messages.length] + themeHook,
-      );
+      bodyHook = hooks[dayNumber % hooks.length];
+      bigHook = 'Day $dayNumber with the Quran.\n\n'
+          'The habit is part of you now.';
+    } else if (dayNumber > 7) {
+      const hooks = [
+        'sit with today\'s ayah',
+        'your daily ayah',
+        'one quiet minute',
+      ];
+      bodyHook = hooks[dayNumber % hooks.length];
+      bigHook = 'Day $dayNumber with the Quran.\n\n'
+          'You keep coming back.';
+    } else {
+      const hooks = [
+        'a quiet minute',
+        'one breath, one ayah',
+        'your daily ayah',
+      ];
+      bodyHook = hooks[dayNumber % hooks.length];
+      bigHook = 'Day $dayNumber with the Quran.\n\n'
+          'A quiet minute is all today asks.';
     }
 
-    if (dayNumber > 7) {
-      final messages = [
-        'Day $dayNumber. Keep going.',
-        'Your next ayah is waiting for you.',
-        'Day $dayNumber. You\'re building a habit.',
-      ];
-      return (
-        title: 'Tadabbur',
-        body: messages[dayNumber % messages.length] + themeHook,
-      );
-    }
-
-    // First week — gentle encouragement
-    final messages = [
-      'Your ayah for today is waiting.',
-      'A quiet moment with the Quran.',
-      'Sit with today\'s ayah.',
-    ];
     return (
-      title: 'Tadabbur',
-      body: messages[dayNumber % messages.length] + themeHook,
+      title: ayahRef,
+      body: 'Day $dayNumber · $bodyHook',
+      bigText: bigHook,
     );
   }
+
+  static String _surahNameFromKey(String verseKey) {
+    final surah = int.tryParse(verseKey.split(':').first) ?? 1;
+    if (surah < 1 || surah >= _surahNames.length) return 'Surah $surah';
+    return _surahNames[surah];
+  }
+
+  // 114 surah names in transliteration. Index 0 is intentionally empty
+  // so the list can be indexed 1:1 with surah numbers.
+  static const List<String> _surahNames = [
+    '',
+    'Al-Fatiha', 'Al-Baqarah', 'Ali Imran', 'An-Nisa', 'Al-Maidah',
+    'Al-An\'am', 'Al-A\'raf', 'Al-Anfal', 'At-Tawbah', 'Yunus',
+    'Hud', 'Yusuf', 'Ar-Ra\'d', 'Ibrahim', 'Al-Hijr',
+    'An-Nahl', 'Al-Isra', 'Al-Kahf', 'Maryam', 'Ta-Ha',
+    'Al-Anbiya', 'Al-Hajj', 'Al-Mu\'minun', 'An-Nur', 'Al-Furqan',
+    'Ash-Shu\'ara', 'An-Naml', 'Al-Qasas', 'Al-Ankabut', 'Ar-Rum',
+    'Luqman', 'As-Sajdah', 'Al-Ahzab', 'Saba', 'Fatir',
+    'Ya-Sin', 'As-Saffat', 'Sad', 'Az-Zumar', 'Ghafir',
+    'Fussilat', 'Ash-Shura', 'Az-Zukhruf', 'Ad-Dukhan', 'Al-Jathiyah',
+    'Al-Ahqaf', 'Muhammad', 'Al-Fath', 'Al-Hujurat', 'Qaf',
+    'Adh-Dhariyat', 'At-Tur', 'An-Najm', 'Al-Qamar', 'Ar-Rahman',
+    'Al-Waqi\'ah', 'Al-Hadid', 'Al-Mujadilah', 'Al-Hashr', 'Al-Mumtahanah',
+    'As-Saff', 'Al-Jumu\'ah', 'Al-Munafiqun', 'At-Taghabun', 'At-Talaq',
+    'At-Tahrim', 'Al-Mulk', 'Al-Qalam', 'Al-Haqqah', 'Al-Ma\'arij',
+    'Nuh', 'Al-Jinn', 'Al-Muzzammil', 'Al-Muddaththir', 'Al-Qiyamah',
+    'Al-Insan', 'Al-Mursalat', 'An-Naba', 'An-Nazi\'at', 'Abasa',
+    'At-Takwir', 'Al-Infitar', 'Al-Mutaffifin', 'Al-Inshiqaq', 'Al-Buruj',
+    'At-Tariq', 'Al-A\'la', 'Al-Ghashiyah', 'Al-Fajr', 'Al-Balad',
+    'Ash-Shams', 'Al-Layl', 'Ad-Duha', 'Ash-Sharh', 'At-Tin',
+    'Al-Alaq', 'Al-Qadr', 'Al-Bayyinah', 'Az-Zalzalah', 'Al-Adiyat',
+    'Al-Qari\'ah', 'At-Takathur', 'Al-Asr', 'Al-Humazah', 'Al-Fil',
+    'Quraysh', 'Al-Ma\'un', 'Al-Kawthar', 'Al-Kafirun', 'An-Nasr',
+    'Al-Masad', 'Al-Ikhlas', 'Al-Falaq', 'An-Nas',
+  ];
 }
