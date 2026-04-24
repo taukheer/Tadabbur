@@ -168,10 +168,17 @@ class FirestoreService {
     String? arabicFont,
     double? arabicFontSize,
     String? currentVerseKey,
+    String? authMethod,
+    String? qfUserId,
+    bool stampSignedIn = true,
   }) async {
     if (_userId == null) return;
     final data = <String, dynamic>{
       'updated_at': FieldValue.serverTimestamp(),
+      // last_active_at rolls on every write — useful for "users
+      // active in the last N days" queries even when nothing else
+      // about the profile changes.
+      'last_active_at': FieldValue.serverTimestamp(),
     };
     if (name != null) data['name'] = name;
     if (email != null) data['email'] = email;
@@ -184,6 +191,15 @@ class FirestoreService {
     if (arabicFont != null) data['arabic_font'] = arabicFont;
     if (arabicFontSize != null) data['arabic_font_size'] = arabicFontSize;
     if (currentVerseKey != null) data['current_verse_key'] = currentVerseKey;
+    if (authMethod != null) data['auth_method'] = authMethod;
+    if (qfUserId != null) data['qf_user_id'] = qfUserId;
+    if (stampSignedIn && authMethod != null) {
+      // signed_in_at is the sign-in timestamp. Only set by the
+      // onboarding flow — the boot-time re-sync passes
+      // stampSignedIn: false so `last_active_at` rolls without
+      // clobbering the original sign-in moment.
+      data['signed_in_at'] = FieldValue.serverTimestamp();
+    }
 
     await _withRetry(() async {
       await _db.collection('users').doc(_userId).set(data, SetOptions(merge: true));

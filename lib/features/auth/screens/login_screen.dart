@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -176,9 +177,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _continueAsGuest() {
     final storage = ref.read(localStorageProvider);
+    // Use the Firebase Auth anonymous UID so each guest is a
+    // distinct Firestore /users/{uid} record instead of all guests
+    // colliding on /users/guest. Falls back to 'guest' if Firebase
+    // Auth hasn't landed yet (shouldn't happen in practice — main.dart
+    // signs in on boot).
+    final anonUid = FirebaseAuth.instance.currentUser?.uid ?? 'guest';
     storage.setAuthToken('guest');
-    storage.setUserId('guest');
+    storage.setUserId(anonUid);
     storage.setAuthType(AuthType.guest);
+    ref.read(firestoreServiceProvider).setUser(anonUid);
     ref.read(isLoggedInProvider.notifier).state = true;
     context.go('/home');
   }

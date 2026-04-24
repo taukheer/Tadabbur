@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,6 +111,38 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ref.read(isLoggedInProvider.notifier).state = true;
                 ref.read(authUserProvider.notifier).state = user;
 
+                // Populate the QF profile from the id_token we just
+                // decoded. The app's identity card relies on this
+                // notifier — before, it depended on a network fetch
+                // from /v1/users/me that currently 403s, so the card
+                // never rendered and the app "looked" logged out even
+                // when it wasn't. Driving it directly from the token
+                // means the identity lands immediately.
+                unawaited(ref.read(qfProfileProvider.notifier).setFromAuthUser(
+                      id: user.id,
+                      name: user.name,
+                      email: user.email,
+                      photoUrl: user.photoUrl,
+                    ));
+
+                // If the local userId is still the hardcoded 'guest'
+                // string (happens when _completeOnboarding ran before
+                // Firebase anonymous auth landed), upgrade it to the
+                // current Firebase UID so the Firestore write below
+                // targets a doc the security rule will accept
+                // (request.auth.uid == docId).
+                final firebaseUid = FirebaseAuth.instance.currentUser?.uid;
+                if (firebaseUid != null &&
+                    (storage.userId == null ||
+                        storage.userId == 'guest' ||
+                        storage.userId!.isEmpty)) {
+                  await storage.setUserId(firebaseUid);
+                  ref.read(firestoreServiceProvider).setUser(firebaseUid);
+                  debugPrint(
+                    '[OAuth] upgraded local userId guest→$firebaseUid',
+                  );
+                }
+
                 // CRITICAL: refresh the ApiClient's in-memory auth
                 // token so subsequent User API calls include the
                 // Bearer header. The ApiClient was instantiated once
@@ -135,6 +168,40 @@ final routerProvider = Provider<GoRouter>((ref) {
                 unawaited(
                   ref.read(journalProvider.notifier).hydrateFromQF(),
                 );
+                // Fetch the user's quran.com profile so Settings can
+                // surface "Signed in as [name] · quran.com" instead
+                // of treating OAuth as an invisible token handshake.
+                unawaited(ref.read(qfProfileProvider.notifier).refresh());
+                // Pull existing collections so cross-app continuity
+                // is immediately visible — any collection the user
+                // created on quran.com shows up in Tadabbur at once.
+                unawaited(ref.read(collectionsProvider.notifier).refresh());
+
+                // Update the Firestore /users doc with the now-real
+                // Quran.com identity. The doc is keyed by the device's
+                // Firebase anonymous UID (Firestore rules require
+                // request.auth.uid == doc id, and we can't mint a
+                // Firebase custom token from a QF OAuth flow without
+                // a server). So the key stays anonymous; we write the
+                // QF identity into fields on the same doc — which
+                // lets the admin see "Firebase anon UID X was signed
+                // in as Quran.com user Y, email Z, on date D."
+                //
+                // Re-stamps signed_in_at because the user has just
+                // completed a real sign-in — this is a meaningful
+                // moment, not a passive boot refresh.
+                final firestore = ref.read(firestoreServiceProvider);
+                unawaited(firestore
+                    .saveUserProfile(
+                      name: user.name,
+                      email: user.email,
+                      photoUrl: user.photoUrl,
+                      authMethod: 'quran_foundation',
+                      qfUserId: user.id,
+                    )
+                    .catchError((Object e) {
+                  debugPrint('[OAuth] profile sync failed: $e');
+                }));
 
                 debugPrint('[OAuth] signed in as ${user.name} -> /home');
                 return '/home';

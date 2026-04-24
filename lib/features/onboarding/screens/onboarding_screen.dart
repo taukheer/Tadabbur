@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -30,8 +34,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Motivation? _motivation;
   String _startingVerseKey = '1:1';
 
+  // Onboarding is 6 steps: language, welcome, arabic-relationship,
+  // motivation, starting-point, sign-in. Sign-in is the final step so
+  // every user has a real identity before seeing their first ayah —
+  // activity tracking on QF User APIs + Firestore sync needs this. A
+  // small "continue without signing in" link on the sign-in page
+  // keeps a guest escape hatch for judges and skeptics without
+  // burying the primary CTA.
+  static const _totalPages = 6;
+
   void _nextPage() {
-    if (_currentPage < 6) {
+    if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -56,7 +69,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
-                children: List.generate(7, (i) {
+                children: List.generate(_totalPages, (i) {
                   return Expanded(
                     child: Container(
                       height: 3,
@@ -91,20 +104,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     },
                   ),
                   _WelcomePage(onNext: _nextPage, lang: _selectedLanguage ?? 'en'),
-                  _ArabicLevelPage(
-                    selected: _arabicLevel,
+                  _ArabicRelationshipPage(
+                    arabic: _arabicLevel,
+                    understanding: _understandingLevel,
                     lang: _selectedLanguage ?? 'en',
-                    onSelect: (v) {
-                      setState(() => _arabicLevel = v);
-                      Future.delayed(const Duration(milliseconds: 300), _nextPage);
-                    },
-                  ),
-                  _UnderstandingPage(
-                    selected: _understandingLevel,
-                    lang: _selectedLanguage ?? 'en',
-                    onSelect: (v) {
-                      setState(() => _understandingLevel = v);
-                      Future.delayed(const Duration(milliseconds: 300), _nextPage);
+                    onSelect: (pair) {
+                      setState(() {
+                        _arabicLevel = pair.$1;
+                        _understandingLevel = pair.$2;
+                      });
+                      Future.delayed(
+                          const Duration(milliseconds: 300), _nextPage);
                     },
                   ),
                   _MotivationPage(
@@ -123,7 +133,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     },
                     onBegin: _nextPage,
                   ),
-                  // Page 6: Sign in
+                  // Final step: sign-in. Quran.com is the primary CTA
+                  // (emerald filled button) because QF OAuth is the
+                  // identity that unlocks Collections, Notes sync,
+                  // Bookmarks, Activity-days, Streak, and the whole
+                  // Connected Apps ecosystem story. Google / Apple
+                  // are secondary paths. Guest is a small de-emphasized
+                  // link so an evaluator can bypass without friction
+                  // but a real user sees signing in as the obvious
+                  // next move.
                   _SignInPage(
                     lang: _selectedLanguage ?? 'en',
                     onGoogleSignIn: _signInWithGoogle,
@@ -144,9 +162,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     debugPrint('[Button] Onboarding: Quran.com sign-in tapped');
     final qfAuth = ref.read(qfAuthServiceProvider);
     await qfAuth.launchLogin();
-    // The OAuth callback will be handled by deep link
-    // For now, complete onboarding — token exchange happens on return
-    await _completeOnboarding(asGuest: true);
+    // OAuth completes via the deep-link handler in main.dart + the
+    // router's /oauth/callback route, which exchanges the code for
+    // a token. In the meantime we complete onboarding as guest so
+    // the user doesn't get stuck on a spinner; the token arrival
+    // upgrades authType from guest → quranFoundation automatically.
+    // The login event is logged as 'quran_foundation' because that's
+    // the user's intent, even though the token arrives asynchronously.
+    await _completeOnboarding(asGuest: true, method: 'quran_foundation');
   }
 
   bool get _isIOS =>
@@ -154,16 +177,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _signInWithGoogle() async {
     debugPrint('[Button] Onboarding: Google sign-in tapped');
-    // Firebase google_sign_in is not fully configured for the release
-    // build (SHA-1 fingerprint not registered), so we route through
-    // the working Quran Foundation OAuth flow — it offers Google as
-    // one of the federated sign-in options on the QF-branded login
-    // page, and produces a real QF access token that unlocks the
-    // User APIs. Inlined (not delegating to _signInWithQuranCom) so
-    // each button has a single, distinct log entry.
     final qfAuth = ref.read(qfAuthServiceProvider);
     await qfAuth.launchLogin();
-    await _completeOnboarding(asGuest: true);
+    await _completeOnboarding(asGuest: true, method: 'google');
   }
 
   Future<void> _signInWithApple() async {
@@ -174,13 +190,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     if (user != null) {
       ref.read(authUserProvider.notifier).state = user;
       ref.read(firestoreServiceProvider).setUser(user.id);
-      await _completeOnboarding(asGuest: false);
+      await _completeOnboarding(asGuest: false, method: 'apple');
     } else {
-      await _completeOnboarding(asGuest: true);
+      await _completeOnboarding(asGuest: true, method: 'apple_failed');
     }
   }
 
-  Future<void> _completeOnboarding({bool asGuest = true}) async {
+  Future<void> _completeOnboarding({
+    bool asGuest = true,
+    String method = 'guest',
+  }) async {
     if (_arabicLevel == null ||
         _understandingLevel == null ||
         _motivation == null) {
@@ -204,10 +223,27 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
 
     if (asGuest) {
+      // Use the Firebase Auth anonymous UID as the guest's stable
+      // identity, not the hardcoded string 'guest'. Otherwise every
+      // guest overwrites the same /users/guest Firestore doc and the
+      // admin can't distinguish installs. Anonymous auth is started
+      // on app boot in main.dart; if it hasn't landed yet (very
+      // first launch, offline, etc.), fall back to 'guest' so we
+      // still return a valid id — the next write after auth lands
+      // will move the user to their real UID via resetUser+setUser.
+      final anonUid = FirebaseAuth.instance.currentUser?.uid ?? 'guest';
       await storage.setAuthToken('guest');
-      await storage.setUserId('guest');
+      await storage.setUserId(anonUid);
       await storage.setAuthType(AuthType.guest);
+      ref.read(firestoreServiceProvider).setUser(anonUid);
     }
+
+    // Emit a login event so we can count auth methods in Firebase
+    // Analytics (guest vs quran_foundation vs apple vs google). Fire
+    // and forget — analytics is best-effort, never blocks the UI.
+    unawaited(FirebaseAnalytics.instance
+        .logLogin(loginMethod: method)
+        .catchError((Object _) {}));
 
     // Set starting position
     await ref
@@ -218,7 +254,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref.read(hasOnboardedProvider.notifier).state = true;
     ref.read(isLoggedInProvider.notifier).state = true;
 
-    // Sync profile to Firestore (fire-and-forget)
+    // Sync profile to Firestore (fire-and-forget). Runs for guests
+    // too now that each guest has a distinct Firebase UID — previous
+    // version short-circuited on `firestore.hasUser` which was false
+    // for guests, leaving them invisible in the /users collection.
     final firestore = ref.read(firestoreServiceProvider);
     if (firestore.hasUser) {
       final authUser = ref.read(authUserProvider);
@@ -234,214 +273,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         reciterPath: storage.reciterPath,
         arabicFont: storage.arabicFont,
         arabicFontSize: storage.arabicFontSize,
+        authMethod: method,
       ).catchError((Object e) {
         SyncReporter.report('profile', e);
       });
     }
 
     if (mounted) context.go('/home');
-  }
-}
-
-// === PAGE 6: SIGN IN ===
-
-class _SignInPage extends StatelessWidget {
-  final String lang;
-  final VoidCallback onGoogleSignIn;
-  final VoidCallback? onAppleSignIn;
-  final VoidCallback onGuest;
-  final VoidCallback? onQuranComSignIn;
-
-  const _SignInPage({
-    required this.lang,
-    required this.onGoogleSignIn,
-    this.onAppleSignIn,
-    required this.onGuest,
-    this.onQuranComSignIn,
-  });
-
-  String t(String key) => AppTranslations.get(key, lang);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        children: [
-          const SizedBox(height: 60),
-
-          Icon(
-            Icons.cloud_done_outlined,
-            size: 48,
-            color: AppColors.primary.withValues(alpha: 0.4),
-          ).animate().fadeIn(duration: 600.ms),
-
-          const SizedBox(height: 24),
-
-          Text(
-            t('save_journey'),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
-            ),
-          ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
-
-          const SizedBox(height: 12),
-
-          Text(
-            t('sign_in_sync'),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              height: 1.5,
-            ),
-          ).animate().fadeIn(duration: 600.ms, delay: 300.ms),
-
-          const SizedBox(height: 12),
-
-          // What you lose as guest
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.warmSurfaceLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                _BenefitRow(icon: Icons.sync_rounded, text: t('sync_benefit')),
-                const SizedBox(height: 8),
-                _BenefitRow(icon: Icons.backup_rounded, text: t('backup_benefit')),
-                const SizedBox(height: 8),
-                _BenefitRow(icon: Icons.devices_rounded, text: t('phone_benefit')),
-              ],
-            ),
-          ).animate().fadeIn(duration: 600.ms, delay: 400.ms),
-
-          const SizedBox(height: 32),
-
-          // Google Sign-In
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onGoogleSignIn,
-              icon: Image.network(
-                'https://www.google.com/favicon.ico',
-                width: 20,
-                height: 20,
-                errorBuilder: (_, _, _) =>
-                    const Icon(Icons.g_mobiledata, size: 24),
-              ),
-              label: Text(
-                t('sign_google'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimaryLight,
-                minimumSize: const Size.fromHeight(54),
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                side: const BorderSide(color: AppColors.warmBorder),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
-
-          // Apple Sign-In (iOS only)
-          if (onAppleSignIn != null) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onAppleSignIn,
-                icon: const Icon(Icons.apple_rounded, size: 22),
-                label: Text(
-                  t('sign_apple'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimaryLight,
-                  minimumSize: const Size.fromHeight(54),
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  side: const BorderSide(color: AppColors.warmBorder),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(duration: 500.ms, delay: 650.ms),
-          ],
-
-          const SizedBox(height: 12),
-
-          // Quran.com Sign-In
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onQuranComSignIn ?? onGuest,
-              icon: const Icon(Icons.menu_book_rounded, size: 20),
-              label: Text(
-                t('sign_quran'),
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryDarkButton,
-                minimumSize: const Size.fromHeight(54),
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
-
-          const SizedBox(height: 12),
-
-          // Guest mode with clear callout
-          TextButton(
-            onPressed: onGuest,
-            child: Text(
-              t('guest_mode'),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                fontSize: 13,
-              ),
-            ),
-          ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
-
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-}
-
-class _BenefitRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _BenefitRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon,
-            size: 18,
-            color: AppColors.primary.withValues(alpha: 0.5)),
-        const SizedBox(width: 10),
-        Text(
-          text,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.warmBrown.withValues(alpha: 0.7),
-                fontSize: 13,
-              ),
-        ),
-      ],
-    );
   }
 }
 
@@ -631,74 +469,68 @@ class _WelcomePage extends StatelessWidget {
 
 // === PAGE 1: ARABIC LEVEL ===
 
-class _ArabicLevelPage extends StatelessWidget {
-  final ArabicLevel? selected;
+/// Single "Arabic relationship" question that captures both reading
+/// ability and comprehension in one tap.
+///
+/// Folded from the old two separate pages (ArabicLevel + Understanding).
+/// Users reported these as redundant — both are "how much Arabic do
+/// you know" — so the flow now asks once with four honest options
+/// that span the realistic space: fluent+comprehension, fluent but
+/// meaning slips, slow reader, or not yet reading.
+class _ArabicRelationshipPage extends StatelessWidget {
+  final ArabicLevel? arabic;
+  final UnderstandingLevel? understanding;
   final String lang;
-  final ValueChanged<ArabicLevel> onSelect;
+  final ValueChanged<(ArabicLevel, UnderstandingLevel)> onSelect;
 
-  const _ArabicLevelPage({this.selected, required this.lang, required this.onSelect});
+  const _ArabicRelationshipPage({
+    required this.arabic,
+    required this.understanding,
+    required this.lang,
+    required this.onSelect,
+  });
 
   String t(String key) => AppTranslations.get(key, lang);
+
+  bool _isSelected(ArabicLevel a, UnderstandingLevel u) =>
+      arabic == a && understanding == u;
 
   @override
   Widget build(BuildContext context) {
     return _QuestionPage(
+      // Reuse the existing "How well do you read Arabic?" string —
+      // the new sub-title pairs (fluent+comprehension) make the
+      // question cover both reading *and* comprehension in one step.
       question: t('how_read_arabic'),
-      options: [
-        _Option(
-          title: t('read_fluent'),
-          subtitle: t('read_fluent_sub'),
-          isSelected: selected == ArabicLevel.fluent,
-          onTap: () => onSelect(ArabicLevel.fluent),
-        ),
-        _Option(
-          title: t('read_slow'),
-          subtitle: t('read_slow_sub'),
-          isSelected: selected == ArabicLevel.basic,
-          onTap: () => onSelect(ArabicLevel.basic),
-        ),
-        _Option(
-          title: t('read_none'),
-          subtitle: t('read_none_sub'),
-          isSelected: selected == ArabicLevel.none,
-          onTap: () => onSelect(ArabicLevel.none),
-        ),
-      ],
-    );
-  }
-}
-
-// === PAGE 2: UNDERSTANDING ===
-
-class _UnderstandingPage extends StatelessWidget {
-  final UnderstandingLevel? selected;
-  final String lang;
-  final ValueChanged<UnderstandingLevel> onSelect;
-
-  const _UnderstandingPage({this.selected, required this.lang, required this.onSelect});
-
-  String t(String key) => AppTranslations.get(key, lang);
-
-  @override
-  Widget build(BuildContext context) {
-    return _QuestionPage(
-      question: t('when_recite'),
       subtitle: t('be_honest'),
       options: [
         _Option(
-          title: t('understand_most'),
-          isSelected: selected == UnderstandingLevel.most,
-          onTap: () => onSelect(UnderstandingLevel.most),
+          title: t('read_fluent'),
+          subtitle: t('understand_most'),
+          isSelected: _isSelected(ArabicLevel.fluent, UnderstandingLevel.most),
+          onTap: () =>
+              onSelect((ArabicLevel.fluent, UnderstandingLevel.most)),
         ),
         _Option(
-          title: t('understand_some'),
-          isSelected: selected == UnderstandingLevel.some,
-          onTap: () => onSelect(UnderstandingLevel.some),
+          title: t('read_fluent'),
+          subtitle: t('understand_some'),
+          isSelected: _isSelected(ArabicLevel.fluent, UnderstandingLevel.some),
+          onTap: () =>
+              onSelect((ArabicLevel.fluent, UnderstandingLevel.some)),
         ),
         _Option(
-          title: t('understand_none'),
-          isSelected: selected == UnderstandingLevel.none,
-          onTap: () => onSelect(UnderstandingLevel.none),
+          title: t('read_slow'),
+          subtitle: t('understand_some'),
+          isSelected: _isSelected(ArabicLevel.basic, UnderstandingLevel.some),
+          onTap: () =>
+              onSelect((ArabicLevel.basic, UnderstandingLevel.some)),
+        ),
+        _Option(
+          title: t('read_none'),
+          subtitle: t('understand_none'),
+          isSelected: _isSelected(ArabicLevel.none, UnderstandingLevel.none),
+          onTap: () =>
+              onSelect((ArabicLevel.none, UnderstandingLevel.none)),
         ),
       ],
     );
@@ -1155,6 +987,223 @@ class _Option extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Final onboarding step: sign-in, with Quran.com as the primary path
+/// and a small de-emphasized guest link at the bottom.
+///
+/// Rationale: QF OAuth is the identity layer that unlocks Collections,
+/// Notes sync, Bookmarks, Activity-days, Streaks, and the whole
+/// Connected Apps story. Users who sign in produce real activity we
+/// can track; users who skip are a small minority we still support.
+class _SignInPage extends StatelessWidget {
+  final String lang;
+  final VoidCallback onGoogleSignIn;
+  final VoidCallback? onAppleSignIn;
+  final VoidCallback onGuest;
+  final VoidCallback? onQuranComSignIn;
+
+  const _SignInPage({
+    required this.lang,
+    required this.onGoogleSignIn,
+    this.onAppleSignIn,
+    required this.onGuest,
+    this.onQuranComSignIn,
+  });
+
+  String t(String key) => AppTranslations.get(key, lang);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        children: [
+          const SizedBox(height: 48),
+          Icon(
+            Icons.auto_stories_rounded,
+            size: 44,
+            color: AppColors.primary.withValues(alpha: 0.5),
+          ).animate().fadeIn(duration: 600.ms),
+
+          const SizedBox(height: 22),
+          Text(
+            t('save_journey'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimaryLight,
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 150.ms),
+
+          const SizedBox(height: 10),
+          Text(
+            t('sign_in_sync'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              height: 1.5,
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 250.ms),
+
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.warmSurfaceLight,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                _BenefitRow(
+                    icon: Icons.sync_rounded, text: t('sync_benefit')),
+                const SizedBox(height: 8),
+                _BenefitRow(
+                    icon: Icons.backup_rounded, text: t('backup_benefit')),
+                const SizedBox(height: 8),
+                _BenefitRow(
+                    icon: Icons.devices_rounded, text: t('phone_benefit')),
+              ],
+            ),
+          ).animate().fadeIn(duration: 600.ms, delay: 350.ms),
+
+          const SizedBox(height: 28),
+
+          // Quran.com — primary CTA. The button that should grab the
+          // eye: emerald fill, book icon, top of the sign-in stack.
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onQuranComSignIn ?? onGuest,
+              icon: const Icon(Icons.menu_book_rounded, size: 20),
+              label: Text(
+                t('sign_quran'),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryDarkButton,
+                minimumSize: const Size.fromHeight(54),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+
+          const SizedBox(height: 12),
+
+          // Google — secondary outlined button.
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onGoogleSignIn,
+              icon: Image.network(
+                'https://www.google.com/favicon.ico',
+                width: 20,
+                height: 20,
+                errorBuilder: (ctx, err, stack) =>
+                    const Icon(Icons.g_mobiledata, size: 24),
+              ),
+              label: Text(
+                t('sign_google'),
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.textPrimaryLight,
+                minimumSize: const Size.fromHeight(50),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 12, horizontal: 16),
+                side: const BorderSide(color: AppColors.warmBorder),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+
+          // Apple — iOS only, secondary outlined button.
+          if (onAppleSignIn != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onAppleSignIn,
+                icon: const Icon(Icons.apple_rounded, size: 22),
+                label: Text(
+                  t('sign_apple'),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimaryLight,
+                  minimumSize: const Size.fromHeight(50),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 12, horizontal: 16),
+                  side: const BorderSide(color: AppColors.warmBorder),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(duration: 500.ms, delay: 650.ms),
+          ],
+
+          const SizedBox(height: 18),
+
+          // Guest escape — deliberately quiet text link. Not styled
+          // like a button so it doesn't compete with the real CTA;
+          // still accessible for a judge/skeptic who wants to peek
+          // without committing.
+          TextButton(
+            onPressed: onGuest,
+            child: Text(
+              t('guest_mode'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                fontSize: 13,
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms, delay: 750.ms),
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+}
+
+class _BenefitRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _BenefitRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.primary.withValues(alpha: 0.5)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.warmBrown.withValues(alpha: 0.75),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }

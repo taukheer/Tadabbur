@@ -2,6 +2,28 @@ import 'dart:async';
 
 import 'package:just_audio/just_audio.dart';
 
+/// Bitrates, by reciter path, for the cdn.islamic.network ayah endpoint.
+///
+/// That CDN publishes recitations at 64/128/192 kbps; most reciters are
+/// available at 128, but As-Sudais was encoded at 192 only. Keeping the
+/// mapping here (instead of duplicating a ternary at every call site)
+/// means adding a new reciter bitrate is a one-line change.
+const Map<String, String> _islamicNetworkBitrateByReciter = {
+  'abdurrahmaansudais': '192',
+};
+const String _islamicNetworkDefaultBitrate = '128';
+
+/// Build the cdn.islamic.network URL for a single ayah recitation.
+///
+/// [reciterPath] is the CDN slug (e.g. `alafasy`, `husary`). [absAyahNum]
+/// is the absolute ayah number across the whole Mushaf (1..6236). The
+/// caller is responsible for computing the absolute number.
+String islamicNetworkAyahUrl(String reciterPath, int absAyahNum) {
+  final bitrate =
+      _islamicNetworkBitrateByReciter[reciterPath] ?? _islamicNetworkDefaultBitrate;
+  return 'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
+}
+
 /// Service that wraps [AudioPlayer] for Quran audio playback.
 ///
 /// Provides a simplified interface for playing individual ayah audio files,

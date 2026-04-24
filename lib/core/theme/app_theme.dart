@@ -83,6 +83,36 @@ abstract final class AppTheme {
   }
 
   // ---------------------------------------------------------------------------
+  // Midnight (OLED true-black) theme
+  // ---------------------------------------------------------------------------
+  //
+  // For late-night / pre-dawn use. The regular dark theme uses a warm
+  // navy surface (#0D1B2A) that glows off the face in a dark bedroom;
+  // the midnight variant swaps to pure #000 so OLED pixels are fully
+  // off outside of content areas. Primary/accent hues are lifted
+  // slightly so they don't lose presence against the deeper ground.
+  //
+  // Activated automatically during the night band (see
+  // time_of_day_ribbon.bandForHour); this isn't a user toggle — it's
+  // a prayer-time-aware design choice for the users who open the app
+  // at fajr in a dark room.
+  static ThemeData get midnightOled {
+    final base = dark;
+    const black = Color(0xFF000000);
+    const nearBlack = Color(0xFF0A0A0A);
+    final scheme = base.colorScheme.copyWith(
+      surface: black,
+      onSurface: const Color(0xFFF0EDE7),
+      surfaceContainerHighest: nearBlack,
+      outline: const Color(0xFF1F1F1F),
+      outlineVariant: const Color(0xFF141414),
+      primary: AppColors.primaryMuted,
+      inverseSurface: AppColors.surfaceLight,
+    );
+    return _buildTheme(scheme);
+  }
+
+  // ---------------------------------------------------------------------------
   // Shared builder
   // ---------------------------------------------------------------------------
   static ThemeData _buildTheme(ColorScheme colorScheme) {

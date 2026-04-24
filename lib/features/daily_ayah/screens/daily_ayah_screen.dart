@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:hijri/hijri_calendar.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
+import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
+import 'package:tadabbur/core/services/audio_service.dart';
+import 'package:tadabbur/core/widgets/golden_stroke.dart';
+import 'package:tadabbur/core/widgets/sajdah_glyph.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
@@ -13,33 +18,41 @@ import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
+import 'package:tadabbur/features/daily_ayah/widgets/ayah_skeleton.dart';
 import 'package:tadabbur/features/daily_ayah/widgets/share_card.dart';
 import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
-class DailyAyahScreen extends ConsumerWidget {
+class DailyAyahScreen extends ConsumerStatefulWidget {
   const DailyAyahScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DailyAyahScreen> createState() => _DailyAyahScreenState();
+}
+
+class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(dailyAyahProvider);
     final progress = ref.watch(userProgressProvider);
     final profile = ref.watch(userProfileProvider);
     final theme = Theme.of(context);
 
+    // The loaded branch assumes state.ayah is non-null. The notifier
+    // only emits loadingState=loaded after a successful fetch (or a
+    // cache restore that produced an Ayah), so this should always hold —
+    // but guarding here keeps the screen from throwing if a future
+    // refactor lets the state drift into an intermediate shape.
+    final ayah = state.ayah;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: state.loadingState == AyahLoadingState.loading
-            ? Center(
-                child: CircularProgressIndicator(
-                  color: theme.colorScheme.primary,
-                  strokeWidth: 1.5,
-                ),
-              )
-            : state.loadingState == AyahLoadingState.error
+            ? const AyahSkeleton()
+            : state.loadingState == AyahLoadingState.error || ayah == null
                 ? _buildError(theme, state.errorMessage, ref)
-                : _buildContent(context, ref, state, progress, profile, theme),
+                : _buildContent(
+                    context, ref, state, ayah, progress, profile, theme),
       ),
     );
   }
@@ -68,11 +81,11 @@ class DailyAyahScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     DailyAyahState state,
+    Ayah ayah,
     dynamic progress,
     UserProfile? profile,
     ThemeData theme,
   ) {
-    final ayah = state.ayah!;
     final lang = ref.watch(languageProvider);
     final editorial = state.editorial;
     final words = state.words.where((w) => w.charTypeName == 'word').toList();
@@ -85,9 +98,7 @@ class DailyAyahScreen extends ConsumerWidget {
 
     // Build audio URL from Islamic Network CDN (uses absolute ayah number)
     final absAyahNum = _absoluteAyahNumber(ayah.surahNumber, ayah.ayahNumber);
-    final bitrate = reciterPath == 'abdurrahmaansudais' ? '192' : '128';
-    final liveAudioUrl =
-        'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
+    final liveAudioUrl = islamicNetworkAyahUrl(reciterPath, absAyahNum);
 
     // Only show thematic hook when we have editorial content (verified, not guessed)
     final ayahTheme = editorial != null
@@ -117,12 +128,24 @@ class DailyAyahScreen extends ConsumerWidget {
         children: [
           const SizedBox(height: 16),
 
-          // === IDENTITY + DAY COUNTER + BOOKMARK ===
+          // === IDENTITY + HIJRI + DAY COUNTER + BOOKMARK ===
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // Hijri date on the leading edge — the Islamic calendar
+                // is the canonical date for a Quran app; showing it
+                // first signals that intent before anything else.
+                Text(
+                  _hijriToday(),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const Spacer(),
                 if (progress.totalAyatCompleted > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -268,13 +291,18 @@ class DailyAyahScreen extends ConsumerWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🕌 ', style: TextStyle(fontSize: 10)),
+                        SajdahGlyph(
+                          size: 11,
+                          color: AppColors.sajdahText,
+                        ),
+                        const SizedBox(width: 5),
                         Text(
                           'Sajdah',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: AppColors.sajdahText,
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
+                            letterSpacing: 0.4,
                           ),
                         ),
                       ],
@@ -305,23 +333,50 @@ class DailyAyahScreen extends ConsumerWidget {
           const SizedBox(height: 32),
 
           // === THE AYAH — full screen presence ===
+          // Gentle right-to-left entrance that mirrors Arabic reading
+          // direction. A ShaderMask wipe + scroll-parallax combo was
+          // tried before and caused a vertical jump on first load; this
+          // is a pure horizontal slide + fade so layout never shifts.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Text(
               ayah.textUthmani,
+              key: ValueKey('ayah-${ayah.verseKey}'),
               locale: const Locale('ar'),
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
-              // Scale down font for long ayat to prevent screen overflow
-              style: ArabicFonts.getStyle(arabicFontId,
-                      fontSize: ayah.textUthmani.length > 100
-                          ? arabicFontSize * 0.65
-                          : ayah.textUthmani.length > 50
-                              ? arabicFontSize * 0.8
-                              : arabicFontSize)
-                  .copyWith(color: theme.colorScheme.onSurface),
+              style: ArabicFonts.getStyle(
+                arabicFontId,
+                fontSize: ayah.textUthmani.length > 100
+                    ? arabicFontSize * 0.65
+                    : ayah.textUthmani.length > 50
+                        ? arabicFontSize * 0.8
+                        : arabicFontSize,
+              ).copyWith(color: theme.colorScheme.onSurface),
             ),
-          ).animate().fadeIn(duration: 1000.ms, delay: 200.ms),
+          )
+              .animate(key: ValueKey('ayah-anim-${ayah.verseKey}'))
+              .fadeIn(duration: 900.ms, delay: 150.ms, curve: Curves.easeOut)
+              .slideX(
+                begin: 0.08,
+                end: 0,
+                duration: 900.ms,
+                delay: 150.ms,
+                curve: Curves.easeOutCubic,
+              ),
+
+          // === GOLDEN STROKE — ink-drying moment after reflection ===
+          // Keyed on verse so it replays once per newly-completed ayah,
+          // not on every rebuild within the same verse.
+          if (state.todayCompleted)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: GoldenStroke(
+                key: ValueKey('stroke-${ayah.verseKey}'),
+                color: AppColors.accent,
+                width: 180,
+              ),
+            ),
 
           // === TRANSLITERATION (optional) ===
           if (ref.watch(showTransliterationProvider) && words.isNotEmpty)
@@ -569,6 +624,14 @@ class DailyAyahScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Format today's Hijri date as e.g. "15 Ramaḍān 1447".
+  /// Uses the `hijri` package's English month names; the diacritic on
+  /// Ramaḍān is left untouched so the name reads correctly.
+  static String _hijriToday() {
+    final h = HijriCalendar.now();
+    return '${h.hDay} ${h.longMonthName} ${h.hYear}';
   }
 
   /// Convert surah:ayah to absolute ayah number (1-6236).
@@ -1659,7 +1722,10 @@ class _BookmarkButton extends ConsumerWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Material(
+    return Semantics(
+      button: true,
+      label: isBookmarked ? 'Remove bookmark' : 'Bookmark this ayah',
+      child: Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
@@ -1682,6 +1748,9 @@ class _BookmarkButton extends ConsumerWidget {
             );
           }
         },
+        // The visible label is just an icon; screen readers need to
+        // hear the action + current state explicitly.
+        excludeFromSemantics: true,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1720,6 +1789,7 @@ class _BookmarkButton extends ConsumerWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

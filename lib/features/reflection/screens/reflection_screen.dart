@@ -8,6 +8,7 @@ import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 
@@ -39,6 +40,12 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
   final _textController = TextEditingController();
   bool _isSaving = false;
   bool _isComplete = false;
+  /// When true on save, the reflection is also published to the
+  /// public Quran Reflect feed on quran.com via the Notes endpoint's
+  /// `saveToQR` flag. Per-reflection opt-in; surfaces only for tier-3
+  /// entries so short acknowledgements can't accidentally land in a
+  /// public space.
+  bool _shareToQuranReflect = false;
   final _focusNode = FocusNode();
 
   @override
@@ -200,6 +207,31 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
               ),
             ),
 
+            // Share-to-Quran-Reflect toggle — visible only when the
+            // draft has crossed into tier-3 territory AND the user is
+            // signed in via QF OAuth (the only auth type that can
+            // write to the quran.com public feed). A listener on the
+            // text controller rebuilds this sliver as the user types,
+            // so the toggle appears when the reflection has real
+            // depth and hides if they delete it back below the bar.
+            SliverToBoxAdapter(
+              child: AnimatedBuilder(
+                animation: _textController,
+                builder: (context, _) {
+                  final len = _textController.text.trim().length;
+                  final storage = ref.read(localStorageProvider);
+                  final canShare =
+                      storage.authType == AuthType.quranFoundation;
+                  if (!canShare || len < 80) return const SizedBox.shrink();
+                  return _ShareToQuranReflectTile(
+                    value: _shareToQuranReflect,
+                    onChanged: (v) =>
+                        setState(() => _shareToQuranReflect = v),
+                  );
+                },
+              ),
+            ),
+
             // Action buttons
             SliverToBoxAdapter(
               child: Padding(
@@ -351,7 +383,14 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
       );
 
-      await ref.read(journalProvider.notifier).addEntry(entry);
+      await ref.read(journalProvider.notifier).addEntry(
+            entry,
+            // Only honor the share toggle for tier-3 entries, mirroring
+            // where the UI exposes it. Shorter tiers silently save
+            // private even if the flag somehow lingers.
+            shareToQuranReflect: _shareToQuranReflect &&
+                tier == ReflectionTier.reflect,
+          );
       await ref
           .read(userProgressProvider.notifier)
           .completeAyah(widget.ayah.verseKey);
@@ -373,7 +412,6 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
 
   Widget _buildCompletion(ThemeData theme) {
     final progress = ref.watch(userProgressProvider);
-
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -441,3 +479,83 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
     );
   }
 }
+
+/// Opt-in toggle for publishing a reflection to the public Quran
+/// Reflect feed on quran.com. Surfaces only on tier-3 entries so
+/// short acknowledgements can't accidentally end up public, and only
+/// when the user is signed in via QF OAuth. Defaults to off on every
+/// reflection — sharing is an active choice, not a lingering setting.
+class _ShareToQuranReflectTile extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ShareToQuranReflectTile({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: value
+              ? theme.colorScheme.primary.withValues(alpha: 0.06)
+              : theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.primary
+                .withValues(alpha: value ? 0.2 : 0.08),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              value
+                  ? Icons.public_rounded
+                  : Icons.public_off_rounded,
+              size: 18,
+              color: value
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Share to Quran Reflect',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value
+                        ? 'This reflection will also appear on quran.com'
+                        : 'Keep private to your journal',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
+      ).animate().fadeIn(duration: 400.ms),
+    );
+  }
+}
+

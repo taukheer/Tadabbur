@@ -103,18 +103,19 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
         : today.difference(firstActivity).inDays + 1;
     final layout = _HeatmapLayout.forDaysActive(daysActive);
 
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? theme.colorScheme.surface : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.warmBorder.withValues(alpha: 0.5),
+          color: AppColors.warmBorder.withValues(alpha: isDark ? 0.15 : 0.5),
           width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -123,25 +124,17 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Text(
-                'Your practice',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimaryLight,
-                ),
-              ),
-              const Spacer(),
-              // "3 of 30 days" reads naturally as "active 3 out of
-               // the last 30 days". The old "3 / 30 days" slash form
-               // was ambiguous — streak? month target? days remaining?
-              _StatChip(
-                label: '$last30Active of 30',
-                sublabel: 'days',
-              ),
-            ],
+          // Header — just a quiet label, no competing chip.
+          // Previous iterations showed "N of 30 days" in a pill on the
+          // right; that reads as a challenge counter ("day N of 30")
+          // rather than a historical summary. The streak copy below
+          // does the same job in natural language, better.
+          Text(
+            'Your practice',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 4),
           // Detail line: either the tapped-cell info (fades in for 3s)
@@ -185,17 +178,16 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
             const SizedBox(height: 12),
             _Legend(),
           ],
-          const SizedBox(height: 18),
-          // Subtle divider so the journey band reads as a second,
-          // complementary story below the cadence view.
-          Container(
-            height: 0.5,
-            color: AppColors.warmBorder.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          _QuranJourneyBand(
+          const SizedBox(height: 14),
+          // Quiet position line replaces the old "Your journey" slider
+          // band. The slider mapped current ayah to a ~15% fill of a
+          // full-Qur'an progress bar, which reads as "15% done" —
+          // misleading, and more importantly off-thesis: contemplation
+          // isn't a completion meter. A single italic line honors the
+          // anchor ("this is where you are") without scoreboarding it.
+          _PositionLine(
             currentVerseKey: progress.currentVerseKey,
-            totalAyatCompleted: progress.totalAyatCompleted,
+            last30Active: last30Active,
           ),
         ],
       ),
@@ -821,196 +813,69 @@ class _LegendCell extends StatelessWidget {
   }
 }
 
-/// "Your journey through the Qur'an" — a thin progress bar spanning
-/// all 6,236 ayat, with a gold pin at the user's current verse.
-///
-/// Unlike the heatmap (which is about cadence), this band is about
-/// *content*: how far through the Qur'an you've walked. It scales
-/// from day 1 (a single pin at the far left) to a lifetime of reading
-/// (a nearly-full bar) without ever going visually empty — the
-/// horizon is always full, and your place on it is always shown.
-class _QuranJourneyBand extends StatelessWidget {
-  final String currentVerseKey;
-  final int totalAyatCompleted;
 
-  const _QuranJourneyBand({
+/// Quiet position line that sits under the heatmap, naming the user's
+/// current anchor in the Qur'an and — when they have recent practice
+/// — acknowledging it. Replaces the old "Your journey" progress slider
+/// whose math implied a completion meter (15% fill at An-Nisa read as
+/// "15% done," misleading). Here there's no bar and no percentage; just
+/// a statement of where you are, which is the truth.
+class _PositionLine extends StatelessWidget {
+  final String currentVerseKey;
+  final int last30Active;
+
+  const _PositionLine({
     required this.currentVerseKey,
-    required this.totalAyatCompleted,
+    required this.last30Active,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final parts = currentVerseKey.split(':');
-    final currentSurah = int.tryParse(parts.first) ?? 1;
-    final currentAyah = parts.length > 1
-        ? (int.tryParse(parts[1]) ?? 1)
-        : 1;
-
-    // Current position as a fraction of the full Qur'an. Clamp to a
-    // tiny visible minimum so day-1 users still see the pin on the
-    // left edge rather than behind the track.
-    final absPosition = absoluteAyahNumber(currentVerseKey);
-    final positionFraction = (absPosition / kTotalAyat).clamp(0.0, 1.0);
-    final filledFraction =
-        (totalAyatCompleted / kTotalAyat).clamp(0.0, 1.0);
-
     final surahName = surahNameFromKey(currentVerseKey);
-    final surahTotal = (currentSurah >= 1 && currentSurah <= 114)
-        ? kSurahVerseCounts[currentSurah]
-        : null;
+    // Canonical Islamic verse reference — "An-Nisa 4:11" — is shorter
+    // than "An-Nisa · ayah 11" and reads as the form Muslims are
+    // already used to seeing in translations and tafsir.
+    final ref = '$surahName $currentVerseKey';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final right = switch (last30Active) {
+      0 => null,
+      1 => '1 day this month',
+      _ => '$last30Active days this month',
+    };
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Your journey',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimaryLight,
-          ),
+        Icon(
+          Icons.bookmark_outline_rounded,
+          size: 13,
+          color: AppColors.primary.withValues(alpha: 0.6),
         ),
-        const SizedBox(height: 10),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            const trackHeight = 4.0;
-            const pinSize = 11.0;
-            // Center the track vertically in a slightly taller box so
-            // the pin (bigger than the track) has somewhere to sit.
-            const boxHeight = pinSize + 2;
-
-            // Pin position: clamp so it never clips the left/right
-            // edges of the container on the extremes.
-            final rawPinLeft = width * positionFraction - pinSize / 2;
-            final pinLeft = rawPinLeft.clamp(0.0, width - pinSize);
-
-            return SizedBox(
-              height: boxHeight,
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  // Track
-                  Container(
-                    width: width,
-                    height: trackHeight,
-                    decoration: BoxDecoration(
-                      color: AppColors.warmBorder.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(trackHeight / 2),
-                    ),
-                  ),
-                  // Filled portion — total ayat completed so far.
-                  Container(
-                    width: (width * filledFraction)
-                        .clamp(0.0, width),
-                    height: trackHeight,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(trackHeight / 2),
-                    ),
-                  ),
-                  // Gold pin marking current position.
-                  Positioned(
-                    left: pinLeft,
-                    child: Container(
-                      width: pinSize,
-                      height: pinSize,
-                      decoration: BoxDecoration(
-                        color: AppColors.accent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 3,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        // Anchor labels: first and last surah of the Qur'an. These
-        // don't move — they frame the journey.
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Al-Fatiha',
-              style: _anchorStyle,
-            ),
-            Text(
-              'An-Nas',
-              style: _anchorStyle,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Dynamic status line: where you are, right now.
-        Text(
-          surahTotal != null
-              ? '$surahName · verse $currentAyah of $surahTotal · $totalAyatCompleted ayat touched'
-              : '$surahName · $totalAyatCompleted ayat touched',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.primary.withValues(alpha: 0.75),
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  static const _anchorStyle = TextStyle(
-    fontSize: 10,
-    color: Color(0xFF8B7355), // matches warmBrown at ~0.6 alpha
-    fontWeight: FontWeight.w500,
-    letterSpacing: 0.4,
-  );
-}
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String sublabel;
-  const _StatChip({required this.label, required this.sublabel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            ref,
+            style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.primary.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(width: 4),
+        ),
+        if (right != null) ...[
+          const SizedBox(width: 10),
           Text(
-            sublabel,
-            style: TextStyle(
-              color: AppColors.primary.withValues(alpha: 0.5),
-              fontSize: 10,
+            right,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

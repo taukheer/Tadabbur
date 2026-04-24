@@ -102,7 +102,15 @@ class UserApiService {
   /// QF has two post-like endpoints: `/v1/posts` (social Quran Reflect
   /// posts requiring a `roomId` and other social fields) and `/v1/notes`
   /// (personal reflections attached to verse ranges). Tadabbur
-  /// reflections are personal, so we use `/v1/notes`.
+  /// reflections are personal by default, so they live as notes.
+  ///
+  /// [shareToQuranReflect] lets the user opt into *also* publishing
+  /// the reflection as a public Quran Reflect post. QF's notes endpoint
+  /// natively accepts a `saveToQR` flag for exactly this — passing
+  /// `true` mirrors the note to the public quran.com feed in one
+  /// request, so Tadabbur becomes an emitter into the QF ecosystem
+  /// rather than just a consumer of it. Opt-in per-reflection, never
+  /// a silent default.
   ///
   /// The server enforces a minimum body length of 6 characters; short
   /// acknowledgements are padded to satisfy that.
@@ -110,9 +118,13 @@ class UserApiService {
     String verseKey,
     String body, {
     Map<String, dynamic>? metadata,
+    bool shareToQuranReflect = false,
   }) async {
     if (!_canCallUserApi) return;
-    debugPrint('[UserApi] POST /v1/notes — saveReflection($verseKey)');
+    debugPrint(
+      '[UserApi] POST /v1/notes — saveReflection($verseKey, '
+      'shareToQR=$shareToQuranReflect)',
+    );
     try {
       final safeBody = body.length >= 6
           ? body
@@ -122,7 +134,7 @@ class UserApiService {
         '/v1/notes',
         data: {
           'body': safeBody,
-          'saveToQR': false,
+          'saveToQR': shareToQuranReflect,
           'ranges': ['$verseKey-$verseKey'],
         },
       );
@@ -319,43 +331,93 @@ class UserApiService {
     }
   }
 
-  /// Fetches all of the user's bookmarks.
+  /// Fetches all of the user's bookmarks, walking the QF cursor until
+  /// every page is drained.
   ///
-  /// QF's GET `/v1/bookmarks` endpoint has two required query params:
+  /// QF's GET `/v1/bookmarks` has two required query params:
   /// - `mushafId` (camelCase — note the inconsistency with the POST
   ///   body which accepts `mushaf`).
-  /// - `first` or `last` — cursor pagination, capped at 20 per page.
-  ///   Notes rejects `first`, bookmarks requires it. For hydration
-  ///   we ask for the first page (20); users with more than 20
-  ///   bookmarks would need cursor follow-up (see TODO).
-  // TODO: walk the cursor (`endCursor` from response) when a user
-  // has >20 bookmarks. Not a priority for the hackathon demo since
-  // the vast majority of users are well under the cap.
+  /// - `first` — Relay-style page size, capped at 20.
+  ///
+  /// Subsequent pages are requested with `after: <endCursor>`. We stop
+  /// when the server signals no more results (`hasNextPage: false`,
+  /// empty page, or no cursor) and hard-cap at [_bookmarkPageCap] pages
+  /// as a safety net against a server loop returning the same cursor.
   Future<List<Map<String, dynamic>>> getBookmarks() async {
     if (!_canCallUserApi) return [];
-    debugPrint('[UserApi] GET /v1/bookmarks — getBookmarks');
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/v1/bookmarks',
-        queryParameters: {
-          'mushafId': _mushafId,
-          'first': 20,
-        },
-      );
-      debugPrint('[UserApi] GET /v1/bookmarks → ${response.statusCode}');
-      final data = response.data;
-      if (data == null) return [];
-      final list = (data['data'] ?? data['bookmarks'] ?? data['items'])
-          as List<dynamic>?;
-      if (list == null) return [];
-      return list.map((e) => e as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-      debugPrint(
-        '[UserApi] GET /v1/bookmarks failed: '
-        '${e.response?.statusCode} ${e.response?.data}',
-      );
-      return [];
+    debugPrint('[UserApi] GET /v1/bookmarks — getBookmarks (paginated)');
+
+    final all = <Map<String, dynamic>>[];
+    String? cursor;
+    final seenCursors = <String>{};
+
+    for (var page = 0; page < _bookmarkPageCap; page++) {
+      try {
+        final response = await _dio.get<Map<String, dynamic>>(
+          '/v1/bookmarks',
+          queryParameters: {
+            'mushafId': _mushafId,
+            'first': 20,
+            'after': ?cursor,
+          },
+        );
+        final data = response.data;
+        if (data == null) break;
+
+        final list = (data['data'] ?? data['bookmarks'] ?? data['items'])
+            as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          all.addAll(list.map((e) => e as Map<String, dynamic>));
+        }
+
+        final next = _extractNextCursor(data);
+        final hasMore = _hasNextPage(data);
+        if (next == null || hasMore == false) break;
+        // Defensive: if the server hands back the cursor we just sent,
+        // stop rather than spin indefinitely.
+        if (!seenCursors.add(next)) break;
+        cursor = next;
+      } on DioException catch (e) {
+        debugPrint(
+          '[UserApi] GET /v1/bookmarks (page $page) failed: '
+          '${e.response?.statusCode} ${e.response?.data}',
+        );
+        break;
+      }
     }
+
+    debugPrint('[UserApi] getBookmarks → ${all.length} total');
+    return all;
+  }
+
+  static const _bookmarkPageCap = 50;
+
+  /// Extract the next-page cursor from a QF bookmark response. Probes
+  /// several field names since QF's pagination envelope isn't
+  /// consistent across endpoints.
+  static String? _extractNextCursor(Map<String, dynamic> data) {
+    final pageInfo = data['pageInfo'] ?? data['page_info'];
+    if (pageInfo is Map) {
+      final c = pageInfo['endCursor'] ?? pageInfo['end_cursor'];
+      if (c is String && c.isNotEmpty) return c;
+    }
+    final top = data['endCursor'] ?? data['end_cursor'] ?? data['next_cursor'];
+    if (top is String && top.isNotEmpty) return top;
+    return null;
+  }
+
+  /// Returns `false` only if the server explicitly said there is no
+  /// next page. `null` / missing means "unknown — keep walking the
+  /// cursor if we have one."
+  static bool? _hasNextPage(Map<String, dynamic> data) {
+    final pageInfo = data['pageInfo'] ?? data['page_info'];
+    if (pageInfo is Map) {
+      final h = pageInfo['hasNextPage'] ?? pageInfo['has_next_page'];
+      if (h is bool) return h;
+    }
+    final top = data['hasNextPage'] ?? data['has_next_page'];
+    if (top is bool) return top;
+    return null;
   }
 
   /// Removes a bookmark by its id.
@@ -369,6 +431,260 @@ class UserApiService {
         '[UserApi] DELETE /v1/bookmarks failed: ${e.response?.statusCode}',
       );
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Collections
+  // ---------------------------------------------------------------------------
+  //
+  // Collections are thematic groupings of verses stored on quran.com —
+  // the user-facing cross-app continuity. A "Ayahs on patience"
+  // collection created in Tadabbur shows up on quran.com and in any
+  // other Connected App using the same QF identity.
+  //
+  // Endpoint shape verified against quran.com's own frontend source
+  // (quran/quran.com-frontend-next, src/utils/auth/apiPaths.ts):
+  //   GET    /v1/collections                           — list
+  //   POST   /v1/collections                           — create
+  //   PUT    /v1/collections/{id}                      — update
+  //   DELETE /v1/collections/{id}                      — delete
+  //   GET    /v1/collections/{id}/bookmarks            — list items
+  //   POST   /v1/collections/{id}/bookmarks            — add verse
+  //   DELETE /v1/collections/{id}/bookmarks/{bookmarkId} — remove
+  //
+  // Note: items are called "bookmarks" in QF's data model — a
+  // collection is a group of bookmarks. Our UI uses "verses" for
+  // readability since the user never sees the word "bookmark" in
+  // this context.
+
+  Future<List<Map<String, dynamic>>> getCollections() async {
+    if (!_canCallUserApi) return [];
+    debugPrint('[UserApi] GET /v1/collections');
+    try {
+      // Query params verified against quran.com's own frontend
+      // (apiPaths.ts → CollectionsQueryParams): cursor, limit,
+      // sortBy, type. NOT `first` or `mushafId` — those are
+      // bookmark-list params that don't apply here.
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/collections',
+        queryParameters: {'limit': 50},
+      );
+      final data = response.data;
+      if (data == null) return [];
+      final list = (data['data'] ??
+          data['collections'] ??
+          data['items']) as List<dynamic>?;
+      if (list == null) return [];
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+      debugPrint('[UserApi] GET /v1/collections failed: $status $body');
+      // Surface the error so the Journal strip can show it inline
+      // instead of silently showing zero collections — critical for
+      // debugging the Collections scope config with QF.
+      lastCollectionsError = status != null
+          ? 'QF said $status${body == null ? "" : ": $body"}'
+          : 'Network error: ${e.message}';
+      return [];
+    }
+  }
+
+  /// Last diagnostic error from a Collections mutation. The Settings
+  /// tile surfaces this verbatim when create fails so we can see
+  /// exactly what QF is rejecting instead of a generic "couldn't
+  /// create" — critical while we're probing the correct endpoint
+  /// shape (QF's public docs for Collections aren't stable yet).
+  String? lastCollectionsError;
+
+  /// Create a new collection. Returns the server-assigned id on
+  /// success, or null if the call failed.
+  ///
+  /// Tries two payload variants because the Collections endpoint
+  /// shape isn't consistent across QF deploys:
+  ///   1. `{name, mushafId}` — Relay-style, matches bookmarks/activity
+  ///   2. `{title, mushaf}` — observed in an older deploy
+  /// If the first fails with 400/422 we fall back to the second
+  /// before giving up. On final failure, [lastCollectionsError] holds
+  /// the HTTP status and server body for the Settings surface.
+  Future<String?> createCollection(String name) async {
+    if (!_canCallUserApi) return null;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    lastCollectionsError = null;
+
+    final attempts = [
+      {'name': trimmed, 'mushafId': _mushafId},
+      {'title': trimmed, 'mushaf': _mushafId},
+      {'name': trimmed},
+    ];
+    DioException? lastErr;
+    for (final payload in attempts) {
+      debugPrint('[UserApi] POST /v1/collections — try $payload');
+      try {
+        final response = await _dio.post<Map<String, dynamic>>(
+          '/v1/collections',
+          data: payload,
+        );
+        final data = response.data;
+        if (data == null) continue;
+        final body = (data['data'] ?? data['collection'] ?? data) as Map;
+        final id = body['id'] ?? body['collection_id'] ?? body['collectionId'];
+        if (id != null) return id.toString();
+      } on DioException catch (e) {
+        lastErr = e;
+        debugPrint(
+          '[UserApi] POST /v1/collections failed: ${e.response?.statusCode} '
+          '${e.response?.data}',
+        );
+        // Don't waste further attempts on auth failures.
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          break;
+        }
+      }
+    }
+    if (lastErr != null) {
+      final status = lastErr.response?.statusCode;
+      final body = lastErr.response?.data;
+      lastCollectionsError = status != null
+          ? 'QF said $status${body == null ? "" : ": $body"}'
+          : 'Network error: ${lastErr.message}';
+    } else {
+      lastCollectionsError = 'Unknown error (empty response)';
+    }
+    return null;
+  }
+
+  Future<bool> deleteCollection(String collectionId) async {
+    if (!_canCallUserApi) return false;
+    debugPrint('[UserApi] DELETE /v1/collections/$collectionId');
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/v1/collections/$collectionId',
+      );
+      return true;
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] DELETE /v1/collections/$collectionId failed: '
+        '${e.response?.statusCode}',
+      );
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCollectionItems(
+    String collectionId,
+  ) async {
+    if (!_canCallUserApi) return [];
+    debugPrint('[UserApi] GET /v1/collections/$collectionId/bookmarks');
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/v1/collections/$collectionId/bookmarks',
+        queryParameters: {'mushafId': _mushafId, 'first': 100},
+      );
+      final data = response.data;
+      if (data == null) return [];
+      final list = (data['data'] ?? data['items']) as List<dynamic>?;
+      if (list == null) return [];
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] GET /v1/collections/$collectionId/bookmarks failed: '
+        '${e.response?.statusCode}',
+      );
+      return [];
+    }
+  }
+
+  /// Add a verse to a collection. The payload mirrors the bookmark
+  /// POST shape — `{key, verseNumber, type, mushaf}` — because QF's
+  /// collection items and bookmarks point at the same underlying
+  /// verse records.
+  Future<bool> addVerseToCollection(
+    String collectionId,
+    String verseKey,
+  ) async {
+    if (!_canCallUserApi) return false;
+    final parts = verseKey.split(':');
+    if (parts.length != 2) return false;
+    final surah = int.tryParse(parts[0]);
+    final ayah = int.tryParse(parts[1]);
+    if (surah == null || ayah == null) return false;
+
+    debugPrint(
+      '[UserApi] POST /v1/collections/$collectionId/bookmarks — verse $verseKey',
+    );
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/v1/collections/$collectionId/bookmarks',
+        data: {
+          'key': surah,
+          'type': 'ayah',
+          'verseNumber': ayah,
+          'mushaf': _mushafId,
+        },
+      );
+      return true;
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] add to collection failed: ${e.response?.statusCode} '
+        '${e.response?.data}',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> removeCollectionItem(
+    String collectionId,
+    String itemId,
+  ) async {
+    if (!_canCallUserApi) return false;
+    debugPrint('[UserApi] DELETE /v1/collections/$collectionId/bookmarks/$itemId');
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/v1/collections/$collectionId/bookmarks/$itemId',
+      );
+      return true;
+    } on DioException catch (e) {
+      debugPrint(
+        '[UserApi] remove from collection failed: ${e.response?.statusCode}',
+      );
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // User profile
+  // ---------------------------------------------------------------------------
+
+  /// Fetches the signed-in user's profile (name, email, avatar).
+  ///
+  /// Probes the endpoints QF has used across versions — different
+  /// deploys surface the profile under `/v1/users/me`, `/v1/me`, or
+  /// `/v1/profile`. Returns the first non-empty response; null if
+  /// none respond (the caller hides the identity row gracefully in
+  /// that case rather than showing broken UI).
+  Future<Map<String, dynamic>?> getUserProfile() async {
+    if (!_canCallUserApi) return null;
+    const candidates = ['/v1/users/me', '/v1/me', '/v1/profile'];
+    for (final path in candidates) {
+      try {
+        final response = await _dio.get<Map<String, dynamic>>(path);
+        final data = response.data;
+        if (data != null && data.isNotEmpty) {
+          debugPrint('[UserApi] GET $path → ${response.statusCode}');
+          return data;
+        }
+      } on DioException catch (e) {
+        // 404 on this shape means "try the next candidate"; any
+        // other error (401, 5xx) also just falls through — if all
+        // candidates fail the caller gets a null and hides the row.
+        debugPrint(
+          '[UserApi] GET $path failed: ${e.response?.statusCode}',
+        );
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------

@@ -11,6 +11,11 @@ class JournalEntry {
   final DateTime completedAt;
   final String? hijriDate;
   final int streakDay;
+  /// Whether the user has pinned this reflection. Pinned entries
+  /// float to a dedicated section at the top of the journal — the
+  /// user's anchor points. Added with a default of false so existing
+  /// serialized entries deserialize cleanly without a migration.
+  final bool isPinned;
 
   const JournalEntry({
     required this.id,
@@ -23,6 +28,7 @@ class JournalEntry {
     required this.completedAt,
     this.hijriDate,
     required this.streakDay,
+    this.isPinned = false,
   });
 
   factory JournalEntry.fromJson(Map<String, dynamic> json) {
@@ -40,6 +46,7 @@ class JournalEntry {
       completedAt: DateTime.parse(json['completed_at'] as String),
       hijriDate: json['hijri_date'] as String?,
       streakDay: json['streak_day'] as int,
+      isPinned: json['is_pinned'] as bool? ?? false,
     );
   }
 
@@ -55,6 +62,7 @@ class JournalEntry {
       'completed_at': completedAt.toIso8601String(),
       if (hijriDate != null) 'hijri_date': hijriDate,
       'streak_day': streakDay,
+      if (isPinned) 'is_pinned': true,
     };
   }
 
@@ -69,6 +77,7 @@ class JournalEntry {
     DateTime? completedAt,
     String? hijriDate,
     int? streakDay,
+    bool? isPinned,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -81,13 +90,15 @@ class JournalEntry {
       completedAt: completedAt ?? this.completedAt,
       hijriDate: hijriDate ?? this.hijriDate,
       streakDay: streakDay ?? this.streakDay,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 
   @override
   String toString() {
     return 'JournalEntry(id: $id, verseKey: $verseKey, tier: ${tier.name}, '
-        'completedAt: $completedAt, streakDay: $streakDay)';
+        'completedAt: $completedAt, streakDay: $streakDay, '
+        'isPinned: $isPinned)';
   }
 
   @override
@@ -103,7 +114,8 @@ class JournalEntry {
         other.responseText == responseText &&
         other.completedAt == completedAt &&
         other.hijriDate == hijriDate &&
-        other.streakDay == streakDay;
+        other.streakDay == streakDay &&
+        other.isPinned == isPinned;
   }
 
   @override
@@ -119,6 +131,7 @@ class JournalEntry {
       completedAt,
       hijriDate,
       streakDay,
+      isPinned,
     );
   }
 }

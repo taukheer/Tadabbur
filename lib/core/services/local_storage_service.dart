@@ -199,6 +199,46 @@ class LocalStorageService {
   static const _keyLanguage = 'user_language';
   static const _keyShowTransliteration = 'show_transliteration';
 
+  static const _keyUseHijriDates = 'use_hijri_dates';
+
+  /// When true, journal month headers render as Hijri months
+  /// ("Ramadan 1447") instead of Gregorian ("March 2026"). Off by
+  /// default — Gregorian is the wider-recognized default — so only
+  /// users who deliberately toggle it get the Hijri variant.
+  bool get useHijriDates =>
+      _prefs.getBool(_keyUseHijriDates) ?? false;
+
+  Future<void> setUseHijriDates(bool value) =>
+      _prefs.setBool(_keyUseHijriDates, value);
+
+  static const _keyDeferredSignInShown = 'deferred_signin_shown';
+
+  /// Whether the "save what you've written" prompt has been surfaced
+  /// to a guest user. Used to ensure we only nudge once — if the user
+  /// dismissed it the first time, that's a signal to leave them alone.
+  bool get deferredSignInShown =>
+      _prefs.getBool(_keyDeferredSignInShown) ?? false;
+
+  Future<void> setDeferredSignInShown() =>
+      _prefs.setBool(_keyDeferredSignInShown, true);
+
+  static const _keyQfProfile = 'qf_user_profile';
+
+  /// Cached QF profile (JSON-encoded). We persist it so the identity
+  /// row can render immediately on app launch without blocking on a
+  /// network round-trip; the fresh copy lands on the next successful
+  /// fetch. Kept alongside the auth token but plain-text (it's
+  /// display data, not a credential).
+  String? get qfProfileJson => _prefs.getString(_keyQfProfile);
+
+  Future<void> setQfProfileJson(String? encoded) async {
+    if (encoded == null || encoded.isEmpty) {
+      await _prefs.remove(_keyQfProfile);
+    } else {
+      await _prefs.setString(_keyQfProfile, encoded);
+    }
+  }
+
   String get arabicFont => _prefs.getString(_keyArabicFont) ?? 'AmiriQuran';
 
   Future<void> setArabicFont(String font) =>

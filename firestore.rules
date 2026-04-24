@@ -3,24 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Deny all access by default
+    // Deny all access by default — any path not listed below is rejected
+    // even for authenticated users.
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // User profile and progress — owner only
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
 
-      // Journal entries — owner only
+    // Cap the raw payload size of an incoming write. Firestore's own
+    // document limit is 1 MiB, but user-authored content (reflections,
+    // feedback) has no legitimate reason to approach that — this keeps
+    // a compromised account from spamming huge docs.
+    function underSize(bytes) {
+      return request.resource.size() < bytes;
+    }
+
+    // User profile + progress — owner only, bounded to 32 KiB.
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && underSize(32 * 1024);
+
+      // Journal entries: owner-only, per-entry cap (16 KiB) protects
+      // against a pathological reflection payload blowing past any
+      // reasonable notes length.
       match /journal/{entryId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && underSize(16 * 1024);
+      }
+
+      // Bookmarks — owner-only; each doc carries the verse text
+      // snapshot so a 16 KiB cap is plenty for any ayah.
+      match /bookmarks/{bookmarkId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) && underSize(16 * 1024);
       }
     }
 
-    // Feedback — any authenticated user can create, no reads
+    // Feedback — any authenticated user can create, nobody can read
+    // back via the client. Capped at 8 KiB since it's a short message
+    // plus diagnostic metadata.
     match /feedback/{feedbackId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && underSize(8 * 1024);
     }
   }
 }

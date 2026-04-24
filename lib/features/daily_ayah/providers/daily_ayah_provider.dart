@@ -186,28 +186,61 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       final quranApi = _ref.read(quranApiProvider);
       final editorialService = _ref.read(editorialServiceProvider);
 
-      // Fetch ayah data, words, editorial, surah info, audio in parallel
-      // + local tafsir from bundled assets.
       final surahNum = int.tryParse(verseKey.split(':').first) ?? 1;
       final reciterId = storage.preferredReciterId;
 
-      final results = await Future.wait([
-        quranApi.getVerseByKey(verseKey,
-            translationId: AppLanguages.getByCode(storage.language).translationId.toString()),
-        quranApi.getWordsByVerse(verseKey),
-        editorialService.getEditorialContent(verseKey, lang: storage.language),
-        quranApi.getChapter(surahNum),
-        _loadTafsirSummary(verseKey, storage.language),
-        _resolveAudioUrl(quranApi, reciterId, verseKey, storage.reciterPath),
-      ]);
+      // The verse itself is required — if it fails, fall back to cache.
+      // Everything else (words, editorial, tafsir, audio, surah metadata)
+      // is an enrichment: a QF outage on translations or tafsir should
+      // never block the user from reading today's ayah. Each secondary
+      // call runs in parallel and is wrapped individually so a single
+      // failure only drops its own slice of the UI.
+      final ayahFuture = quranApi.getVerseByKey(
+        verseKey,
+        translationId:
+            AppLanguages.getByCode(storage.language).translationId.toString(),
+      );
+      final wordsFuture = _guard(
+        'words',
+        () => quranApi.getWordsByVerse(verseKey),
+        fallback: <Word>[],
+      );
+      final editorialFuture = _guard<EditorialContent?>(
+        'editorial',
+        () => editorialService.getEditorialContent(
+          verseKey,
+          lang: storage.language,
+        ),
+        fallback: null,
+      );
+      final surahFuture = _guard<dynamic>(
+        'chapter',
+        () => quranApi.getChapter(surahNum),
+        fallback: null,
+      );
+      final tafsirFuture = _guard<String?>(
+        'tafsir',
+        () => _loadTafsirSummary(verseKey, storage.language),
+        fallback: null,
+      );
+      final audioFuture = _guard<String?>(
+        'audio',
+        () => _resolveAudioUrl(
+          quranApi,
+          reciterId,
+          verseKey,
+          storage.reciterPath,
+        ),
+        fallback: null,
+      );
 
-      final ayah = results[0] as Ayah;
-      final words = results[1] as List<Word>;
-      final editorial = results[2] as EditorialContent?;
-      final surah = results[3] as dynamic;
-      final tafsirSummary = results[4] as String?;
-      final audioUrl = results[5] as String;
-      final revelationType = surah.revelationType as String?;
+      final ayah = await ayahFuture;
+      final words = await wordsFuture;
+      final editorial = await editorialFuture;
+      final surah = await surahFuture;
+      final tafsirSummary = await tafsirFuture;
+      final audioUrl = await audioFuture;
+      final revelationType = surah?.revelationType as String?;
 
       // Persist the successful payload so we can fall back to it when offline.
       unawaited(storage.saveCachedDailyAyah({
@@ -261,6 +294,34 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
     }
   }
 
+  /// Run a secondary fetch in isolation: if it throws, report to
+  /// SyncReporter/Crashlytics as non-fatal and return [fallback] so the
+  /// parent load keeps going. Used for non-critical enrichments like
+  /// tafsir/audio/editorial that should degrade gracefully instead of
+  /// failing the whole daily ayah screen when one endpoint is flaky.
+  Future<T> _guard<T>(
+    String label,
+    Future<T> Function() task, {
+    required T fallback,
+  }) async {
+    try {
+      return await task();
+    } catch (error, stack) {
+      SyncReporter.report(
+        'daily_ayah · $label',
+        error,
+        severity: SyncSeverity.quiet,
+      );
+      unawaited(FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        reason: 'daily_ayah enrichment failed: $label',
+        fatal: false,
+      ));
+      return fallback;
+    }
+  }
+
   /// Resolve the audio URL for a verse via the QF recitations endpoint.
   /// Falls back to the legacy verses.quran.com path if the API call fails,
   /// so audio still works when the recitations endpoint is unavailable.
@@ -311,7 +372,9 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
           'reciter_path': reciterPath,
           'verse_key': verseKey,
         },
-      ).catchError((Object _) {}));
+      ).catchError((Object e) {
+        SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
+      }));
 
       final parts = verseKey.split(':');
       final chapterPadded = parts[0].padLeft(3, '0');

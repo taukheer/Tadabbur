@@ -9,6 +9,7 @@ import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/ayah.dart';
+import 'package:tadabbur/core/services/audio_service.dart';
 
 class FeelingsScreen extends ConsumerStatefulWidget {
   const FeelingsScreen({super.key});
@@ -48,106 +49,63 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
   }
 
   Widget _buildFeelingPicker(ThemeData theme, String Function(String) t) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 28),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          Text(
-            t('how_feeling'),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
+    final isDark = theme.brightness == Brightness.dark;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 40),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
+          child: Text(
+            // "How are you feeling?" was a form-prompt; "What are you
+            // carrying?" meets the user at the weight they're bringing,
+            // which for a Muslim opening this screen is the whole point
+            // — we carry our states *to* Allah.
+            t('what_carrying'),
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: theme.colorScheme.onSurface,
+              height: 1.2,
+              letterSpacing: -0.3,
             ),
-          ).animate().fadeIn(duration: 600.ms),
-
-          const SizedBox(height: 8),
-          Text(
+          ).animate().fadeIn(duration: 700.ms),
+        ),
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
+          child: Text(
             t('feeling_subtitle'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
               fontStyle: FontStyle.italic,
+              height: 1.5,
             ),
-          ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
-
-          const SizedBox(height: 28),
-
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 2.0,
+          ).animate().fadeIn(duration: 700.ms, delay: 200.ms),
+        ),
+        const SizedBox(height: 32),
+        for (var i = 0; i < Feelings.all.length; i++)
+          _FeelingRow(
+            feeling: Feelings.all[i],
+            selected: _selected?.id == Feelings.all[i].id,
+            isDark: isDark,
+            onTap: _loading ? null : () => _selectFeeling(Feelings.all[i]),
+            label: t(Feelings.all[i].labelKey),
+            index: i,
+          ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                  strokeWidth: 1.5,
+                ),
               ),
-              itemCount: Feelings.all.length,
-              itemBuilder: (context, index) {
-                final feeling = Feelings.all[index];
-                return GestureDetector(
-                  onTap: _loading ? null : () => _selectFeeling(feeling),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    decoration: BoxDecoration(
-                      color: _selected?.id == feeling.id
-                          ? AppColors.primary.withValues(alpha: 0.08)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: _selected?.id == feeling.id
-                            ? AppColors.primary.withValues(alpha: 0.3)
-                            : AppColors.warmBorder.withValues(alpha: 0.5),
-                        width: _selected?.id == feeling.id ? 1.5 : 0.5,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(feeling.emoji, style: const TextStyle(fontSize: 20)),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              t(feeling.labelKey),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: _selected?.id == feeling.id
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: _selected?.id == feeling.id
-                                    ? AppColors.primary
-                                    : AppColors.textPrimaryLight,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-                    .animate()
-                    .fadeIn(
-                      duration: 400.ms,
-                      delay: (100 * index).ms,
-                    )
-                    .slideY(begin: 0.05, end: 0, duration: 400.ms, delay: (100 * index).ms);
-              },
             ),
           ),
-
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(
-                color: AppColors.primary,
-                strokeWidth: 1.5,
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -161,9 +119,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
       int.parse(_ayah!.verseKey.split(':').first),
       int.parse(_ayah!.verseKey.split(':').last),
     );
-    final bitrate = reciterPath == 'abdurrahmaansudais' ? '192' : '128';
-    final audioUrl =
-        'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
+    final audioUrl = islamicNetworkAyahUrl(reciterPath, absAyahNum);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -171,21 +127,10 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
         children: [
           const SizedBox(height: 20),
 
-          // Feeling label
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.warmSurface,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '${_selected!.emoji}  ${t(_selected!.labelKey)}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.warmBrown,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          // Feeling label — no emoji. A small color bar matching the
+          // feeling's accent reads as "this was your state; here is
+          // what the Qur'an has for you now" without caricature.
+          _FeelingResultChip(feeling: _selected!, label: t(_selected!.labelKey)),
 
           const SizedBox(height: 32),
 
@@ -374,3 +319,264 @@ class _FeelingAudioButton extends ConsumerWidget {
   }
 }
 
+
+/// Visual catalog per feeling — maps each id to a muted color accent
+/// and a line-art glyph. Replaces the stock emoji with
+/// typography-and-color-driven design so a Muslim opening the screen
+/// in distress isn't met with a cartoon crying face.
+///
+/// Palette is intentionally muted — reflective/sacred tones, not
+/// Instagram-loud. Glyphs are Material outline icons chosen for
+/// metaphor (crescent-night for heaviness, wind for fear, etc.),
+/// rendered at ~18px so they read as punctuation, not decoration.
+class _FeelingVisual {
+  final Color accent;
+  final IconData icon;
+  final String subtitle;
+
+  const _FeelingVisual({
+    required this.accent,
+    required this.icon,
+    required this.subtitle,
+  });
+
+  static const _map = {
+    'low': _FeelingVisual(
+      accent: Color(0xFF3C4563),
+      icon: Icons.nights_stay_outlined,
+      subtitle: 'When something weighs on you',
+    ),
+    'anxious': _FeelingVisual(
+      accent: Color(0xFF5C7082),
+      icon: Icons.air_rounded,
+      subtitle: "When the mind won't settle",
+    ),
+    'angry': _FeelingVisual(
+      accent: Color(0xFF8B4543),
+      icon: Icons.local_fire_department_outlined,
+      subtitle: "When there's fire in your chest",
+    ),
+    'grateful': _FeelingVisual(
+      accent: AppColors.accent,
+      icon: Icons.auto_awesome_outlined,
+      subtitle: "When you want to say thank you",
+    ),
+    'confused': _FeelingVisual(
+      accent: Color(0xFF6B8474),
+      icon: Icons.blur_on_rounded,
+      subtitle: "When you can't find the edges",
+    ),
+    'lonely': _FeelingVisual(
+      accent: Color(0xFF6B557A),
+      icon: Icons.waves_rounded,
+      subtitle: "When no one else is there",
+    ),
+    'hopeful': _FeelingVisual(
+      accent: Color(0xFFB07C6E),
+      icon: Icons.wb_twilight_rounded,
+      subtitle: "When something is beginning",
+    ),
+    'lost': _FeelingVisual(
+      accent: AppColors.primary,
+      icon: Icons.explore_outlined,
+      subtitle: "When you need a direction",
+    ),
+    'exploring': _FeelingVisual(
+      accent: Color(0xFF7A7466),
+      icon: Icons.auto_stories_outlined,
+      subtitle: "Just sitting with the Qur'an",
+    ),
+  };
+
+  static _FeelingVisual forId(String id) =>
+      _map[id] ??
+      const _FeelingVisual(
+        accent: AppColors.primary,
+        icon: Icons.circle_outlined,
+        subtitle: '',
+      );
+}
+
+/// A single row in the "what are you carrying" picker. Full-width
+/// tap target, a 3-pixel left accent bar in the feeling's color, a
+/// calm line-art glyph, the state as a single word in typographic
+/// weight, and a short italic framing underneath. No emoji, no
+/// caricature — just room for the user to recognize themselves.
+class _FeelingRow extends StatelessWidget {
+  final FeelingAyah feeling;
+  final bool selected;
+  final bool isDark;
+  final VoidCallback? onTap;
+  final String label;
+  final int index;
+
+  const _FeelingRow({
+    required this.feeling,
+    required this.selected,
+    required this.isDark,
+    required this.onTap,
+    required this.label,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visual = _FeelingVisual.forId(feeling.id);
+    final accent = visual.accent;
+    final baseSurface = isDark
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
+        : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent.withValues(alpha: 0.08)
+                  : baseSurface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: selected
+                    ? accent.withValues(alpha: 0.4)
+                    : theme.colorScheme.outline.withValues(alpha: 0.12),
+                width: 0.8,
+              ),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Accent bar — the feeling's color, always present.
+                  // 3px of hue is enough to make the row feel intentional
+                  // without loudness.
+                  Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.9),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomLeft: Radius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Icon(
+                      visual.icon,
+                      size: 18,
+                      color: accent.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            label,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: theme.colorScheme.onSurface,
+                              height: 1.2,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          if (visual.subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              visual.subtitle,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                                fontStyle: FontStyle.italic,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.25),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    )
+        .animate()
+        .fadeIn(
+          duration: 500.ms,
+          delay: (80 * index).ms,
+        );
+  }
+}
+
+/// Slim chip shown above the ayah result, replacing the old
+/// "[emoji] Feeling low" prefix chip. Uses the feeling's accent
+/// color as a small dot so the color continuity from picker → result
+/// is readable without cartoon.
+class _FeelingResultChip extends StatelessWidget {
+  final FeelingAyah feeling;
+  final String label;
+
+  const _FeelingResultChip({required this.feeling, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visual = _FeelingVisual.forId(feeling.id);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: visual.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: visual.accent.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: visual.accent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

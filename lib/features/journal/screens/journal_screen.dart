@@ -2,17 +2,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hijri/hijri_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
+import 'package:tadabbur/core/models/collection.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/features/journal/widgets/activity_heatmap.dart';
+import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
 /// Clean trailing dashes, footnote refs, and whitespace from translations.
 /// Covers the few ways footnote numbers leak into cached translation
@@ -44,6 +49,19 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   String _searchQuery = '';
   Timer? _debounce;
 
+  /// When set, only entries of this tier show in the list. `null`
+  /// means "all tiers". Drives the filter chip row under the search
+  /// bar — essential once a user has hundreds of entries and wants
+  /// to focus on just their deeper reflections.
+  ReflectionTier? _tierFilter;
+
+  /// How the journal list is organized. `time` groups entries by
+  /// month (reads as a diary). `surah` groups entries by chapter of
+  /// the Qur'an and sorts within each by verse order (reads as a
+  /// commentary on the Qur'an). Both lenses show the same entries —
+  /// only the grouping changes.
+  _JournalLens _lens = _JournalLens.time;
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -62,6 +80,41 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     List<JournalEntry> entries = _searchQuery.isEmpty
         ? allEntries
         : ref.read(journalProvider.notifier).search(_searchQuery);
+
+    // Apply the tier filter on top of search — search narrows by
+    // content, tier narrows by depth. Both can be active together.
+    if (_tierFilter != null) {
+      entries = entries.where((e) => e.tier == _tierFilter).toList();
+    }
+
+    // Partition pinned entries into their own section. Pinned lives
+    // above the chronological stream so the user's anchor points
+    // don't disappear into the years. Unpinned list is what feeds
+    // the month grouping.
+    final pinnedEntries = entries.where((e) => e.isPinned).toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+    final unpinnedEntries = entries.where((e) => !e.isPinned).toList();
+
+    // Build a sparse "on this day" set — entries from prior years on
+    // the same month+day as today. Only surfaced as a banner above
+    // the list when there's a prior entry to show; silent otherwise.
+    final now = DateTime.now();
+    final onThisDay = allEntries
+        .where((e) =>
+            e.completedAt.year != now.year &&
+            e.completedAt.month == now.month &&
+            e.completedAt.day == now.day)
+        .toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+    // Flatten entries + month headers into a single list for the
+    // SliverList. This gives us "sticky-feeling" month headers that
+    // pin inside the flow without needing a sliver-per-month (which
+    // would explode widget counts at 3000+ entries). Performance is
+    // linear in entries shown, not in total history.
+    final grouped = _lens == _JournalLens.time
+        ? _groupByMonth(unpinnedEntries)
+        : _groupBySurah(unpinnedEntries);
 
     // Filter bookmarks by search query too
     final filteredBookmarks = _searchQuery.isEmpty
@@ -189,6 +242,40 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                 ),
               ),
 
+            // ── Collections (QF) — cross-app thematic groupings ──
+            // Visible only when the user is signed in via QF OAuth;
+            // guest/Google/Apple users don't have a quran.com
+            // collection space to sync against.
+            if (_searchQuery.isEmpty)
+              const SliverToBoxAdapter(child: _CollectionsStrip()),
+
+            // ── Year in Ayat review ──
+            // Surfaces during the last two weeks of the year and the
+            // first two weeks of the new year, as a warm reminder of
+            // what the user sat with. Hidden the rest of the year.
+            // Stats computed locally from the journal — no server call.
+            if (_searchQuery.isEmpty &&
+                _YearInAyatBanner.isInWindow() &&
+                allEntries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _YearInAyatBanner(entries: allEntries),
+              ),
+
+            // ── "On this day" — the journal-as-moat moment ──
+            // Only appears when the user has a reflection from a
+            // previous year on today's date. This is the feature
+            // that makes year-2 of using Tadabbur dramatically more
+            // valuable than year-1, and that no other Quran app can
+            // ever deliver.
+            if (_searchQuery.isEmpty && onThisDay.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _OnThisDayBanner(
+                  entries: onThisDay,
+                  onTap: (entry) =>
+                      _openEntryDetail(context, entry, ref),
+                ),
+              ),
+
             // ── Search ──
             if (hasContent)
               SliverToBoxAdapter(
@@ -303,7 +390,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             // ═══════════════════════════════════════════
             // SECTION 1: YOUR REFLECTIONS
             // ═══════════════════════════════════════════
-            if (entries.isNotEmpty) ...[
+            if (allEntries.isNotEmpty && hasContent) ...[
               SliverToBoxAdapter(
                 child: _SectionHeader(
                   icon: Icons.edit_note_rounded,
@@ -311,33 +398,98 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   count: entries.length,
                 ),
               ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: GestureDetector(
-                        onTap: () =>
-                            _openEntryDetail(context, entries[index], ref),
-                        child: _JournalCard(
-                          entry: entries[index],
-                          lang: lang,
-                          showDate: index == 0 ||
-                              !_isSameDay(entries[index].completedAt,
-                                  entries[index - 1].completedAt),
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(
-                            duration: 500.ms,
-                            delay: (60 * index).clamp(0, 300).ms,
-                          ),
-                    );
+              // Tier filter chips — let the user focus on just their
+              // deeper reflections (or light acknowledgements) without
+              // losing anything. Essential for scanning a long
+              // journal; harmless when the journal is small.
+              SliverToBoxAdapter(
+                child: _TierFilterChips(
+                  current: _tierFilter,
+                  onChanged: (t) {
+                    setState(() => _tierFilter = t);
                   },
-                  childCount: entries.length,
+                ),
+              ),
+              // Lens toggle — switch between Time and Qur'an grouping.
+              // "Time" reads the journal as a diary; "Qur'an" reads it
+              // as a commentary on the text. Same entries either way.
+              SliverToBoxAdapter(
+                child: _LensToggle(
+                  current: _lens,
+                  onChanged: (l) => setState(() => _lens = l),
                 ),
               ),
             ],
+
+            // Pinned section — renders above the month-grouped stream
+            // so user-anchored reflections stay accessible regardless
+            // of how far they're buried chronologically. Hidden when
+            // no pins; quietly compact when there are a few.
+            if (pinnedEntries.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _PinnedSection(
+                  entries: pinnedEntries,
+                  lang: lang,
+                  onTap: (e) => _openEntryDetail(context, e, ref),
+                ),
+              ),
+
+            // Empty tier-filter result: show a gentle note instead of
+            // an abrupt "no reflections" state — the journal has
+            // content, the filter just hid it.
+            if (allEntries.isNotEmpty &&
+                entries.isEmpty &&
+                _searchQuery.isEmpty &&
+                _tierFilter != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  child: Text(
+                    'No ${_tierFilter!.name} entries yet.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.45),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Entries grouped by month. The list interleaves month
+            // headers with entry cards so scrolling through years
+            // always has temporal landmarks. At 3000 entries this
+            // still renders in O(n_visible) — SliverList lazy-builds.
+            if (entries.isNotEmpty)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = grouped[index];
+                    if (item.isHeader) {
+                      if (item.surahNumber != null) {
+                        return _SurahHeader(
+                          surahNumber: item.surahNumber!,
+                          count: item.surahCount ?? 0,
+                        );
+                      }
+                      return _MonthHeader(date: item.monthDate!);
+                    }
+                    final entry = item.entry!;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: GestureDetector(
+                        onTap: () => _openEntryDetail(context, entry, ref),
+                        child: _JournalCard(
+                          entry: entry,
+                          lang: lang,
+                          showDate: true,
+                          collapsed: true,
+                        ),
+                      ),
+                    );
+                  },
+                  childCount: grouped.length,
+                ),
+              ),
 
             // ═══════════════════════════════════════════
             // SECTION 2: SAVED AYAHS (BOOKMARKS)
@@ -397,9 +549,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
       ),
     );
   }
-
-  static bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 // ═══════════════════════════════════════════════════
@@ -465,143 +614,529 @@ class _SectionHeader extends StatelessWidget {
 
 void _openEntryDetail(
     BuildContext context, JournalEntry entry, WidgetRef ref) {
-  final theme = Theme.of(context);
-  final lang = ref.read(languageProvider);
-  final arabicFont = ref.read(arabicFontProvider);
-  final arabicFontSize = ref.read(arabicFontSizeProvider);
-
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: theme.colorScheme.surface,
+    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (_) => DraggableScrollableSheet(
-      initialChildSize: 0.75,
+      initialChildSize: 0.85,
       maxChildSize: 0.95,
-      minChildSize: 0.4,
+      minChildSize: 0.45,
       expand: false,
-      builder: (ctx, controller) => SingleChildScrollView(
+      builder: (ctx, controller) => _EntryDetailSheet(
+        entry: entry,
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(28, 16, 28, 40),
-        child: Column(
-          children: [
-            // Handle
-            Container(
+      ),
+    ),
+  );
+}
+
+/// World-class reflection detail sheet.
+///
+/// The current reflection is the anchor, but the strongest thing
+/// Tadabbur can show is *continuity*: if the user has touched this
+/// verse before, we surface those priors inline. No other Quran app
+/// can do this — because nobody else accumulates the data. The view
+/// is a reactive Consumer so the priors strip updates whenever new
+/// entries land (OAuth hydrate, new save, etc.).
+class _EntryDetailSheet extends ConsumerWidget {
+  final JournalEntry entry;
+  final ScrollController controller;
+
+  const _EntryDetailSheet({
+    required this.entry,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    final arabicFont = ref.watch(arabicFontProvider);
+    final arabicFontSize = ref.watch(arabicFontSizeProvider);
+    final allEntries = ref.watch(journalProvider);
+    final useHijri = ref.watch(useHijriDatesProvider);
+
+    // Priors = every other reflection the user has written on this
+    // exact verse, newest first. The current entry is excluded so we
+    // don't mirror it in the "before" strip.
+    final priors = allEntries
+        .where((e) => e.verseKey == entry.verseKey && e.id != entry.id)
+        .toList()
+      ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+    final surahNum = int.tryParse(entry.verseKey.split(':').first) ?? 0;
+    final ayahNum = entry.verseKey.split(':').last;
+    final surahName = (surahNum > 0 && surahNum <= 114)
+        ? kSurahNames[surahNum]
+        : 'Surah $surahNum';
+
+    return SingleChildScrollView(
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Drag handle ──
+          Center(
+            child: Container(
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 20),
 
-            // Date
-            Text(
-              DateFormat('EEEE, MMMM d, yyyy').format(entry.completedAt),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Arabic text
-            Text(
-              entry.arabicText,
-              locale: const Locale('ar'),
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
-                fontSize: arabicFontSize * 0.85,
-                color: AppColors.textPrimaryLight,
-                height: 2.2,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Translation
-            Text(
-              '"${_cleanTranslation(entry.translationText)}"',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
+          // ── Header: date on one line, surah:ayah on the next ──
+          Center(
+            child: Text(
+              formatLongDate(entry.completedAt, useHijri: useHijri),
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  surahName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 3,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Ayah $ayahNum',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 36),
+
+          // ── Arabic ayah — breathing space, same weight as daily screen ──
+          Text(
+            entry.arabicText,
+            locale: const Locale('ar'),
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
+              fontSize: arabicFontSize * 0.88,
+              color: theme.colorScheme.onSurface,
+              height: 2.1,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── Translation ──
+          Text(
+            '"${_cleanTranslation(entry.translationText)}"',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontStyle: FontStyle.italic,
+              height: 1.7,
+              fontSize: 15,
+            ),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── Tier badge + user reflection block ──
+          _DetailReflectionBlock(entry: entry, lang: lang),
+
+          // ── Priors strip: the journal-as-moat moment ──
+          if (priors.isNotEmpty) ...[
+            const SizedBox(height: 32),
+            _PriorsStrip(priors: priors, currentDate: entry.completedAt),
+          ],
+
+          const SizedBox(height: 32),
+
+          // ── Actions ──
+          _EntryActions(entry: entry),
+        ],
+      ),
+    );
+  }
+}
+
+/// The tier-stamped block that holds the user's words (or the
+/// dignified acknowledge line when they wrote nothing). Used inside
+/// the entry detail sheet — distinct from the list-view summary
+/// block which shares the same spirit but has a different layout.
+///
+/// Two visual modes:
+///   - acknowledge → italic framing line, no text input
+///   - respond/reflect → the user's writing in notebook typography
+class _DetailReflectionBlock extends StatelessWidget {
+  final JournalEntry entry;
+  final String lang;
+
+  const _DetailReflectionBlock({required this.entry, required this.lang});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (tierLabel, tierIcon, tierColor) = _tierMeta(entry.tier, theme);
+    final hasText =
+        entry.responseText != null && entry.responseText!.trim().isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: BoxDecoration(
+        color: tierColor.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: tierColor.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tier label — quiet but present
+          Row(
+            children: [
+              Icon(tierIcon, size: 14, color: tierColor),
+              const SizedBox(width: 6),
+              Text(
+                tierLabel,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: tierColor,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (entry.promptText != null && hasText) ...[
+            Text(
+              '"${entry.promptText!}"',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: tierColor.withValues(alpha: 0.85),
+                fontStyle: FontStyle.italic,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
+          if (hasText)
+            Text(
+              entry.responseText!,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                height: 1.75,
+                fontSize: 15.5,
+              ),
+            )
+          else
+            Text(
+              'A moment of presence with this ayah.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                 fontStyle: FontStyle.italic,
                 height: 1.6,
               ),
             ),
+        ],
+      ),
+    );
+  }
 
-            const SizedBox(height: 12),
+  (String, IconData, Color) _tierMeta(ReflectionTier tier, ThemeData theme) {
+    switch (tier) {
+      case ReflectionTier.acknowledge:
+        return (
+          'ACKNOWLEDGED',
+          Icons.favorite_border_rounded,
+          AppColors.tier1,
+        );
+      case ReflectionTier.respond:
+        return (
+          'RESPONDED',
+          Icons.chat_bubble_outline_rounded,
+          AppColors.tier2,
+        );
+      case ReflectionTier.reflect:
+        return (
+          'REFLECTED',
+          Icons.auto_awesome_outlined,
+          AppColors.tier3,
+        );
+    }
+  }
+}
 
-            // Verse reference
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.warmSurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                entry.verseKey,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown,
-                ),
+/// Inline strip showing prior reflections the user has written on
+/// the same verse. The moment that turns Tadabbur from "another
+/// Quran app with nice design" into "a record of your relationship
+/// with the Quran over your lifetime."
+class _PriorsStrip extends StatelessWidget {
+  final List<JournalEntry> priors;
+  final DateTime currentDate;
+
+  const _PriorsStrip({required this.priors, required this.currentDate});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.history_rounded,
+              size: 14,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              "YOU'VE SAT WITH THIS AYAH BEFORE",
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w600,
+                fontSize: 10.5,
               ),
             ),
-
-            // Reflection
-            if (entry.responseText != null &&
-                entry.responseText!.isNotEmpty) ...[
-              const SizedBox(height: 24),
-              Divider(
-                  color: theme.colorScheme.onSurface
-                      .withValues(alpha: 0.06)),
-              const SizedBox(height: 16),
-
-              // Prompt
-              if (entry.promptText != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    '"${entry.promptText!}"',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.accentDark,
-                      fontStyle: FontStyle.italic,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-
-              // User's words
-              Text(
-                entry.responseText!,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.75),
-                  height: 1.8,
-                  fontSize: 16,
-                ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Show up to 3 priors — more than that clutters a contemplative
+        // surface. The journal list proper holds the full history.
+        for (final p in priors.take(3)) ...[
+          _PriorCard(prior: p, currentDate: currentDate),
+          const SizedBox(height: 8),
+        ],
+        if (priors.length > 3)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '+ ${priors.length - 3} more in your journal',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                fontStyle: FontStyle.italic,
               ),
-            ] else ...[
-              const SizedBox(height: 20),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PriorCard extends StatelessWidget {
+  final JournalEntry prior;
+  final DateTime currentDate;
+
+  const _PriorCard({required this.prior, required this.currentDate});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ago = _humanAgo(prior.completedAt, currentDate);
+    final text = (prior.responseText != null &&
+            prior.responseText!.trim().isNotEmpty)
+        ? prior.responseText!
+        : 'Acknowledged this ayah';
+    final (_, tierIcon, tierColor) = _tierVisual(prior.tier);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(tierIcon, size: 12, color: tierColor),
+              const SizedBox(width: 6),
               Text(
-                AppTranslations.get('i_felt_this', lang),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.primary.withValues(alpha: 0.4),
-                  fontStyle: FontStyle.italic,
+                ago,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              height: 1.5,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
+
+  static (String, IconData, Color) _tierVisual(ReflectionTier tier) {
+    switch (tier) {
+      case ReflectionTier.acknowledge:
+        return ('Acknowledged', Icons.favorite_border_rounded, AppColors.tier1);
+      case ReflectionTier.respond:
+        return ('Responded', Icons.chat_bubble_outline_rounded, AppColors.tier2);
+      case ReflectionTier.reflect:
+        return ('Reflected', Icons.auto_awesome_outlined, AppColors.tier3);
+    }
+  }
+
+  static String _humanAgo(DateTime then, DateTime now) {
+    final days = now.difference(then).inDays;
+    if (days == 0) return 'Earlier today';
+    if (days == 1) return 'Yesterday';
+    if (days < 7) return '$days days ago';
+    if (days < 30) {
+      final w = days ~/ 7;
+      return '$w ${w == 1 ? "week" : "weeks"} ago';
+    }
+    if (days < 365) {
+      final m = days ~/ 30;
+      return '$m ${m == 1 ? "month" : "months"} ago';
+    }
+    final y = days ~/ 365;
+    return '$y ${y == 1 ? "year" : "years"} ago';
+  }
+}
+
+/// Single action: write another reflection on this same verse. The
+/// ReflectionScreen carries the thesis — "sit with this ayah" — so
+/// re-entering it is the right way to deepen an entry rather than
+/// editing the past text. Past reflections are *history*, not drafts.
+class _EntryActions extends ConsumerWidget {
+  final JournalEntry entry;
+  const _EntryActions({required this.entry});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    // Watch the live entry state so the pin icon reflects toggles in
+    // real time — the passed-in [entry] is a snapshot from when the
+    // sheet opened.
+    final live = ref
+        .watch(journalProvider)
+        .firstWhere((e) => e.id == entry.id, orElse: () => entry);
+    final pinned = live.isPinned;
+
+    return Row(
+      children: [
+        // Primary action: write another reflection on this verse.
+        Expanded(
+          child: FilledButton.tonalIcon(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ReflectionScreen(
+                    ayah: _ayahFromEntry(entry),
+                  ),
+                ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor:
+                  theme.colorScheme.primary.withValues(alpha: 0.1),
+              foregroundColor: theme.colorScheme.primary,
+            ),
+            icon: const Icon(Icons.edit_note_rounded, size: 20),
+            label: const Text('Reflect again'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Secondary action: pin / unpin. Uses the same tonal style
+        // so it reads as a peer of "Reflect again" rather than a
+        // buried icon button. Accent-colored when pinned.
+        Material(
+          color: pinned
+              ? AppColors.accent.withValues(alpha: 0.15)
+              : theme.colorScheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              HapticFeedback.lightImpact();
+              await ref
+                  .read(journalProvider.notifier)
+                  .togglePin(entry.id);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              child: Icon(
+                pinned
+                    ? Icons.push_pin_rounded
+                    : Icons.push_pin_outlined,
+                size: 20,
+                color: pinned
+                    ? AppColors.accentDark
+                    : theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Ayah _ayahFromEntry(JournalEntry e) {
+    final parts = e.verseKey.split(':');
+    return Ayah(
+      id: 0,
+      verseKey: e.verseKey,
+      surahNumber: int.tryParse(parts.first) ?? 1,
+      ayahNumber: int.tryParse(parts.last) ?? 1,
+      textUthmani: e.arabicText,
+      textSimple: e.arabicText,
+      translationText: e.translationText,
+      juzNumber: 0,
+      hizbNumber: 0,
+      pageNumber: 0,
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -613,6 +1148,7 @@ void _openBookmarkDetail(
   final theme = Theme.of(context);
   final arabicFont = ref.read(arabicFontProvider);
   final arabicFontSize = ref.read(arabicFontSizeProvider);
+  final useHijri = ref.read(useHijriDatesProvider);
 
   showModalBottomSheet(
     context: context,
@@ -644,7 +1180,7 @@ void _openBookmarkDetail(
 
             // Date
             Text(
-              DateFormat('MMMM d, yyyy').format(bookmark.bookmarkedAt),
+              formatMediumDate(bookmark.bookmarkedAt, useHijri: useHijri),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurface
                     .withValues(alpha: 0.35),
@@ -739,15 +1275,53 @@ void _openBookmarkDetail(
 // Journal Card
 // ═══════════════════════════════════════════════════
 
-class _JournalCard extends StatelessWidget {
+/// Short form of a date ("Apr 24" / "24 Dhū al-Qa'dah"), Hijri-aware.
+String formatShortDate(DateTime date, {required bool useHijri}) {
+  if (useHijri) {
+    final h = HijriCalendar.fromDate(date);
+    return '${h.hDay} ${h.longMonthName}';
+  }
+  return DateFormat('MMM d').format(date);
+}
+
+/// Medium form ("April 24, 2026" / "24 Dhū al-Qa'dah 1447"),
+/// Hijri-aware.
+String formatMediumDate(DateTime date, {required bool useHijri}) {
+  if (useHijri) {
+    final h = HijriCalendar.fromDate(date);
+    return '${h.hDay} ${h.longMonthName} ${h.hYear}';
+  }
+  return DateFormat('MMMM d, yyyy').format(date);
+}
+
+/// Long form with weekday ("Friday, 24 April 2026" /
+/// "Friday, 24 Dhū al-Qa'dah 1447"), Hijri-aware. The weekday stays
+/// in the device's locale either way — Hijri doesn't reindex days of
+/// the week, they're the same seven days.
+String formatLongDate(DateTime date, {required bool useHijri}) {
+  if (useHijri) {
+    final h = HijriCalendar.fromDate(date);
+    final weekday = DateFormat('EEEE').format(date);
+    return '$weekday, ${h.hDay} ${h.longMonthName} ${h.hYear}';
+  }
+  return DateFormat('EEEE, d MMMM yyyy').format(date);
+}
+
+class _JournalCard extends ConsumerWidget {
   final JournalEntry entry;
   final String lang;
   final bool showDate;
+  /// When true, long reflection text is truncated to ~2 lines with
+  /// an ellipsis — the card is a summary, the detail sheet is where
+  /// the full reflection lives. Keeps the list scannable at 3000+
+  /// entries without hiding information.
+  final bool collapsed;
 
   const _JournalCard({
     required this.entry,
     required this.lang,
     this.showDate = true,
+    this.collapsed = false,
   });
 
   IconData get _tierIcon {
@@ -772,7 +1346,7 @@ class _JournalCard extends StatelessWidget {
     }
   }
 
-  String _relativeDate(DateTime date) {
+  String _relativeDate(DateTime date, bool useHijri) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final entryDay = DateTime(date.year, date.month, date.day);
@@ -781,13 +1355,14 @@ class _JournalCard extends StatelessWidget {
     if (diff == 0) return AppTranslations.get('today_label', lang);
     if (diff == 1) return AppTranslations.get('yesterday_label', lang);
     if (diff < 7) return '$diff ${AppTranslations.get('days_ago', lang)}';
-    return DateFormat('MMM d').format(date);
+    return formatShortDate(date, useHijri: useHijri);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final dateStr = _relativeDate(entry.completedAt);
+    final useHijri = ref.watch(useHijriDatesProvider);
+    final dateStr = _relativeDate(entry.completedAt, useHijri);
     final response = entry.responseText?.trim() ?? '';
     final hasReflection = response.isNotEmpty;
 
@@ -854,6 +1429,7 @@ class _JournalCard extends StatelessWidget {
             _ReflectionBlock(
               promptText: entry.promptText,
               responseText: response,
+              maxLines: collapsed ? 2 : null,
             ),
             const SizedBox(height: 18),
             // Ayah as context beneath. Divider makes the demotion
@@ -901,10 +1477,16 @@ class _JournalCard extends StatelessWidget {
 class _ReflectionBlock extends StatelessWidget {
   final String? promptText;
   final String responseText;
+  /// Null = show full text (used in the detail sheet). When set, the
+  /// response text is capped with an ellipsis — list cards use this
+  /// to stay scannable while long reflections remain fully readable
+  /// in the detail view.
+  final int? maxLines;
 
   const _ReflectionBlock({
     required this.promptText,
     required this.responseText,
+    this.maxLines,
   });
 
   @override
@@ -937,6 +1519,8 @@ class _ReflectionBlock extends StatelessWidget {
           ],
           Text(
             responseText,
+            maxLines: maxLines,
+            overflow: maxLines != null ? TextOverflow.ellipsis : null,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.textPrimaryLight,
               height: 1.65,
@@ -1195,6 +1779,1728 @@ class _BookmarkCardCompact extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Horizontal strip of QF Collections above the Journal search.
+///
+/// Collections are thematic groupings of verses living on quran.com,
+/// shared across any Connected App the user signs into. Surfacing them
+/// here — right above the user's own reflections — reinforces the
+/// journal-as-moat thesis while making the cross-app continuity
+/// visible. Hidden entirely for non-QF users because there's no
+/// Collections surface to talk to without an OAuth identity.
+class _CollectionsStrip extends ConsumerStatefulWidget {
+  const _CollectionsStrip();
+
+  @override
+  ConsumerState<_CollectionsStrip> createState() => _CollectionsStripState();
+}
+
+class _CollectionsStripState extends ConsumerState<_CollectionsStrip> {
+  bool _loadedOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Opportunistic refresh on first mount — skipped if not
+    // QF-authed because the notifier's network call would no-op.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(localStorageProvider).authType ==
+          AuthType.quranFoundation) {
+        ref.read(collectionsProvider.notifier).refresh().whenComplete(() {
+          if (mounted) setState(() => _loadedOnce = true);
+        });
+      }
+    });
+  }
+
+  Future<void> _showCreateDialog() async {
+    final theme = Theme.of(context);
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New collection'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Ayahs on sabr',
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty) return;
+
+    final id = await ref.read(collectionsProvider.notifier).create(name);
+    if (!mounted) return;
+    if (id == null) {
+      // Surface the actual server response while we're dialing in the
+      // correct QF endpoint shape — a generic "couldn't create" hides
+      // whether the fault is auth, payload, or endpoint path.
+      final detail = ref
+              .read(userApiProvider)
+              .lastCollectionsError ??
+          "Couldn't create collection";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(detail, maxLines: 4),
+          backgroundColor: theme.colorScheme.error,
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final storage = ref.watch(localStorageProvider);
+    if (storage.authType != AuthType.quranFoundation) {
+      return const SizedBox.shrink();
+    }
+    final collections = ref.watch(collectionsProvider);
+    final theme = Theme.of(context);
+    final syncError = ref.watch(userApiProvider).lastCollectionsError;
+
+    // Don't flash the empty "+ New" strip on cold start UNLESS we
+    // have a sync error — in which case the user deserves to see
+    // *why* their collections aren't showing up.
+    if (!_loadedOnce && collections.isEmpty && syncError == null) {
+      return const SizedBox(height: 0);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 0, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 20, bottom: 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.collections_bookmark_outlined,
+                  size: 14,
+                  color:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'COLLECTIONS',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.45),
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  // "sync failed" read too much like a broken app;
+                  // the root cause is that QF hasn't enabled the
+                  // Collections scope on our OAuth client yet, which
+                  // is ecosystem-pending, not a Tadabbur fault.
+                  // Framing matches reality.
+                  syncError != null
+                      ? 'awaiting ecosystem access'
+                      : 'synced with quran.com',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: syncError != null
+                        ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                        : theme.colorScheme.primary.withValues(alpha: 0.55),
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (syncError != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 20, bottom: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 12,
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Collections sync with Quran Foundation is waiting '
+                      'on scope enablement. The integration is ready on '
+                      'our side.',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await ref
+                          .read(collectionsProvider.notifier)
+                          .refresh();
+                      if (mounted) setState(() {});
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 28),
+                    ),
+                    child: const Text('Retry', style: TextStyle(fontSize: 11)),
+                  ),
+                ],
+              ),
+            ),
+          SizedBox(
+            height: 96,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 20),
+              itemCount: collections.length + 1,
+              separatorBuilder: (context, i) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                if (i == collections.length) {
+                  return _NewCollectionCard(onTap: _showCreateDialog);
+                }
+                final c = collections[i];
+                return _CollectionCard(
+                  collection: c,
+                  onTap: () => _CollectionDetailSheet.show(context, c),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CollectionCard extends StatelessWidget {
+  final QfCollection collection;
+  final VoidCallback onTap;
+
+  const _CollectionCard({required this.collection, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 150,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.folder_rounded,
+                size: 18,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              ),
+              const Spacer(),
+              Text(
+                collection.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                collection.itemCount == null
+                    ? 'Tap to open'
+                    : '${collection.itemCount} '
+                        '${collection.itemCount == 1 ? "ayah" : "ayat"}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewCollectionCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _NewCollectionCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 130,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.add_rounded,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'New collection',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.85),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet listing verses inside a collection. Verses are
+/// fetched lazily via the `collectionItemsProvider` family so a
+/// collection with many items doesn't block the Journal render.
+class _CollectionDetailSheet extends ConsumerWidget {
+  final QfCollection collection;
+
+  const _CollectionDetailSheet({required this.collection});
+
+  static Future<void> show(BuildContext context, QfCollection collection) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, scrollController) => _CollectionDetailSheet(
+          collection: collection,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final asyncItems = ref.watch(collectionItemsProvider(collection.id));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
+          child: Row(
+            children: [
+              Icon(
+                Icons.folder_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  collection.name,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: asyncItems.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Could not load this collection.'),
+              ),
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'No ayat in this collection yet. Add verses to it '
+                    'from the Bookmarks list on quran.com or here.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                itemCount: items.length,
+                separatorBuilder: (context, i) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final it = items[i];
+                  final surahNum =
+                      int.tryParse(it.verseKey.split(':').first) ?? 0;
+                  final surahName = surahNum > 0 && surahNum <= 114
+                      ? kSurahNames[surahNum]
+                      : 'Surah $surahNum';
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.auto_stories_outlined,
+                      color: theme.colorScheme.primary
+                          .withValues(alpha: 0.7),
+                    ),
+                    title: Text(surahName),
+                    subtitle: Text('Ayah ${it.verseKey.split(':').last}'),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Which axis the journal list is organized along.
+enum _JournalLens { time, surah }
+
+/// Lightweight row in the grouped journal list. Three flavors:
+/// month header (time lens), surah header (surah lens), or an entry.
+/// A discriminated item type keeps the SliverList's builder simple
+/// and lets us render thousands of entries without building a widget
+/// per entry up-front.
+class _JournalGroupItem {
+  final bool isHeader;
+  final DateTime? monthDate;
+  final int? surahNumber;
+  final int? surahCount;
+  final JournalEntry? entry;
+
+  const _JournalGroupItem.monthHeader(DateTime date)
+      : isHeader = true,
+        monthDate = date,
+        surahNumber = null,
+        surahCount = null,
+        entry = null;
+
+  const _JournalGroupItem.surahHeader(int surah, int count)
+      : isHeader = true,
+        monthDate = null,
+        surahNumber = surah,
+        surahCount = count,
+        entry = null;
+
+  const _JournalGroupItem.entry(JournalEntry e)
+      : isHeader = false,
+        monthDate = null,
+        surahNumber = null,
+        surahCount = null,
+        entry = e;
+}
+
+/// Group entries by calendar month and interleave month-header items.
+/// Entries arrive newest-first from the notifier; we preserve that
+/// order. Headers are inserted whenever the month+year pair changes.
+List<_JournalGroupItem> _groupByMonth(List<JournalEntry> entries) {
+  if (entries.isEmpty) return const [];
+  final sorted = [...entries]
+    ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+  final out = <_JournalGroupItem>[];
+  DateTime? lastMonth;
+  for (final e in sorted) {
+    final m = DateTime(e.completedAt.year, e.completedAt.month);
+    if (lastMonth == null || m != lastMonth) {
+      out.add(_JournalGroupItem.monthHeader(m));
+      lastMonth = m;
+    }
+    out.add(_JournalGroupItem.entry(e));
+  }
+  return out;
+}
+
+/// Group entries by Qur'an chapter (surah) and, within each, order
+/// by verse number so the list reads as the user's commentary on
+/// that surah. Surahs appear in their canonical order (Al-Fatiha
+/// first, An-Nas last) because that's how Muslims mentally navigate
+/// the Qur'an — not by how recently they engaged with each surah.
+List<_JournalGroupItem> _groupBySurah(List<JournalEntry> entries) {
+  if (entries.isEmpty) return const [];
+  final bySurah = <int, List<JournalEntry>>{};
+  for (final e in entries) {
+    final surah = int.tryParse(e.verseKey.split(':').first) ?? 0;
+    (bySurah[surah] ??= []).add(e);
+  }
+  // Sort ayat within a surah by ayah number ascending (the reading
+  // order). If two entries share a verse key, the newer reflection
+  // comes first so scrolling a surah reads as "most recent first
+  // within each verse."
+  for (final list in bySurah.values) {
+    list.sort((a, b) {
+      final ay = int.tryParse(a.verseKey.split(':').last) ?? 0;
+      final by = int.tryParse(b.verseKey.split(':').last) ?? 0;
+      if (ay != by) return ay.compareTo(by);
+      return b.completedAt.compareTo(a.completedAt);
+    });
+  }
+  final out = <_JournalGroupItem>[];
+  final surahs = bySurah.keys.toList()..sort();
+  for (final s in surahs) {
+    final list = bySurah[s]!;
+    out.add(_JournalGroupItem.surahHeader(s, list.length));
+    for (final e in list) {
+      out.add(_JournalGroupItem.entry(e));
+    }
+  }
+  return out;
+}
+
+/// Month section header — the temporal landmark that keeps a
+/// long-tenure journal navigable. Renders as quiet small-caps label
+/// with a subtle underline ("APRIL 2026 ─────"), not a loud card.
+class _MonthHeader extends ConsumerWidget {
+  final DateTime date;
+
+  const _MonthHeader({required this.date});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final useHijri = ref.watch(useHijriDatesProvider);
+    final now = DateTime.now();
+    String label;
+    if (useHijri) {
+      // Render the month header in the Islamic calendar. For a Quran
+      // journal this lets section labels like "Ramadan 1447" carry
+      // spiritual weight that "March 2026" can't.
+      final h = HijriCalendar.fromDate(date);
+      final hNow = HijriCalendar.now();
+      final sameMonth = h.hMonth == hNow.hMonth && h.hYear == hNow.hYear;
+      label = sameMonth
+          ? 'This month'
+          : '${h.longMonthName} ${h.hYear}'.toUpperCase();
+    } else {
+      label = (date.year == now.year && date.month == now.month)
+          ? 'This month'
+          : date.year == now.year
+              ? DateFormat('MMMM').format(date).toUpperCase()
+              : DateFormat('MMMM yyyy').format(date).toUpperCase();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.5,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Horizontal row of tier filter chips. Lives above the entry list.
+/// Null selection = "All" — tapping All again is a no-op, tapping
+/// the current tier again clears to All (standard toggle behavior).
+class _TierFilterChips extends StatelessWidget {
+  final ReflectionTier? current;
+  final ValueChanged<ReflectionTier?> onChanged;
+
+  const _TierFilterChips({required this.current, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final options = <(ReflectionTier?, String, IconData)>[
+      (null, 'All', Icons.all_inclusive_rounded),
+      (ReflectionTier.acknowledge, 'Acknowledged', Icons.favorite_border_rounded),
+      (ReflectionTier.respond, 'Responded', Icons.chat_bubble_outline_rounded),
+      (ReflectionTier.reflect, 'Reflected', Icons.auto_awesome_outlined),
+    ];
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: options.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (tier, label, icon) = options[i];
+          final selected = current == tier;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onChanged(selected && tier != null ? null : tier);
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: selected
+                        ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                        : theme.colorScheme.outline.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 13,
+                      color: selected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      label,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: selected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.65),
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Banner showing a prior-year entry on today's calendar date.
+///
+/// The single most powerful feature for a years-spanning Quran journal
+/// — "1 year ago today, you reflected on Ar-Rahman 55:13" — and the
+/// one no other Quran app can deliver, because nobody else
+/// accumulates the data. Shows the most-recent prior entry; if
+/// multiple prior years exist, the most recent is surfaced with a
+/// count ("+2 more from years past").
+class _OnThisDayBanner extends StatelessWidget {
+  final List<JournalEntry> entries;
+  final ValueChanged<JournalEntry> onTap;
+
+  const _OnThisDayBanner({required this.entries, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final hero = entries.first;
+    final years = DateTime.now().year - hero.completedAt.year;
+    final agoLabel = years == 1
+        ? '1 year ago today'
+        : years > 1
+            ? '$years years ago today'
+            : 'Earlier today'; // defensive — shouldn't hit for this banner
+    final preview = (hero.responseText?.trim().isNotEmpty ?? false)
+        ? hero.responseText!.trim()
+        : _cleanTranslation(hero.translationText);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onTap(hero),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.accent.withValues(alpha: 0.08),
+                  AppColors.accent.withValues(alpha: 0.03),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.history_rounded,
+                      size: 13,
+                      color: AppColors.accentDark.withValues(alpha: 0.8),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      agoLabel.toUpperCase(),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.accentDark.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                        fontSize: 10.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You reflected on ${surahNameFromKey(hero.verseKey)} ${hero.verseKey}',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  preview,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    height: 1.45,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                if (entries.length > 1) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '+ ${entries.length - 1} more from years past',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.accentDark.withValues(alpha: 0.65),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pinned section above the month-grouped stream. Renders pinned
+/// entries as compact cards with a quiet "PINNED" header. Capped at
+/// a reasonable count so a user who pins everything doesn't turn
+/// the pinned section into a second journal — when there are more
+/// than [_maxVisiblePins], we show the first few and hint at the
+/// rest via the tail count.
+class _PinnedSection extends StatelessWidget {
+  final List<JournalEntry> entries;
+  final String lang;
+  final ValueChanged<JournalEntry> onTap;
+
+  static const _maxVisiblePins = 5;
+
+  const _PinnedSection({
+    required this.entries,
+    required this.lang,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final visible = entries.take(_maxVisiblePins).toList();
+    final overflow = entries.length - visible.length;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.push_pin_rounded,
+                  size: 12,
+                  color: AppColors.accentDark.withValues(alpha: 0.8),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'PINNED',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.accentDark.withValues(alpha: 0.8),
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10.5,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    height: 0.5,
+                    color: AppColors.accent.withValues(alpha: 0.2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final entry in visible) ...[
+            GestureDetector(
+              onTap: () => onTap(entry),
+              child: _JournalCard(
+                entry: entry,
+                lang: lang,
+                showDate: true,
+                collapsed: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (overflow > 0)
+            // Tappable overflow footer — opens a bottom sheet with
+            // ALL pinned entries. Without this, users who pin more
+            // than the visible cap have 15+ reflections that are
+            // effectively invisible.
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _PinnedSheet.show(context, entries, lang, onTap),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        '+ $overflow more pinned',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.accentDark.withValues(alpha: 0.7),
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: AppColors.accentDark.withValues(alpha: 0.6),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Surah section header for the Qur'an-lens grouping. Shows the
+/// surah name, its number in parentheses, and the reflection count
+/// for that surah. Same visual weight as month headers so the two
+/// lenses feel like variations of the same layout rather than two
+/// different screens.
+class _SurahHeader extends StatelessWidget {
+  final int surahNumber;
+  final int count;
+
+  const _SurahHeader({required this.surahNumber, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = (surahNumber >= 1 && surahNumber <= 114)
+        ? kSurahNames[surahNumber]
+        : 'Surah $surahNumber';
+    final label = '$surahNumber · ${name.toUpperCase()}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.5,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            count == 1 ? '1 reflection' : '$count reflections',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lens toggle: Time vs. Qur'an. Sits below the tier filter chips.
+/// Two-pill segmented control so the choice is visible but quiet.
+class _LensToggle extends StatelessWidget {
+  final _JournalLens current;
+  final ValueChanged<_JournalLens> onChanged;
+
+  const _LensToggle({required this.current, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+      child: Row(
+        children: [
+          Text(
+            'GROUP BY',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.5,
+            ),
+          ),
+          const SizedBox(width: 10),
+          _LensPill(
+            label: 'Time',
+            icon: Icons.schedule_rounded,
+            selected: current == _JournalLens.time,
+            onTap: () => onChanged(_JournalLens.time),
+          ),
+          const SizedBox(width: 8),
+          _LensPill(
+            label: "Qur'an",
+            icon: Icons.auto_stories_outlined,
+            selected: current == _JournalLens.surah,
+            onTap: () => onChanged(_JournalLens.surah),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LensPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _LensPill({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                  : theme.colorScheme.outline.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 12,
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                  fontWeight:
+                      selected ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// End-of-year review data, computed locally from the journal. Pure
+/// function of `(year, entries)` so the sheet is cheap to render and
+/// safe to rebuild as the user keeps reflecting during the window.
+class YearStats {
+  final int year;
+  final int totalEntries;
+  final int activeDays;
+  final int longestStreak;
+  final int surahsEngaged;
+  final int topSurahNumber;
+  final int topSurahCount;
+  final int tier1;
+  final int tier2;
+  final int tier3;
+  final JournalEntry? deepest;
+
+  const YearStats({
+    required this.year,
+    required this.totalEntries,
+    required this.activeDays,
+    required this.longestStreak,
+    required this.surahsEngaged,
+    required this.topSurahNumber,
+    required this.topSurahCount,
+    required this.tier1,
+    required this.tier2,
+    required this.tier3,
+    required this.deepest,
+  });
+
+  static YearStats compute(List<JournalEntry> entries, int year) {
+    final inYear =
+        entries.where((e) => e.completedAt.year == year).toList();
+    if (inYear.isEmpty) {
+      return YearStats(
+        year: year,
+        totalEntries: 0,
+        activeDays: 0,
+        longestStreak: 0,
+        surahsEngaged: 0,
+        topSurahNumber: 0,
+        topSurahCount: 0,
+        tier1: 0,
+        tier2: 0,
+        tier3: 0,
+        deepest: null,
+      );
+    }
+    // Unique days of practice.
+    final daysSet = <String>{};
+    final bySurah = <int, int>{};
+    var tier1 = 0, tier2 = 0, tier3 = 0;
+    JournalEntry? deepest;
+    for (final e in inYear) {
+      daysSet.add(
+        '${e.completedAt.year}-${e.completedAt.month}-${e.completedAt.day}',
+      );
+      final s = int.tryParse(e.verseKey.split(':').first) ?? 0;
+      if (s > 0) bySurah[s] = (bySurah[s] ?? 0) + 1;
+      switch (e.tier) {
+        case ReflectionTier.acknowledge:
+          tier1++;
+        case ReflectionTier.respond:
+          tier2++;
+        case ReflectionTier.reflect:
+          tier3++;
+      }
+      if ((e.responseText?.length ?? 0) >
+          (deepest?.responseText?.length ?? 0)) {
+        deepest = e;
+      }
+    }
+    // Compute longest consecutive-day streak within the year.
+    final sortedDays = daysSet
+        .map((s) {
+          final parts = s.split('-').map(int.parse).toList();
+          return DateTime(parts[0], parts[1], parts[2]);
+        })
+        .toList()
+      ..sort();
+    var longest = 1;
+    var current = 1;
+    for (var i = 1; i < sortedDays.length; i++) {
+      final diff = sortedDays[i].difference(sortedDays[i - 1]).inDays;
+      if (diff == 1) {
+        current++;
+        if (current > longest) longest = current;
+      } else if (diff > 1) {
+        current = 1;
+      }
+    }
+    if (sortedDays.isEmpty) longest = 0;
+
+    // Most-reflected surah.
+    var topSurah = 0;
+    var topCount = 0;
+    bySurah.forEach((s, c) {
+      if (c > topCount) {
+        topSurah = s;
+        topCount = c;
+      }
+    });
+
+    return YearStats(
+      year: year,
+      totalEntries: inYear.length,
+      activeDays: daysSet.length,
+      longestStreak: longest,
+      surahsEngaged: bySurah.length,
+      topSurahNumber: topSurah,
+      topSurahCount: topCount,
+      tier1: tier1,
+      tier2: tier2,
+      tier3: tier3,
+      deepest: deepest,
+    );
+  }
+}
+
+/// Gold-accented banner that appears only in the year-end window
+/// (mid-December through mid-January). Tapping opens the full
+/// review sheet. Hidden the rest of the year — we only invite the
+/// user to look back when there's enough perspective to look with.
+class _YearInAyatBanner extends ConsumerWidget {
+  final List<JournalEntry> entries;
+
+  const _YearInAyatBanner({required this.entries});
+
+  /// True from Dec 15 → Jan 15. Covers the actual turn-of-year plus
+  /// a week on either side so a user who opens the app on New Year's
+  /// Eve and a user who opens it mid-January both see the review.
+  static bool isInWindow() {
+    final now = DateTime.now();
+    return (now.month == 12 && now.day >= 15) ||
+        (now.month == 1 && now.day <= 15);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final now = DateTime.now();
+    // In Jan 1–15, the review shows the *previous* calendar year;
+    // in Dec 15–31 it shows the current year.
+    final year = now.month == 1 ? now.year - 1 : now.year;
+    final stats = YearStats.compute(entries, year);
+    if (stats.totalEntries == 0) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => YearInAyatSheet.show(context, stats),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.accent.withValues(alpha: 0.18),
+                  AppColors.accent.withValues(alpha: 0.06),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.accent.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.accentDark,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'YOUR YEAR IN AYAT · ${stats.year}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color:
+                              AppColors.accentDark.withValues(alpha: 0.85),
+                          letterSpacing: 1.4,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${stats.totalEntries} reflections · '
+                        '${stats.surahsEngaged} surahs',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tap to see your year with the Qur\'an',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.55),
+                          fontStyle: FontStyle.italic,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color:
+                      AppColors.accentDark.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full year-review sheet. Opened from the banner. Walks the user
+/// through their year in four calm sections: headline numbers, the
+/// surah they kept returning to, tier breakdown, and the deepest
+/// reflection.
+class YearInAyatSheet extends ConsumerWidget {
+  final YearStats stats;
+
+  const YearInAyatSheet({super.key, required this.stats});
+
+  static Future<void> show(BuildContext context, YearStats stats) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (_, controller) => YearInAyatSheet(stats: stats),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final useHijri = ref.watch(useHijriDatesProvider);
+    final s = stats;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Your year with the Qur\'an',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${s.year}',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: AppColors.accentDark.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // ── Headline numbers ──
+          Row(
+            children: [
+              Expanded(
+                child: _YearStat(
+                  value: '${s.totalEntries}',
+                  label: 'reflections',
+                ),
+              ),
+              Expanded(
+                child: _YearStat(
+                  value: '${s.activeDays}',
+                  label: 'days with the Qur\'an',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _YearStat(
+                  value: '${s.longestStreak}',
+                  label: s.longestStreak == 1
+                      ? 'longest streak'
+                      : 'day longest streak',
+                ),
+              ),
+              Expanded(
+                child: _YearStat(
+                  value: '${s.surahsEngaged}',
+                  label: 'surahs engaged',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+          Container(
+            height: 0.5,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Most-returned-to surah ──
+          if (s.topSurahNumber > 0 && s.topSurahCount > 0) ...[
+            Text(
+              'THE SURAH YOU KEPT RETURNING TO',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 1.4,
+                fontWeight: FontWeight.w600,
+                fontSize: 10.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              kSurahNames[s.topSurahNumber],
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.accentDark,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${s.topSurahCount} ${s.topSurahCount == 1 ? "reflection" : "reflections"} this year',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Container(
+              height: 0.5,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // ── Tier breakdown ──
+          Text(
+            'HOW YOU ENGAGED',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w600,
+              fontSize: 10.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _TierRow(
+              label: 'Acknowledged',
+              count: s.tier1,
+              icon: Icons.favorite_border_rounded,
+              color: AppColors.tier1),
+          const SizedBox(height: 8),
+          _TierRow(
+              label: 'Responded',
+              count: s.tier2,
+              icon: Icons.chat_bubble_outline_rounded,
+              color: AppColors.tier2),
+          const SizedBox(height: 8),
+          _TierRow(
+              label: 'Reflected',
+              count: s.tier3,
+              icon: Icons.auto_awesome_outlined,
+              color: AppColors.tier3),
+
+          // ── Deepest reflection highlight ──
+          if (s.deepest != null &&
+              (s.deepest!.responseText?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: 32),
+            Container(
+              height: 0.5,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'YOUR DEEPEST REFLECTION',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 1.4,
+                fontWeight: FontWeight.w600,
+                fontSize: 10.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: AppColors.accent.withValues(alpha: 0.6),
+                    width: 2.5,
+                  ),
+                ),
+              ),
+              child: Text(
+                s.deepest!.responseText!,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                  height: 1.6,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '${surahNameFromKey(s.deepest!.verseKey)} ${s.deepest!.verseKey} · '
+              '${formatShortDate(s.deepest!.completedAt, useHijri: useHijri)}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 40),
+          Center(
+            child: Text(
+              'May these be written in your scales.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.accentDark.withValues(alpha: 0.8),
+                fontStyle: FontStyle.italic,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearStat extends StatelessWidget {
+  final String value;
+  final String label;
+
+  const _YearStat({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: theme.textTheme.displaySmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
+            height: 1.0,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            height: 1.3,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TierRow extends StatelessWidget {
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+
+  const _TierRow({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+            ),
+          ),
+        ),
+        Text(
+          '$count',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Bottom sheet showing every pinned reflection. Opened from the
+/// "+ N more pinned" footer in `_PinnedSection` when there are more
+/// pins than fit in the compact top-of-journal view.
+class _PinnedSheet extends StatelessWidget {
+  final List<JournalEntry> entries;
+  final String lang;
+  final ValueChanged<JournalEntry> onTap;
+
+  const _PinnedSheet({
+    required this.entries,
+    required this.lang,
+    required this.onTap,
+  });
+
+  static Future<void> show(
+    BuildContext context,
+    List<JournalEntry> entries,
+    String lang,
+    ValueChanged<JournalEntry> onTap,
+  ) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (_, controller) => _PinnedSheet(
+          entries: entries,
+          lang: lang,
+          onTap: (e) {
+            Navigator.of(context).pop();
+            onTap(e);
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Icon(
+                    Icons.push_pin_rounded,
+                    size: 16,
+                    color: AppColors.accentDark.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Pinned reflections',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    entries.length == 1
+                        ? '1'
+                        : '${entries.length}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            itemCount: entries.length,
+            separatorBuilder: (context, i) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              final e = entries[i];
+              return GestureDetector(
+                onTap: () => onTap(e),
+                child: _JournalCard(
+                  entry: e,
+                  lang: lang,
+                  showDate: true,
+                  collapsed: true,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

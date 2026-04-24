@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
+import 'package:tadabbur/features/journal/screens/journal_screen.dart'
+    show YearStats, YearInAyatSheet;
 
 const _reciters = [
   _ReciterOption('alafasy', 'Mishary Rashid Alafasy'),
@@ -38,6 +41,12 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(userProgressProvider);
     final storage = ref.watch(localStorageProvider);
+    // Watch isLoggedInProvider so sign-out triggers a rebuild of the
+    // settings tree — without this, `storage.authType` would still
+    // look like quranFoundation until the user leaves and returns to
+    // this tab (the provider returning the storage *instance* doesn't
+    // notify on internal state mutations).
+    ref.watch(isLoggedInProvider);
     final theme = Theme.of(context);
 
     final currentReciter = ref.watch(reciterPathProvider);
@@ -62,12 +71,26 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-              // === ACCOUNT ===
-              _SectionLabel('ACCOUNT', theme),
-              const SizedBox(height: 10),
-              _AccountTile(ref: ref, theme: theme),
+              // === QF IDENTITY — visible sign of the OAuth connection ===
+              // Only renders when the user is signed in via QF OAuth
+              // *and* we have a profile on hand; for guest/Google/Apple
+              // the row is silent so it can't mislead.
+              _QfIdentityRow(ref: ref, theme: theme),
 
-              const SizedBox(height: 28),
+              // === ACCOUNT ===
+              // Hidden for QF-authenticated users because the identity
+              // row above already tells the full story. Without this
+              // guard, _AccountTile would fall back to "Guest mode" on
+              // every relaunch (it reads authUserProvider, which is
+              // in-memory only and resets to null at cold start),
+              // producing two contradictory cards.
+              if (storage.authType != AuthType.quranFoundation) ...[
+                _SectionLabel('ACCOUNT', theme),
+                const SizedBox(height: 10),
+                _AccountTile(ref: ref, theme: theme),
+                const SizedBox(height: 28),
+              ] else
+                const SizedBox(height: 8),
 
               // === CURRENT POSITION — tap to change ===
               _SectionLabel('CURRENT POSITION', theme),
@@ -261,6 +284,55 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
+              // === JOURNAL DATES ===
+              _SectionLabel('JOURNAL DATES', theme),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: AppColors.warmBorder, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Use Hijri months',
+                              style: theme.textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w500)),
+                          Text(
+                            'Section headers show "Ramadan 1447" '
+                            'instead of "March 2026".',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.35),
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: ref.watch(useHijriDatesProvider),
+                      activeTrackColor: AppColors.primary,
+                      onChanged: (v) async {
+                        await storage.setUseHijriDates(v);
+                        ref.read(useHijriDatesProvider.notifier).state = v;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
               // === ARABIC FONT SIZE ===
               _SectionLabel('ARABIC FONT SIZE', theme),
               const SizedBox(height: 12),
@@ -397,6 +469,17 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                     ),
                   )),
+
+              const SizedBox(height: 28),
+
+              // === YEARLY REVIEWS ===
+              // Year-in-Ayat summaries accessible year-round. The
+              // journal tab surfaces the banner only during the
+              // Dec 15 – Jan 15 window; users who want to revisit an
+              // older review or peek mid-year come here.
+              _SectionLabel('YEARLY REVIEWS', theme),
+              const SizedBox(height: 10),
+              _YearlyReviewsTile(ref: ref, theme: theme),
 
               const SizedBox(height: 28),
 
@@ -718,6 +801,11 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
     try {
       final storage = widget.ref.read(localStorageProvider);
 
+      // Writes to /feedback in Firestore. The collection's security
+      // rule requires `request.auth != null` + a size cap; anonymous
+      // Firebase Auth (wired in main.dart) satisfies the auth check
+      // for every install. Viewable in Firebase Console at
+      // tadabbur-492408 → Firestore → feedback.
       await FirebaseFirestore.instance.collection('feedback').add({
         'category': _category,
         'message': _controller.text.trim(),
@@ -733,14 +821,15 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
         _sending = false;
       });
 
-      // Auto-close after showing success
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       setState(() => _sending = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send feedback. Please try again.')),
+          const SnackBar(
+            content: Text('Could not send feedback. Please try again.'),
+          ),
         );
       }
     }
@@ -877,6 +966,13 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             maxLines: 4,
             minLines: 3,
             textCapitalization: TextCapitalization.sentences,
+            // The Send button's enabled state is derived from the
+            // controller's current text. Without this setState, the
+            // button only re-evaluates when something else triggers
+            // a rebuild (e.g. tapping a category chip) — which makes
+            // it look like Send is broken until the user pokes at
+            // the chips.
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Tell us what you think...',
               hintStyle: TextStyle(
@@ -1439,6 +1535,324 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Identity row that makes the QF OAuth connection visible.
+///
+/// Settings is the natural home for "who am I signed in as" —
+/// without this row, the only sign of OAuth was that bookmarks and
+/// notes synced. Making identity visible reframes the app from "uses
+/// QF auth" to "a window into your quran.com life." Renders as a
+/// small, unobtrusive badge at the top of Settings; hidden entirely
+/// for guest/Google/Apple sign-ins where the QF profile wouldn't
+/// exist.
+class _QfIdentityRow extends ConsumerStatefulWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+
+  const _QfIdentityRow({required this.ref, required this.theme});
+
+  @override
+  ConsumerState<_QfIdentityRow> createState() => _QfIdentityRowState();
+}
+
+class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
+  @override
+  void initState() {
+    super.initState();
+    // Opportunistic refresh on screen open — if the cache is stale
+    // (rename, new avatar, etc.) the row updates without user action.
+    // No-op for non-QF users; no-op if the API call fails.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(qfProfileProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final storage = ref.watch(localStorageProvider);
+    if (storage.authType != AuthType.quranFoundation) {
+      return const SizedBox.shrink();
+    }
+    final profile = ref.watch(qfProfileProvider);
+    final name = profile?.displayName;
+    if (name == null) return const SizedBox.shrink();
+
+    final theme = widget.theme;
+    final avatarUrl = profile?.avatarUrl;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor:
+                  theme.colorScheme.primary.withValues(alpha: 0.15),
+              foregroundImage:
+                  (avatarUrl != null && avatarUrl.isNotEmpty)
+                      ? NetworkImage(avatarUrl)
+                      : null,
+              child: Text(
+                name.characters.first.toUpperCase(),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.link_rounded,
+                        size: 12,
+                        color: theme.colorScheme.primary
+                            .withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Connected to quran.com',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary
+                              .withValues(alpha: 0.7),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Trailing overflow menu — only action today is Sign out.
+            // Kept as a compact icon so the card stays tidy; a full
+            // button would dominate the row.
+            IconButton(
+              onPressed: () => _confirmSignOut(context),
+              icon: Icon(
+                Icons.logout_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+              tooltip: 'Sign out',
+              splashRadius: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final theme = widget.theme;
+    // Capture the messenger up front so we don't need to re-read
+    // `context` across the async gap (see use_build_context_synchronously).
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign out of quran.com?'),
+        content: Text(
+          'Your local reflections and bookmarks stay on this device. '
+          'Sign back in any time to resume syncing with quran.com.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    // Clear QF auth state: tokens, authType, userId revert to
+    // pre-sign-in defaults. The Settings page will rebuild and, since
+    // storage.authType is no longer quranFoundation, the ACCOUNT
+    // section (with "Sign in to save your journey") re-appears —
+    // giving the user a clear path back in.
+    await ref.read(qfAuthServiceProvider).signOut();
+    await ref.read(qfProfileProvider.notifier).clear();
+    ref.read(authUserProvider.notifier).state = null;
+    // isLoggedIn watches storage.authToken, which is now null —
+    // surface that change through the provider for any widget that
+    // reads it directly.
+    ref.read(isLoggedInProvider.notifier).state = false;
+
+    if (!mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Signed out of quran.com.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+
+/// Settings row that reads the user's journal, lists each year that
+/// has at least one reflection, and opens the `YearInAyatSheet` for
+/// the tapped year. Keeps the Year-in-Ayat experience accessible
+/// year-round — the journal's banner only surfaces in December /
+/// early January, so a user who wants to see their 2025 in March
+/// needs this path.
+class _YearlyReviewsTile extends ConsumerWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+  const _YearlyReviewsTile({required this.ref, required this.theme});
+
+  @override
+  Widget build(BuildContext context, WidgetRef r) {
+    final entries = r.watch(journalProvider);
+    if (entries.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.warmBorder, width: 0.5),
+        ),
+        child: Text(
+          'Your first yearly review unlocks after your first reflection.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    // Collect years with at least one reflection; sort newest first.
+    final years = entries.map((e) => e.completedAt.year).toSet().toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      children: [
+        for (var i = 0; i < years.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _YearRow(
+            year: years[i],
+            count: entries
+                .where((e) => e.completedAt.year == years[i])
+                .length,
+            onTap: () {
+              final stats = YearStats.compute(entries, years[i]);
+              YearInAyatSheet.show(context, stats);
+            },
+            theme: theme,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _YearRow extends StatelessWidget {
+  final int year;
+  final int count;
+  final VoidCallback onTap;
+  final ThemeData theme;
+
+  const _YearRow({
+    required this.year,
+    required this.count,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.warmBorder, width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.auto_awesome_outlined,
+                size: 18,
+                color: AppColors.accentDark.withValues(alpha: 0.7),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$year in ayat',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      count == 1 ? '1 reflection' : '$count reflections',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

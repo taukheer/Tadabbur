@@ -4,6 +4,8 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
+import 'package:tadabbur/core/models/collection.dart';
+import 'package:tadabbur/core/models/qf_user_profile.dart';
 import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
 import 'package:tadabbur/core/services/editorial_service.dart';
@@ -68,6 +70,147 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref.watch(localStorageProvider));
 });
 
+/// QF profile (name/avatar/email) for the signed-in user, cached in
+/// local storage. Null while we haven't fetched yet or the user isn't
+/// signed in via QF OAuth. Surfaced in Settings so the OAuth link is
+/// visible — users and judges should feel "my quran.com identity
+/// lives here" rather than "this app happens to know an auth token."
+final qfProfileProvider =
+    StateNotifierProvider<QfProfileNotifier, QfUserProfile?>((ref) {
+  return QfProfileNotifier(ref);
+});
+
+class QfProfileNotifier extends StateNotifier<QfUserProfile?> {
+  final Ref _ref;
+
+  QfProfileNotifier(this._ref)
+      : super(QfUserProfile.tryDecode(
+          _ref.read(localStorageProvider).qfProfileJson,
+        ));
+
+  /// Fetch the freshest profile from QF and cache it. No-op for guest
+  /// users or non-QF auth types — guarded at the service layer too,
+  /// but shortcut here to avoid a pointless network round-trip.
+  ///
+  /// QF's `/v1/users/me` currently returns 403 on our client (scope
+  /// config on their side); [setFromAuthUser] is the reliable path
+  /// because the OIDC id_token already carries name + email. This
+  /// method stays in place for when the endpoint starts answering.
+  Future<void> refresh() async {
+    final storage = _ref.read(localStorageProvider);
+    if (storage.authType != AuthType.quranFoundation) return;
+    final userApi = _ref.read(userApiProvider);
+    final raw = await userApi.getUserProfile();
+    if (raw == null) return;
+    final profile = QfUserProfile.fromJson(raw);
+    state = profile;
+    await storage.setQfProfileJson(profile.encode());
+  }
+
+  /// Populate the profile directly from the AuthUser we built out of
+  /// the OIDC id_token during `QFAuthService.exchangeCode`. We do
+  /// this on every successful OAuth exchange so the identity card
+  /// shows up immediately without waiting for a network round-trip —
+  /// and so that a broken `/v1/users/me` endpoint can't hide the
+  /// fact that the user is signed in.
+  Future<void> setFromAuthUser({
+    String? id,
+    String? name,
+    String? email,
+    String? photoUrl,
+  }) async {
+    final profile = QfUserProfile(
+      id: id,
+      name: name,
+      email: email,
+      avatarUrl: photoUrl,
+    );
+    state = profile;
+    await _ref
+        .read(localStorageProvider)
+        .setQfProfileJson(profile.encode());
+  }
+
+  Future<void> clear() async {
+    state = null;
+    await _ref.read(localStorageProvider).setQfProfileJson(null);
+  }
+}
+
+/// QF-side thematic groupings of verses. Distinct from local
+/// bookmarks: collections live on quran.com and are shared with any
+/// other Connected App the user has authorized, so a "Ayahs on
+/// sabr" collection created in Tadabbur is visible on the website
+/// too (and vice versa). That cross-app continuity is exactly the
+/// Connected Apps signal the ecosystem rewards.
+final collectionsProvider =
+    StateNotifierProvider<CollectionsNotifier, List<QfCollection>>((ref) {
+  return CollectionsNotifier(ref);
+});
+
+class CollectionsNotifier extends StateNotifier<List<QfCollection>> {
+  final Ref _ref;
+  bool _inFlight = false;
+
+  CollectionsNotifier(this._ref) : super(const []);
+
+  /// Refresh the list of collections from QF. Idempotent — safe to
+  /// call on pull-to-refresh, on screen open, and after a mutation.
+  Future<void> refresh() async {
+    if (_inFlight) return;
+    _inFlight = true;
+    try {
+      final userApi = _ref.read(userApiProvider);
+      // Clear any stale error from a prior run; getCollections will
+      // set a fresh one if this attempt also fails.
+      userApi.lastCollectionsError = null;
+      final raw = await userApi.getCollections();
+      state = raw.map(QfCollection.fromJson).toList();
+    } finally {
+      _inFlight = false;
+    }
+  }
+
+  /// Create a collection. Returns the new id on success so callers
+  /// can navigate directly into the empty collection.
+  Future<String?> create(String name) async {
+    final userApi = _ref.read(userApiProvider);
+    final id = await userApi.createCollection(name);
+    if (id != null) {
+      // Optimistic refresh — the server is now the source of truth.
+      unawaited(refresh());
+    }
+    return id;
+  }
+
+  Future<bool> delete(String collectionId) async {
+    final userApi = _ref.read(userApiProvider);
+    final ok = await userApi.deleteCollection(collectionId);
+    if (ok) {
+      state = state.where((c) => c.id != collectionId).toList();
+    }
+    return ok;
+  }
+
+  Future<bool> addVerse(String collectionId, String verseKey) async {
+    final userApi = _ref.read(userApiProvider);
+    return userApi.addVerseToCollection(collectionId, verseKey);
+  }
+}
+
+/// Provider family for the items inside a specific collection. Keyed
+/// by collection id — the cache is automatically scoped per-collection
+/// by Riverpod without us having to manage a per-id map ourselves.
+final collectionItemsProvider =
+    FutureProvider.family<List<QfCollectionItem>, String>((ref, collectionId) async {
+  final userApi = ref.watch(userApiProvider);
+  final raw = await userApi.getCollectionItems(collectionId);
+  return raw
+      .map(QfCollectionItem.tryFromJson)
+      .whereType<QfCollectionItem>()
+      .toList();
+});
+
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.watch(localStorageProvider), ref.watch(firestoreServiceProvider));
 });
@@ -121,6 +264,13 @@ final languageProvider = StateProvider<String>((ref) {
 
 final showTransliterationProvider = StateProvider<bool>((ref) {
   return ref.watch(localStorageProvider).showTransliteration;
+});
+
+/// Preference for rendering journal month headers with Hijri months
+/// ("Ramadan 1447") instead of Gregorian ("March 2026"). Reactive so
+/// toggling in Settings immediately updates the headers.
+final useHijriDatesProvider = StateProvider<bool>((ref) {
+  return ref.watch(localStorageProvider).useHijriDates;
 });
 
 // --- User Profile ---
@@ -587,11 +737,39 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
         final verseKey = _parseFirstVerseFromRanges(raw['ranges']);
         if (verseKey == null) continue;
 
-        // Skip if we already have a local entry with the same verseKey
-        // + body (best-effort dedup for entries that predate QF IDs).
-        final alreadyLocal = state.any((e) =>
-            e.verseKey == verseKey &&
-            (e.responseText ?? '').trim() == body);
+        // Skip if we already have a local entry for this note.
+        //
+        // Direct body match catches the common case (tier 2/3 where
+        // the user's typed text is what got POSTed). But two Tadabbur-
+        // specific padding patterns also need to be recognized or
+        // we'd create phantom duplicates of our own writes:
+        //
+        //   - Tier 1 "acknowledge" entries have no responseText, but
+        //     we pad them to "Acknowledged: X:Y" before POST to
+        //     satisfy QF's 6-char minimum (see UserApiService
+        //     .saveReflection).
+        //   - Short tier-2 entries (< 6 chars) get padded as
+        //     "<text> — Tadabbur reflection on X:Y".
+        //
+        // Recognizing both patterns closes the dedup loop so the
+        // user's own reflection never comes back as a second card.
+        final ackPad = 'Acknowledged: $verseKey';
+        bool matchesLocal(JournalEntry e) {
+          if (e.verseKey != verseKey) return false;
+          final local = (e.responseText ?? '').trim();
+          if (local == body) return true;
+          // Acknowledge padding — local has no text, body is our pad.
+          if (body == ackPad && e.tier == ReflectionTier.acknowledge) {
+            return true;
+          }
+          // Short-text padding — local text is a prefix of body.
+          if (local.isNotEmpty &&
+              body == '$local — Tadabbur reflection on $verseKey') {
+            return true;
+          }
+          return false;
+        }
+        final alreadyLocal = state.any(matchesLocal);
         if (alreadyLocal) continue;
 
         String arabicText = '';
@@ -663,7 +841,10 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
     return DateTime.tryParse(s);
   }
 
-  Future<void> addEntry(JournalEntry entry) async {
+  Future<void> addEntry(
+    JournalEntry entry, {
+    bool shareToQuranReflect = false,
+  }) async {
     // Save locally first (always works)
     state = [entry, ...state];
     await _storage.saveJournalEntries(state);
@@ -687,7 +868,7 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
       },
     );
 
-    _syncReflectionToQF(entry);
+    _syncReflectionToQF(entry, shareToQuranReflect: shareToQuranReflect);
 
     // Auto-bookmark on QF when user wrote a reflection (Tier 2/3)
     if (entry.tier != ReflectionTier.acknowledge && entry.responseText != null) {
@@ -697,15 +878,22 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
     }
   }
 
-  /// Save reflection to QF Post API.
-  /// Non-blocking — the local journal entry is already saved so a
-  /// failure here only means the quran.com mirror is lagging.
-  void _syncReflectionToQF(JournalEntry entry) {
+  /// Save reflection to QF as a personal note (and optionally mirror
+  /// to the public Quran Reflect feed via [shareToQuranReflect]).
+  ///
+  /// Non-blocking — the local journal entry is already saved, so a
+  /// QF failure just means the quran.com mirror is lagging, not lost
+  /// data.
+  void _syncReflectionToQF(
+    JournalEntry entry, {
+    required bool shareToQuranReflect,
+  }) {
     final body = entry.responseText ?? 'Acknowledged: ${entry.verseKey}';
     _userApi
         .saveReflection(
           entry.verseKey,
           body,
+          shareToQuranReflect: shareToQuranReflect,
           metadata: {
             'tier': entry.tier.name,
             'app': 'tadabbur',
@@ -733,5 +921,26 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
           e.translationText.toLowerCase().contains(lower) ||
           e.verseKey.contains(lower);
     }).toList();
+  }
+
+  /// Flip the pinned state of the entry with [id]. No-op when the id
+  /// is unknown. Persists immediately so pinning survives relaunch.
+  Future<void> togglePin(String id) async {
+    var changed = false;
+    state = [
+      for (final e in state)
+        if (e.id == id)
+          () {
+            changed = true;
+            return e.copyWith(isPinned: !e.isPinned);
+          }()
+        else
+          e,
+    ];
+    if (changed) {
+      await _storage.saveJournalEntries(state);
+      // No QF-side pin concept yet — pinning stays local. If QF adds
+      // a "pinned notes" field in the future, we'd push here.
+    }
   }
 }

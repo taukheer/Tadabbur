@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
+import 'package:tadabbur/core/widgets/time_of_day_ribbon.dart';
 
 class AppShell extends ConsumerWidget {
   final Widget child;
@@ -30,23 +31,37 @@ class AppShell extends ConsumerWidget {
         false;
 
     return Scaffold(
-      body: Column(
+      body: Stack(
         children: [
-          if (isOffline)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              color: theme.colorScheme.error,
-              child: Text(
-                t('offline_mode'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onError,
+          Column(
+            children: [
+              if (isOffline)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  color: theme.colorScheme.error,
+                  child: Text(
+                    t('offline_mode'),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onError,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          const _SyncErrorBanner(),
-          Expanded(child: child),
+              const _SyncErrorBanner(),
+              Expanded(child: child),
+            ],
+          ),
+          // Ambient time-of-day tint floats above the scaffold without
+          // taking layout space or blocking touches. Near-invisible
+          // during the day; deepens warmly at fajr/maghrib so the app
+          // feels aware of the times the user prays.
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: TimeOfDayRibbon(),
+          ),
         ],
       ),
       bottomNavigationBar: Container(

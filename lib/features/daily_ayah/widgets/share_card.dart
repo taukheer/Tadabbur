@@ -204,6 +204,46 @@ class _ShareCard extends StatelessWidget {
     final surahName = surahNameFromKey(ayah.verseKey);
     final translation = _cleanTranslation(ayah.translationText ?? '');
 
+    // Arabic sizing still scales by character count — Arabic has its
+    // own height budget above the separator and scaleDown on the
+    // Arabic block would compromise its sacred presence.
+    final arabicLen = ayah.textUthmani.length;
+    final arabicFontSize = arabicLen > 300
+        ? 13.0
+        : arabicLen > 220
+            ? 14.5
+            : arabicLen > 140
+                ? 17.0
+                : arabicLen > 80
+                    ? 19.0
+                    : 22.0;
+    final arabicLineHeight = arabicLen > 220
+        ? 1.75
+        : arabicLen > 140
+            ? 1.9
+            : 2.1;
+
+    // Translation sizes by character count with a readable floor of
+    // 9.5 pt. Previous iterations tried FittedBox(scaleDown) so the
+    // block auto-fit the available vertical space — but for a 4:5
+    // card preview that math produced type so small it was
+    // unreadable. A discrete scale tuned against known ayah lengths
+    // gives us predictable readability; the translation always
+    // renders in full and hits a realistic lower bound.
+    final trLen = translation.length;
+    final translationFontSize = trLen > 500
+        ? 9.5
+        : trLen > 380
+            ? 10.5
+            : trLen > 280
+                ? 11.5
+                : trLen > 200
+                    ? 12.5
+                    : trLen > 130
+                        ? 13.0
+                        : 14.0;
+    final translationLineHeight = trLen > 380 ? 1.4 : 1.5;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -233,19 +273,13 @@ class _ShareCard extends StatelessWidget {
               ),
             ),
           ),
-          // Gold dot header ornament
+          // Day badge — top-left. Dropped the separate gold-dot
+          // ornament row above the content: it ate ~30 px of vertical
+          // space and added nothing the viewer couldn't infer from
+          // the card's warmth. Less chrome = more room for the ayah.
           Positioned(
-            top: 40,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _GoldDotRow(),
-            ),
-          ),
-          // Day badge — top-left
-          Positioned(
-            top: 40,
-            left: 40,
+            top: 28,
+            left: 28,
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 10,
@@ -266,52 +300,73 @@ class _ShareCard extends StatelessWidget {
               ),
             ),
           ),
-          // Main content
+          // Main content — tighter vertical rhythm than before.
+          // Top padding just clears the Day badge; no filler SizedBox.
           Padding(
-            padding: const EdgeInsets.fromLTRB(36, 80, 36, 36),
+            padding: const EdgeInsets.fromLTRB(32, 66, 32, 24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                const Spacer(),
                 // Arabic text — the hero
                 Text(
                   ayah.textUthmani,
                   locale: const Locale('ar'),
                   textDirection: TextDirection.rtl,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'AmiriQuran',
-                    fontSize: 22,
-                    height: 2.1,
+                    fontSize: arabicFontSize,
+                    height: arabicLineHeight,
                     color: AppColors.sacredText,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
                 // Separator dot
                 Container(
-                  width: 6,
-                  height: 6,
+                  width: 5,
+                  height: 5,
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.5),
                     shape: BoxShape.circle,
                   ),
                 ),
-                const SizedBox(height: 22),
-                // Translation
+                const SizedBox(height: 12),
+                // Translation: char-count sizing picks a readable
+                // target; FittedBox(scaleDown) acts as a *safety net*
+                // only when the text still overflows (pathologically
+                // long verses like 4:6). Because the starting size is
+                // already tuned to the text length, the safety net
+                // rarely needs to kick in, and when it does the
+                // down-scale is small rather than collapsing to
+                // unreadable pixels.
                 if (translation.isNotEmpty)
-                  Text(
-                    '"$translation"',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.6,
-                      color: AppColors.sacredText.withValues(alpha: 0.65),
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, c) => FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: c.maxWidth,
+                          child: Text(
+                            '"$translation"',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: translationFontSize,
+                              height: translationLineHeight,
+                              color: AppColors.sacredText
+                                  .withValues(alpha: 0.65),
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                const Spacer(),
+                  )
+                else
+                  const Spacer(),
+                const SizedBox(height: 12),
                 // Verse reference
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -336,7 +391,7 @@ class _ShareCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
                 // Wordmark footer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -391,29 +446,6 @@ class _ShareCard extends StatelessWidget {
         )
         .replaceAll(RegExp(r'\s*-\s*$'), '')
         .trim();
-  }
-}
-
-class _GoldDotRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (var i = 0; i < 3; i++) ...[
-          if (i > 0) const SizedBox(width: 4),
-          Container(
-            width: i == 1 ? 4 : 3,
-            height: i == 1 ? 4 : 3,
-            decoration: BoxDecoration(
-              color: AppColors.accent
-                  .withValues(alpha: i == 1 ? 0.8 : 0.5),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ],
-    );
   }
 }
 
