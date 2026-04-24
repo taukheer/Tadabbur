@@ -186,7 +186,7 @@ Future<void> _captureAndShare({
   await Share.shareXFiles(
     [XFile(file.path, mimeType: 'image/png')],
     subject: '$surahName ${ayah.verseKey} · Tadabbur',
-    text: '$surahName ${ayah.verseKey} · https://tadabbur.app',
+    text: '$surahName ${ayah.verseKey} · https://tadabbur-beige.vercel.app',
   );
 }
 

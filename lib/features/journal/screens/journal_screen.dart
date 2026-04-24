@@ -11,12 +11,11 @@ import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
-import 'package:tadabbur/core/models/collection.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
-import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/features/journal/widgets/activity_heatmap.dart';
+import 'package:tadabbur/features/journal/widgets/year_in_ayat_share_card.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
 /// Clean trailing dashes, footnote refs, and whitespace from translations.
@@ -249,13 +248,6 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   child: const ActivityHeatmap(),
                 ),
               ),
-
-            // ── Collections (QF) — cross-app thematic groupings ──
-            // Visible only when the user is signed in via QF OAuth;
-            // guest/Google/Apple users don't have a quran.com
-            // collection space to sync against.
-            if (_searchQuery.isEmpty)
-              const SliverToBoxAdapter(child: _CollectionsStrip()),
 
             // ── Year in Ayat review ──
             // Surfaces during the last two weeks of the year and the
@@ -1315,6 +1307,20 @@ String formatLongDate(DateTime date, {required bool useHijri}) {
   return DateFormat('EEEE, d MMMM yyyy').format(date);
 }
 
+/// Hijri-year label for a Gregorian year. A Gregorian year typically
+/// spans two Hijri years (~354 days each) so we render a range like
+/// `1446–1447 AH` when they differ, or a single `1446 AH` when the
+/// whole year falls inside one Hijri year (rare at these edges).
+/// Used in the Year-in-Ayat header so a Muslim's year is visible in
+/// both calendars — Ramadan, Dhul-Hijjah, and Muharram only show up
+/// in the Hijri lens.
+String hijriYearLabel(int gregorianYear) {
+  final start = HijriCalendar.fromDate(DateTime(gregorianYear, 1, 1));
+  final end = HijriCalendar.fromDate(DateTime(gregorianYear, 12, 31));
+  if (start.hYear == end.hYear) return '${start.hYear} AH';
+  return '${start.hYear}–${end.hYear} AH';
+}
+
 class _JournalCard extends ConsumerWidget {
   final JournalEntry entry;
   final String lang;
@@ -1791,433 +1797,6 @@ class _BookmarkCardCompact extends ConsumerWidget {
   }
 }
 
-/// Horizontal strip of QF Collections above the Journal search.
-///
-/// Collections are thematic groupings of verses living on quran.com,
-/// shared across any Connected App the user signs into. Surfacing them
-/// here — right above the user's own reflections — reinforces the
-/// journal-as-moat thesis while making the cross-app continuity
-/// visible. Hidden entirely for non-QF users because there's no
-/// Collections surface to talk to without an OAuth identity.
-class _CollectionsStrip extends ConsumerStatefulWidget {
-  const _CollectionsStrip();
-
-  @override
-  ConsumerState<_CollectionsStrip> createState() => _CollectionsStripState();
-}
-
-class _CollectionsStripState extends ConsumerState<_CollectionsStrip> {
-  bool _loadedOnce = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Opportunistic refresh on first mount — skipped if not
-    // QF-authed because the notifier's network call would no-op.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (ref.read(localStorageProvider).authType ==
-          AuthType.quranFoundation) {
-        ref.read(collectionsProvider.notifier).refresh().whenComplete(() {
-          if (mounted) setState(() => _loadedOnce = true);
-        });
-      }
-    });
-  }
-
-  Future<void> _showCreateDialog() async {
-    final theme = Theme.of(context);
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New collection'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'e.g. Ayahs on sabr',
-          ),
-          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    if (name == null || name.isEmpty) return;
-
-    final id = await ref.read(collectionsProvider.notifier).create(name);
-    if (!mounted) return;
-    if (id == null) {
-      // Surface the actual server response while we're dialing in the
-      // correct QF endpoint shape — a generic "couldn't create" hides
-      // whether the fault is auth, payload, or endpoint path.
-      final detail = ref
-              .read(userApiProvider)
-              .lastCollectionsError ??
-          "Couldn't create collection";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(detail, maxLines: 4),
-          backgroundColor: theme.colorScheme.error,
-          duration: const Duration(seconds: 8),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final storage = ref.watch(localStorageProvider);
-    if (storage.authType != AuthType.quranFoundation) {
-      return const SizedBox.shrink();
-    }
-    final collections = ref.watch(collectionsProvider);
-    final theme = Theme.of(context);
-    final syncError = ref.watch(userApiProvider).lastCollectionsError;
-
-    // Don't flash the empty "+ New" strip on cold start UNLESS we
-    // have a sync error — in which case the user deserves to see
-    // *why* their collections aren't showing up.
-    if (!_loadedOnce && collections.isEmpty && syncError == null) {
-      return const SizedBox(height: 0);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 0, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20, bottom: 10),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.collections_bookmark_outlined,
-                  size: 14,
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'COLLECTIONS',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.45),
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  // "sync failed" read too much like a broken app;
-                  // the root cause is that QF hasn't enabled the
-                  // Collections scope on our OAuth client yet, which
-                  // is ecosystem-pending, not a Tadabbur fault.
-                  // Framing matches reality.
-                  syncError != null
-                      ? 'awaiting ecosystem access'
-                      : 'synced with quran.com',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: syncError != null
-                        ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
-                        : theme.colorScheme.primary.withValues(alpha: 0.55),
-                    fontSize: 10,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (syncError != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 20, bottom: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.schedule_rounded,
-                    size: 12,
-                    color:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Collections sync with Quran Foundation is waiting '
-                      'on scope enablement. The integration is ready on '
-                      'our side.',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.6),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      await ref
-                          .read(collectionsProvider.notifier)
-                          .refresh();
-                      if (mounted) setState(() {});
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 28),
-                    ),
-                    child: const Text('Retry', style: TextStyle(fontSize: 11)),
-                  ),
-                ],
-              ),
-            ),
-          SizedBox(
-            height: 96,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(right: 20),
-              itemCount: collections.length + 1,
-              separatorBuilder: (context, i) => const SizedBox(width: 10),
-              itemBuilder: (context, i) {
-                if (i == collections.length) {
-                  return _NewCollectionCard(onTap: _showCreateDialog);
-                }
-                final c = collections[i];
-                return _CollectionCard(
-                  collection: c,
-                  onTap: () => _CollectionDetailSheet.show(context, c),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CollectionCard extends StatelessWidget {
-  final QfCollection collection;
-  final VoidCallback onTap;
-
-  const _CollectionCard({required this.collection, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 150,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.12),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.folder_rounded,
-                size: 18,
-                color: theme.colorScheme.primary.withValues(alpha: 0.7),
-              ),
-              const Spacer(),
-              Text(
-                collection.name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                collection.itemCount == null
-                    ? 'Tap to open'
-                    : '${collection.itemCount} '
-                        '${collection.itemCount == 1 ? "ayah" : "ayat"}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NewCollectionCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _NewCollectionCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: 130,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.2),
-              style: BorderStyle.solid,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.add_rounded,
-                color: theme.colorScheme.primary.withValues(alpha: 0.7),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'New collection',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.85),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Bottom sheet listing verses inside a collection. Verses are
-/// fetched lazily via the `collectionItemsProvider` family so a
-/// collection with many items doesn't block the Journal render.
-class _CollectionDetailSheet extends ConsumerWidget {
-  final QfCollection collection;
-
-  const _CollectionDetailSheet({required this.collection});
-
-  static Future<void> show(BuildContext context, QfCollection collection) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.4,
-        maxChildSize: 0.92,
-        expand: false,
-        builder: (_, scrollController) => _CollectionDetailSheet(
-          collection: collection,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final asyncItems = ref.watch(collectionItemsProvider(collection.id));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
-          child: Row(
-            children: [
-              Icon(
-                Icons.folder_rounded,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  collection.name,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: asyncItems.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Could not load this collection.'),
-              ),
-            ),
-            data: (items) {
-              if (items.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'No ayat in this collection yet. Add verses to it '
-                    'from the Bookmarks list on quran.com or here.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
-                    ),
-                  ),
-                );
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                itemCount: items.length,
-                separatorBuilder: (context, i) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final it = items[i];
-                  final surahNum =
-                      int.tryParse(it.verseKey.split(':').first) ?? 0;
-                  final surahName = surahNum > 0 && surahNum <= 114
-                      ? kSurahNames[surahNum]
-                      : 'Surah $surahNum';
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      Icons.auto_stories_outlined,
-                      color: theme.colorScheme.primary
-                          .withValues(alpha: 0.7),
-                    ),
-                    title: Text(surahName),
-                    subtitle: Text('Ayah ${it.verseKey.split(':').last}'),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 /// Which axis the journal list is organized along.
 enum _JournalLens { time, surah }
@@ -3128,21 +2707,57 @@ class YearInAyatSheet extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Your year with the Qur\'an',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${s.year}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: AppColors.accentDark.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.4,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your year with the Qur\'an',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${s.year} · ${hijriYearLabel(s.year)}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: AppColors.accentDark.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Share button — captures the year as a PNG card and
+              // hands it to the platform share sheet. Only meaningful
+              // once the year has at least one reflection; otherwise
+              // the card would be empty and a little sad.
+              if (s.totalEntries > 0)
+                IconButton(
+                  tooltip: 'Share your year',
+                  onPressed: () => openYearInAyatShareSheet(
+                    context: context,
+                    gregorianYear: s.year,
+                    hijriYearLabel: hijriYearLabel(s.year),
+                    totalReflections: s.totalEntries,
+                    activeDays: s.activeDays,
+                    longestStreak: s.longestStreak,
+                    surahsEngaged: s.surahsEngaged,
+                    topSurahNumber: s.topSurahNumber,
+                    topSurahCount: s.topSurahCount,
+                  ),
+                  icon: Icon(
+                    Icons.ios_share_rounded,
+                    size: 20,
+                    color: AppColors.accentDark.withValues(alpha: 0.75),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 28),
 

@@ -84,19 +84,13 @@ class QFAuthService {
     // not the dotted child forms (`note.create`, `note.read`, ...).
     // Each parent scope grants read + write on that resource family.
     //   openid, offline_access — OIDC auth + refresh tokens
-    //   note                     — POST/GET /v1/notes (reflections)
+    //   note                     — POST/GET /v1/notes (reflections, also
+    //                               carries saveToQR publishing — no
+    //                               separate `post` scope required)
     //   bookmark                 — POST/GET/DELETE /v1/bookmarks
     //   activity_day             — POST/GET /v1/activity-days
     //   streak                   — GET /v1/streaks
     //   preference               — GET/POST /v1/preferences
-    //
-    // A previous revision also requested `collection` and `post` to
-    // unlock Collections writes and Quran-Reflect publishing. QF's
-    // pre-live OAuth rejected those as invalid_scope and silently
-    // failed the whole sign-in — so they're removed until QF
-    // whitelists them on our client. Collections writes will 403
-    // with insufficient_scope until then, and Settings surfaces that
-    // message verbatim so it's obvious when the scope lands.
     const scopes = 'openid offline_access '
         'note bookmark activity_day streak preference';
 

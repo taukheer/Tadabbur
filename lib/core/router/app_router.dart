@@ -172,10 +172,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 // surface "Signed in as [name] · quran.com" instead
                 // of treating OAuth as an invisible token handshake.
                 unawaited(ref.read(qfProfileProvider.notifier).refresh());
-                // Pull existing collections so cross-app continuity
-                // is immediately visible — any collection the user
-                // created on quran.com shows up in Tadabbur at once.
-                unawaited(ref.read(collectionsProvider.notifier).refresh());
 
                 // Update the Firestore /users doc with the now-real
                 // Quran.com identity. The doc is keyed by the device's

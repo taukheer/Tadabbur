@@ -4,7 +4,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
-import 'package:tadabbur/core/models/collection.dart';
 import 'package:tadabbur/core/models/qf_user_profile.dart';
 import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
@@ -136,80 +135,6 @@ class QfProfileNotifier extends StateNotifier<QfUserProfile?> {
     await _ref.read(localStorageProvider).setQfProfileJson(null);
   }
 }
-
-/// QF-side thematic groupings of verses. Distinct from local
-/// bookmarks: collections live on quran.com and are shared with any
-/// other Connected App the user has authorized, so a "Ayahs on
-/// sabr" collection created in Tadabbur is visible on the website
-/// too (and vice versa). That cross-app continuity is exactly the
-/// Connected Apps signal the ecosystem rewards.
-final collectionsProvider =
-    StateNotifierProvider<CollectionsNotifier, List<QfCollection>>((ref) {
-  return CollectionsNotifier(ref);
-});
-
-class CollectionsNotifier extends StateNotifier<List<QfCollection>> {
-  final Ref _ref;
-  bool _inFlight = false;
-
-  CollectionsNotifier(this._ref) : super(const []);
-
-  /// Refresh the list of collections from QF. Idempotent — safe to
-  /// call on pull-to-refresh, on screen open, and after a mutation.
-  Future<void> refresh() async {
-    if (_inFlight) return;
-    _inFlight = true;
-    try {
-      final userApi = _ref.read(userApiProvider);
-      // Clear any stale error from a prior run; getCollections will
-      // set a fresh one if this attempt also fails.
-      userApi.lastCollectionsError = null;
-      final raw = await userApi.getCollections();
-      state = raw.map(QfCollection.fromJson).toList();
-    } finally {
-      _inFlight = false;
-    }
-  }
-
-  /// Create a collection. Returns the new id on success so callers
-  /// can navigate directly into the empty collection.
-  Future<String?> create(String name) async {
-    final userApi = _ref.read(userApiProvider);
-    final id = await userApi.createCollection(name);
-    if (id != null) {
-      // Optimistic refresh — the server is now the source of truth.
-      unawaited(refresh());
-    }
-    return id;
-  }
-
-  Future<bool> delete(String collectionId) async {
-    final userApi = _ref.read(userApiProvider);
-    final ok = await userApi.deleteCollection(collectionId);
-    if (ok) {
-      state = state.where((c) => c.id != collectionId).toList();
-    }
-    return ok;
-  }
-
-  Future<bool> addVerse(String collectionId, String verseKey) async {
-    final userApi = _ref.read(userApiProvider);
-    return userApi.addVerseToCollection(collectionId, verseKey);
-  }
-}
-
-/// Provider family for the items inside a specific collection. Keyed
-/// by collection id — the cache is automatically scoped per-collection
-/// by Riverpod without us having to manage a per-id map ourselves.
-final collectionItemsProvider =
-    FutureProvider.family<List<QfCollectionItem>, String>((ref, collectionId) async {
-  final userApi = ref.watch(userApiProvider);
-  final raw = await userApi.getCollectionItems(collectionId);
-  return raw
-      .map(QfCollectionItem.tryFromJson)
-      .whereType<QfCollectionItem>()
-      .toList();
-});
 
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.watch(localStorageProvider), ref.watch(firestoreServiceProvider));

@@ -10,7 +10,7 @@ import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/journal/screens/journal_screen.dart'
-    show YearStats, YearInAyatSheet;
+    show YearStats, YearInAyatSheet, hijriYearLabel;
 
 const _reciters = [
   _ReciterOption('alafasy', 'Mishary Rashid Alafasy'),
@@ -1835,7 +1835,7 @@ class _YearRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      count == 1 ? '1 reflection' : '$count reflections',
+                      '${hijriYearLabel(year)} · ${count == 1 ? "1 reflection" : "$count reflections"}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.55),
