@@ -34,10 +34,31 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
-          onPressed: () => Navigator.of(context).pop(),
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 14, top: 8),
+          // Close button sits in a soft circular hit-target so it
+          // reads as a deliberate surface rather than floating
+          // punctuation. 40×40 is the minimum tap-target recommended
+          // by Material; 44×44 is iOS's — splitting the difference.
+          child: Material(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.of(context).pop(),
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 20,
+                  color:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
       body: SafeArea(
@@ -50,62 +71,80 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
 
   Widget _buildFeelingPicker(ThemeData theme, String Function(String) t) {
     final isDark = theme.brightness == Brightness.dark;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 40),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
-          child: Text(
-            // "How are you feeling?" was a form-prompt; "What are you
-            // carrying?" meets the user at the weight they're bringing,
-            // which for a Muslim opening this screen is the whole point
-            // — we carry our states *to* Allah.
-            t('what_carrying'),
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: theme.colorScheme.onSurface,
-              height: 1.2,
-              letterSpacing: -0.3,
-            ),
-          ).animate().fadeIn(duration: 700.ms),
-        ),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
-          child: Text(
-            t('feeling_subtitle'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              fontStyle: FontStyle.italic,
-              height: 1.5,
-            ),
-          ).animate().fadeIn(duration: 700.ms, delay: 200.ms),
-        ),
-        const SizedBox(height: 32),
-        for (var i = 0; i < Feelings.all.length; i++)
-          _FeelingRow(
-            feeling: Feelings.all[i],
-            selected: _selected?.id == Feelings.all[i].id,
-            isDark: isDark,
-            onTap: _loading ? null : () => _selectFeeling(Feelings.all[i]),
-            label: t(Feelings.all[i].labelKey),
-            index: i,
+    final surface = theme.colorScheme.surface;
+    // Soft bottom fade signals scrollability without a hard edge. The
+    // last partially-visible card now looks intentionally fading into
+    // more content, not clipped off.
+    return ShaderMask(
+      shaderCallback: (rect) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          surface,
+          surface,
+          surface.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.93, 1.0],
+      ).createShader(rect),
+      blendMode: BlendMode.dstIn,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 56),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
+            child: Text(
+              // "How are you feeling?" was a form-prompt; "What are you
+              // carrying?" meets the user at the weight they're
+              // bringing, which for a Muslim opening this screen is
+              // the whole point — we carry our states *to* Allah.
+              t('what_carrying'),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.onSurface,
+                height: 1.2,
+                letterSpacing: -0.3,
+              ),
+            ).animate().fadeIn(duration: 700.ms),
           ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
-                  strokeWidth: 1.5,
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
+            child: Text(
+              t('feeling_subtitle'),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                fontStyle: FontStyle.italic,
+                height: 1.5,
+              ),
+            ).animate().fadeIn(duration: 700.ms, delay: 200.ms),
+          ),
+          const SizedBox(height: 32),
+          for (var i = 0; i < Feelings.all.length; i++)
+            _FeelingRow(
+              feeling: Feelings.all[i],
+              selected: _selected?.id == Feelings.all[i].id,
+              isDark: isDark,
+              onTap:
+                  _loading ? null : () => _selectFeeling(Feelings.all[i]),
+              label: t(Feelings.all[i].labelKey),
+              index: i,
+            ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 1.5,
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -340,10 +379,15 @@ class _FeelingVisual {
     required this.subtitle,
   });
 
+  // All icons use the Material Rounded family for a single,
+  // consistent visual weight — previously a mix of outlined/rounded/
+  // filled variants made the picker feel assembled rather than
+  // designed. Rounded is soft enough to feel emotional without being
+  // childish.
   static const _map = {
     'low': _FeelingVisual(
       accent: Color(0xFF3C4563),
-      icon: Icons.nights_stay_outlined,
+      icon: Icons.nights_stay_rounded,
       subtitle: 'When something weighs on you',
     ),
     'anxious': _FeelingVisual(
@@ -353,12 +397,12 @@ class _FeelingVisual {
     ),
     'angry': _FeelingVisual(
       accent: Color(0xFF8B4543),
-      icon: Icons.local_fire_department_outlined,
+      icon: Icons.local_fire_department_rounded,
       subtitle: "When there's fire in your chest",
     ),
     'grateful': _FeelingVisual(
       accent: AppColors.accent,
-      icon: Icons.auto_awesome_outlined,
+      icon: Icons.auto_awesome_rounded,
       subtitle: "When you want to say thank you",
     ),
     'confused': _FeelingVisual(
@@ -378,12 +422,12 @@ class _FeelingVisual {
     ),
     'lost': _FeelingVisual(
       accent: AppColors.primary,
-      icon: Icons.explore_outlined,
+      icon: Icons.explore_rounded,
       subtitle: "When you need a direction",
     ),
     'exploring': _FeelingVisual(
       accent: Color(0xFF7A7466),
-      icon: Icons.auto_stories_outlined,
+      icon: Icons.auto_stories_rounded,
       subtitle: "Just sitting with the Qur'an",
     ),
   };
@@ -392,7 +436,7 @@ class _FeelingVisual {
       _map[id] ??
       const _FeelingVisual(
         accent: AppColors.primary,
-        icon: Icons.circle_outlined,
+        icon: Icons.circle_rounded,
         subtitle: '',
       );
 }
@@ -429,25 +473,37 @@ class _FeelingRow extends StatelessWidget {
         : Colors.white;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             decoration: BoxDecoration(
               color: selected
                   ? accent.withValues(alpha: 0.08)
                   : baseSurface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: selected
                     ? accent.withValues(alpha: 0.4)
-                    : theme.colorScheme.outline.withValues(alpha: 0.12),
+                    : theme.colorScheme.outline.withValues(alpha: 0.08),
                 width: 0.8,
               ),
+              // Very subtle lift — the card was disappearing into the
+              // cream background without this. 2% black at 6px blur
+              // reads as "intentional surface" not "Material card."
+              boxShadow: selected
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: IntrinsicHeight(
               child: Row(
@@ -461,18 +517,31 @@ class _FeelingRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.9),
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        bottomLeft: Radius.circular(16),
+                        topLeft: Radius.circular(18),
+                        bottomLeft: Radius.circular(18),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: Icon(
-                      visual.icon,
-                      size: 18,
-                      color: accent.withValues(alpha: 0.75),
+                    padding:
+                        const EdgeInsets.fromLTRB(14, 16, 0, 16),
+                    // Tinted circle badge behind the icon. Gives every
+                    // glyph the same visual weight regardless of how
+                    // dense the underlying icon is (a moon and a
+                    // compass otherwise read at very different sizes).
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.10),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        visual.icon,
+                        size: 20,
+                        color: accent.withValues(alpha: 0.85),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -493,7 +562,7 @@ class _FeelingRow extends StatelessWidget {
                             ),
                           ),
                           if (visual.subtitle.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             Text(
                               visual.subtitle,
                               style: theme.textTheme.bodySmall?.copyWith(

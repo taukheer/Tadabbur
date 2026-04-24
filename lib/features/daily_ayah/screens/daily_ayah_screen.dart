@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
+import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
 import 'package:tadabbur/core/widgets/golden_stroke.dart';
 import 'package:tadabbur/core/widgets/sajdah_glyph.dart';
@@ -581,6 +582,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               ),
             ),
           ],
+
           // === BOTTOM SPACING ===
           const SizedBox(height: 40),
         ],
@@ -1403,7 +1405,10 @@ class _CompletedState extends ConsumerWidget {
   }
 }
 
-/// Bottom sheet that loads and displays tafsir for a verse.
+/// Bottom sheet that loads and displays tafsir for a verse. The
+/// scholar is picked once in Settings and persisted per language;
+/// the sheet itself is a single-focus reading surface — no pickers,
+/// no decisions to make every time "Read more" is tapped.
 class _TafsirSheet extends ConsumerStatefulWidget {
   final String verseKey;
   final String lang;
@@ -1421,34 +1426,31 @@ class _TafsirSheet extends ConsumerStatefulWidget {
 
 class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
   String? _tafsirText;
-  bool _loading = true;
   String? _error;
+  bool _loading = true;
   bool _expanded = false;
-
-  // Use language-appropriate tafsir slug
-  String get _tafsirSlug {
-    if (widget.lang == 'ar') return 'ar-tafsir-muyassar';
-    return 'en-tafisr-ibn-kathir';
-  }
-
-  String get _tafsirName {
-    if (widget.lang == 'ar') return 'التفسير الميسر';
-    return 'Tafsir Ibn Kathir';
-  }
+  late TafsirOption _selected;
 
   @override
   void initState() {
     super.initState();
+    final storage = ref.read(localStorageProvider);
+    final normalizedLang = widget.lang == 'ar' ? 'ar' : 'en';
+    final preferredSlug = storage.getPreferredTafsirSlug(normalizedLang);
+    _selected = resolveTafsirFor(normalizedLang, preferredSlug);
     _loadTafsir();
   }
 
   Future<void> _loadTafsir() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final quranApi = ref.read(quranApiProvider);
-      final text = await quranApi.getTafsir(_tafsirSlug, widget.verseKey);
+      final text = await quranApi.getTafsir(_selected.slug, widget.verseKey);
       if (mounted) {
         setState(() {
-          // Strip HTML tags and fix missing spaces between sections
           _tafsirText = text
               .replaceAll(RegExp(r'<[^>]*>'), ' ')
               .replaceAll(RegExp(r'\s+'), ' ')
@@ -1496,14 +1498,17 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
               const Icon(Icons.auto_stories_outlined,
                   size: 20, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                _tafsirName,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  _selected.fullName,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 widget.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -1512,7 +1517,20 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
+          // Mufassir attribution — small, italic. Transparent about who
+          // we're hearing from and builds trust with users who know
+          // their scholars. (Scholar chosen via Settings.)
+          Text(
+            _selected.mufassir,
+            textAlign: TextAlign.left,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontStyle: FontStyle.italic,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 10),
           const Divider(color: Color(0xFFE8E0D4)),
           const SizedBox(height: 8),
 

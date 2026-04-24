@@ -211,6 +211,17 @@ class LocalStorageService {
   Future<void> setUseHijriDates(bool value) =>
       _prefs.setBool(_keyUseHijriDates, value);
 
+  static const _keyPreferredTafsirPrefix = 'preferred_tafsir_';
+
+  /// Returns the user's preferred tafsir slug for [lang] (e.g. 'en'),
+  /// or null if they haven't picked one — in which case the
+  /// first-available option for that language is used as default.
+  String? getPreferredTafsirSlug(String lang) =>
+      _prefs.getString('$_keyPreferredTafsirPrefix$lang');
+
+  Future<void> setPreferredTafsirSlug(String lang, String slug) =>
+      _prefs.setString('$_keyPreferredTafsirPrefix$lang', slug);
+
   static const _keyDeferredSignInShown = 'deferred_signin_shown';
 
   /// Whether the "save what you've written" prompt has been surfaced

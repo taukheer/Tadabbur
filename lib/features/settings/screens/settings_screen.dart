@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
@@ -238,6 +239,13 @@ class SettingsScreen extends ConsumerWidget {
               _SectionLabel('DAILY REMINDER', theme),
               const SizedBox(height: 10),
               _NotificationTile(ref: ref, theme: theme),
+
+              const SizedBox(height: 28),
+
+              // === TAFSIR SCHOLAR ===
+              _SectionLabel('TAFSIR SCHOLAR', theme),
+              const SizedBox(height: 10),
+              _TafsirScholarTile(theme: theme),
 
               const SizedBox(height: 28),
 
@@ -477,7 +485,7 @@ class SettingsScreen extends ConsumerWidget {
               // journal tab surfaces the banner only during the
               // Dec 15 – Jan 15 window; users who want to revisit an
               // older review or peek mid-year come here.
-              _SectionLabel('YEARLY REVIEWS', theme),
+              _SectionLabel('YEAR IN AYAT', theme),
               const SizedBox(height: 10),
               _YearlyReviewsTile(ref: ref, theme: theme),
 
@@ -1853,6 +1861,115 @@ class _YearRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Lets the user pick which mufassir is shown when they tap "Read more"
+/// on any ayah. Persisted per-language so an English reader's choice
+/// doesn't stomp their Arabic reading preference. Options are filtered
+/// to the user's current app language — no point showing Arabic
+/// tafsirs to someone reading in English translation.
+class _TafsirScholarTile extends ConsumerStatefulWidget {
+  final ThemeData theme;
+  const _TafsirScholarTile({required this.theme});
+
+  @override
+  ConsumerState<_TafsirScholarTile> createState() =>
+      _TafsirScholarTileState();
+}
+
+class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final storage = ref.watch(localStorageProvider);
+    final rawLang = ref.watch(languageProvider);
+    final lang = rawLang == 'ar' ? 'ar' : 'en';
+    final options = tafsirOptionsFor(lang);
+    final current = resolveTafsirFor(lang, storage.getPreferredTafsirSlug(lang));
+
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warmBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Shown when you tap "Read more" on an ayah.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final opt in options)
+                GestureDetector(
+                  onTap: () async {
+                    await storage.setPreferredTafsirSlug(lang, opt.slug);
+                    if (mounted) setState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: opt.slug == current.slug
+                          ? AppColors.primary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: opt.slug == current.slug
+                            ? AppColors.primary.withValues(alpha: 0.55)
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.15),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          opt.shortName,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: opt.slug == current.slug
+                                ? AppColors.primary
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.75),
+                            fontWeight: opt.slug == current.slug
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          opt.mufassir,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.5),
+                            fontSize: 10.5,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
