@@ -77,9 +77,17 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
 
-    List<JournalEntry> entries = _searchQuery.isEmpty
-        ? allEntries
-        : ref.read(journalProvider.notifier).search(_searchQuery);
+    List<JournalEntry> entries;
+    if (_searchQuery.isEmpty) {
+      entries = allEntries;
+    } else {
+      final q = _searchQuery.toLowerCase();
+      entries = allEntries.where((e) {
+        return (e.responseText?.toLowerCase().contains(q) ?? false) ||
+            e.translationText.toLowerCase().contains(q) ||
+            e.verseKey.contains(q);
+      }).toList();
+    }
 
     // Apply the tier filter on top of search — search narrows by
     // content, tier narrows by depth. Both can be active together.

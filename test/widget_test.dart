@@ -10,6 +10,7 @@ import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/quran_api_service.dart';
 import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
+import 'package:tadabbur/core/services/notification_service.dart';
 
 // =============================================================================
 // Fakes / Stubs
@@ -62,7 +63,17 @@ class FakeUserApiService extends UserApiService {
     String verseKey,
     String body, {
     Map<String, dynamic>? metadata,
+    bool shareToQuranReflect = false,
   }) async {}
+}
+
+/// A minimal fake for [NotificationService] that no-ops scheduling so
+/// tests don't touch the platform notification plugin.
+class FakeNotificationService extends NotificationService {
+  FakeNotificationService() : super(FakeLocalStorageService());
+
+  @override
+  Future<void> ensureDailyScheduled({bool forceReplace = false}) async {}
 }
 
 /// A minimal fake for [FirestoreService].
@@ -107,6 +118,7 @@ UserProgressNotifier createProgressNotifier({
     fakeStorage,
     FakeUserApiService(),
     FakeFirestoreService(),
+    FakeNotificationService(),
   );
 }
 
@@ -1024,6 +1036,7 @@ void main() {
         storage,
         FakeUserApiService(),
         FakeFirestoreService(),
+        FakeNotificationService(),
       );
 
       expect(storage.getProgress(), isNull);
@@ -1043,6 +1056,7 @@ void main() {
         storage,
         FakeUserApiService(),
         FakeFirestoreService(),
+        FakeNotificationService(),
       );
 
       await notifier.setStartingVerse('50:1');

@@ -126,6 +126,55 @@ flutter run
 2. Add SHA-1 fingerprint for Android
 3. App package: `com.tadabbur.tadabbur`
 
+### Quran Foundation OAuth Setup
+
+Tadabbur signs users in against the Quran Foundation (QF) identity
+provider so reflections, streaks, and activity days can sync to the
+QF ecosystem.
+
+1. Register an OAuth client at the [QF developer portal](https://api-docs.quran.foundation)
+2. Copy `.env.example` to `.env` and fill in your credentials:
+   ```bash
+   QF_CLIENT_ID=your-client-id
+   QF_CLIENT_SECRET=your-client-secret
+   QF_AUTH_ENDPOINT=https://oauth2.quran.foundation
+   ```
+3. `.env` is gitignored — it must never be committed.
+
+### Building
+
+Use the repo scripts — they inject QF credentials via `--dart-define`
+so the OAuth client ID and secret never end up in source:
+
+```bash
+./scripts/build-apk.sh        # release APK
+./scripts/build-aab.sh        # release AAB for Play Store
+./scripts/run-dev.sh          # dev run with credentials wired in
+```
+
+A raw `flutter build apk` will produce a binary with a broken auth
+config — always go through the scripts.
+
+## Architecture at a glance
+
+```
+lib/
+  core/                    Shared infrastructure
+    services/              QF APIs, Firebase, auth, audio, notifications
+    providers/             Riverpod state (27 providers)
+    models/                Ayah, JournalEntry, UserProgress, UserProfile
+    theme/ router/ widgets/
+  features/                Feature slices (no cross-feature imports)
+    onboarding/  daily_ayah/  reflection/
+    journal/     feelings/    settings/
+```
+
+- **State management** — Riverpod, single `app_providers.dart` index
+- **Sync** — Local-first (SharedPreferences) with Firestore mirroring
+- **Auth** — QF OAuth2 PKCE (primary) + anonymous Firebase Auth
+- **Secrets** — Never in source; `--dart-define` at build time
+- **Offline** — Editorial content bundled in `assets/data/`
+
 ## Project Structure
 
 ```
