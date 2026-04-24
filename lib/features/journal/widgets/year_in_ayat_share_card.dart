@@ -318,8 +318,8 @@ class _YearShareCard extends StatelessWidget {
                           child: _CardStat(
                             value: '$activeDays',
                             label: activeDays == 1
-                                ? 'day with the Qur\'an'
-                                : 'days with the Qur\'an',
+                                ? 'day with the Quran'
+                                : 'days with the Quran',
                           ),
                         ),
                       ],

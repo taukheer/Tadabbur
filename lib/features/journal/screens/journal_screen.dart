@@ -2634,7 +2634,7 @@ class _YearInAyatBanner extends ConsumerWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Tap to see your year with the Qur\'an',
+                        'Tap to see your year with the Quran',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.55),
@@ -2715,7 +2715,7 @@ class YearInAyatSheet extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your year with the Qur\'an',
+                      'Your year with the Quran',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.onSurface,
@@ -2773,7 +2773,7 @@ class YearInAyatSheet extends ConsumerWidget {
               Expanded(
                 child: _YearStat(
                   value: '${s.activeDays}',
-                  label: 'days with the Qur\'an',
+                  label: 'days with the Quran',
                 ),
               ),
             ],
