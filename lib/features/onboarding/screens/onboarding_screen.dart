@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -172,8 +173,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     await _completeOnboarding(asGuest: true, method: 'quran_foundation');
   }
 
-  bool get _isIOS =>
-      Theme.of(context).platform == TargetPlatform.iOS;
+  /// Detect the real device OS rather than the Flutter theme platform.
+  /// `Theme.of(context).platform` respects `ThemeData.platform`
+  /// overrides, so on Android Sign in with Apple would still appear
+  /// if the theme said so. Using `dart:io`'s `Platform.isIOS` reads
+  /// the actual OS so the button only renders on real iOS devices.
+  bool get _isIOS => Platform.isIOS;
 
   Future<void> _signInWithGoogle() async {
     debugPrint('[Button] Onboarding: Google sign-in tapped');
@@ -512,7 +517,12 @@ class _ArabicRelationshipPage extends StatelessWidget {
               onSelect((ArabicLevel.fluent, UnderstandingLevel.most)),
         ),
         _Option(
-          title: t('read_fluent'),
+          // Distinct from 'read_fluent' — a user who can recite
+          // Arabic fluently in salah but doesn't fully comprehend the
+          // meaning is an extremely common Muslim reality. The
+          // previous build duplicated "I read Arabic fluently" here,
+          // which was both a bug and a dismissal of that experience.
+          title: t('read_recite'),
           subtitle: t('understand_some'),
           isSelected: _isSelected(ArabicLevel.fluent, UnderstandingLevel.some),
           onTap: () =>
@@ -947,6 +957,19 @@ class _Option extends StatelessWidget {
                 : AppColors.warmBorder.withValues(alpha: 0.6),
             width: isSelected ? 1.5 : 0.5,
           ),
+          // Matches the subtle lift we gave the Feelings cards so the
+          // whole app feels like one visual system. Skipped on the
+          // selected state because the tinted fill + stronger border
+          // already lift it visually.
+          boxShadow: isSelected
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           children: [

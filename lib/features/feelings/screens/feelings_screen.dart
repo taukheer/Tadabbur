@@ -428,7 +428,7 @@ class _FeelingVisual {
     'exploring': _FeelingVisual(
       accent: Color(0xFF7A7466),
       icon: Icons.auto_stories_rounded,
-      subtitle: "Just sitting with the Qur'an",
+      subtitle: "Just sitting with the Quran",
     ),
   };
 

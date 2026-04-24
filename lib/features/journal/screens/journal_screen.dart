@@ -2346,7 +2346,7 @@ class _LensToggle extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _LensPill(
-            label: "Qur'an",
+            label: "Quran",
             icon: Icons.auto_stories_outlined,
             selected: current == _JournalLens.surah,
             onTap: () => onChanged(_JournalLens.surah),

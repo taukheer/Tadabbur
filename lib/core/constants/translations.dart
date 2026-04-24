@@ -9,10 +9,11 @@ class AppTranslations {
     'en': {
       // Onboarding
       'welcome_line': 'Sixty seconds with the Quran.\nEvery morning.\nAnd one day, your prayer\nwill change.',
-      'tagline': 'To reflect deeply on the Qur\'an',
+      'tagline': 'To reflect deeply on the Quran',
       'how_read_arabic': 'How well do you\nread Arabic?',
       'read_fluent': 'I read Arabic fluently',
       'read_fluent_sub': 'Comfortable with Uthmani script',
+      'read_recite': 'I can recite fluently',
       'read_slow': 'I can read slowly',
       'read_slow_sub': 'Learning or need practice',
       'read_none': 'I cannot read Arabic',
