@@ -31,14 +31,14 @@ When you need guidance beyond the daily ayah:
 ### Core Experience
 - Daily sequential ayah from Al-Fatiha to An-Nas
 - Arabic text with auto-scaling for long ayat
-- Translation in 21 languages
+- Translation in 19 languages
 - Optional transliteration (Roman script)
-- Audio recitation with play/pause (6 reciters)
+- Audio recitation with play/pause (7 reciters, dynamically sourced from Quran Foundation)
 - Three-tier reflection: acknowledge / respond / reflect
 - Personal journal with searchable entries
 
 ### Personalization
-- 21 languages with full UI translation
+- 19 languages with full UI translation
 - 5 Arabic font options with adjustable size
 - Choose starting surah (all 114 available)
 - Personalized based on Arabic reading level, understanding, and motivation
@@ -87,11 +87,15 @@ When you need guidance beyond the daily ayah:
 - `POST /streaks` — Track daily streak
 - `POST /activity-days` — Log daily activity
 
-## Languages Supported (21)
+## Languages Supported (19)
 
-English, Arabic, Urdu, Tamil, Malayalam, French, Spanish, Turkish, Indonesian, Hindi, Bengali, Malay, German, Russian, Portuguese, Persian, Somali, Swahili, Chinese, Japanese, Korean
+English, Arabic, Urdu, French, Spanish, Turkish, Indonesian, Malay, Bengali, Hindi, German, Russian, Portuguese, Persian, Tamil, Swahili, Chinese, Japanese, Korean.
 
-Every user-visible string is translated — onboarding, daily screen, reflection, journal, settings, feelings, completion messages.
+Every user-visible string is translated — onboarding, daily screen, reflection,
+journal, settings, feelings, completion messages.
+
+Malayalam and Somali are scaffolded in `lib/core/constants/translations.dart`
+but hidden from the language picker until a native translator reviews them.
 
 ## Getting Started
 
@@ -106,7 +110,7 @@ Every user-visible string is translated — onboarding, daily screen, reflection
 
 ```bash
 # Clone
-git clone https://github.com/yourusername/Tadabbur.git
+git clone https://github.com/taukheer/Tadabbur.git
 cd Tadabbur
 
 # Install dependencies

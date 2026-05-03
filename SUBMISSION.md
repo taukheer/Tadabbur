@@ -35,7 +35,7 @@ The product thesis is engagement that *outlasts Ramadan*. Every design decision 
 ### 2. Product Quality & UX — 20 pts
 
 - **Designed as a sacred space, not a productivity tool** — calm palette, restrained motion, no streaks shouted at the user, no leaderboards, no emojis on Feeling cards.
-- **21 languages**, full‑coverage: Arabic, Urdu, Tamil, Malayalam, French, Spanish, Turkish, Indonesian, Hindi, Bengali, Malay, German, Russian, Portuguese, Persian, Somali, Swahili, Chinese, Japanese, Korean, English. Every UI string, reflection prompt, and feeling label is translated.
+- **19 languages shipped with end‑to‑end UI coverage**: English, Arabic, Urdu, French, Spanish, Turkish, Indonesian, Malay, Bengali, Hindi, German, Russian, Portuguese, Persian, Tamil, Swahili, Chinese (Simplified), Japanese, Korean. Every visible UI string, reflection prompt, feeling label, streak‑copy variant, and font genre description is translated. Malayalam and Somali are deferred until native translators can review — they remain in the translations file as English fallback so the architecture is ready, but they're hidden from the language picker so users only see languages we can stand behind.
 - **Arabic typography** — 5 font options (AmiriQuran, Noto Naskh Arabic, system, etc.), 4 sizes, RTL‑safe, locale‑tagged for correct shaping. Optional transliteration for non‑Arabic readers, auto‑enabled when the onboarding flow detects no Arabic reading ability.
 - **6‑step onboarding** that personalises the experience: Arabic level, comprehension level, motivation (salah / connection / practice / learning), starting surah, language, sign‑in or guest. Output: a verse cadence, prompt style, and notification tone tuned to *this* user.
 - **Empty states, loading states, and error states are explicit** on every screen — no blank spinners, no silent failures. Recent polish pass added: error message surfacing on the daily‑ayah load failure, snackbar feedback on Feelings‑mode API failures, snackbar on journal pull‑to‑refresh failures, and an explicit *"Shared to Quran Reflect"* confirmation on the completion screen when the user opted in.
@@ -71,7 +71,7 @@ Tadabbur uses **multiple Content APIs and multiple User APIs**, not the single�
 | API | Endpoint | Usage |
 |-----|----------|-------|
 | Quran (Verses) | `/verses/by_key/{key}` | Daily verse Arabic (Uthmani) + chapter context |
-| Translation | `/verses/by_key/{key}?translations={id}` | Per‑user translation in 21 languages |
+| Translation | `/verses/by_key/{key}?translations={id}` | Per‑user translation in 19 languages |
 | Word‑by‑word | `/verses/by_key/{key}?words=true` | Optional word breakdown + transliteration |
 | Audio | `/recitations/{reciter_id}/by_chapter/{chapter}` → `audio.qurancdn.com` | Attempted first for per‑verse audio. Each reciter selection is wired to the QF reciter id, so the call asks for the actually-selected reciter — not the default. Falls back to `cdn.islamic.network` (the only CDN with reliable per‑ayah files for all 7 reciters today) when QF returns no audio. Fallback events logged to Crashlytics + Analytics so a regression in either source is observable. |
 | Audio Reciters Catalogue | `/audio/reciters` | Live‑fetched on Settings open and cached for 7 days; the count of reciters available on Quran Foundation is rendered under the RECITER section header so the integration is visible to a judge in 5 seconds. |

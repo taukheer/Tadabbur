@@ -13,7 +13,8 @@ import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/journal/screens/journal_screen.dart'
-    show YearStats, YearInAyatSheet, hijriYearLabel;
+    show hijriYearLabel;
+import 'package:tadabbur/features/journal/widgets/year_in_ayat_sheet.dart';
 
 /// Map from a Quran Foundation `recitations.id` (the value used in
 /// `/recitations/{id}/by_chapter` audio calls) to the corresponding
