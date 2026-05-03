@@ -76,14 +76,12 @@ class AppLanguages {
       code: 'ta', name: 'Tamil', nativeName: 'தமிழ்',
       translationId: 229, translationAuthor: 'Sheikh Omar Sharif',
     ),
-    AppLanguage(
-      code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം',
-      translationId: 80, translationAuthor: 'Muhammad Karakunnu',
-    ),
-    AppLanguage(
-      code: 'so', name: 'Somali', nativeName: 'Soomaali',
-      translationId: 46, translationAuthor: 'Mahmud Muhammad Abduh',
-    ),
+    // Malayalam ('ml') and Somali ('so') were dropped from the picker
+    // before launch — the UI translations were too thin to ship to
+    // Kerala Mappila and East African Sunni-Sufi audiences without a
+    // native reviewer. The keys remain in translations.dart as English
+    // fallback only; re-introducing the language is a one-line change
+    // here once a native translator polishes the strings.
     AppLanguage(
       code: 'sw', name: 'Swahili', nativeName: 'Kiswahili',
       translationId: 231, translationAuthor: 'Dr. Abdullah Muhammad Abu Bakr',

@@ -905,6 +905,11 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
         tier: ReflectionTier.acknowledge,
         completedAt: DateTime.now(),
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
+        // Pin the language the translation was rendered in, so the
+        // journal can hide it later if the user switches their app
+        // language to something else (an Arabic user shouldn't see a
+        // Tamil translation on their own past entries).
+        translationLang: ref.read(languageProvider),
       );
       // Haptic feedback — the moment lands
       HapticFeedback.mediumImpact();

@@ -118,6 +118,7 @@ class FirestoreService {
       'verse_key': entry.verseKey,
       'arabic_text': entry.arabicText,
       'translation_text': entry.translationText,
+      'translation_lang': entry.translationLang,
       'tier': entry.tier.name,
       'prompt_text': entry.promptText,
       'response_text': entry.responseText,
@@ -408,6 +409,7 @@ class FirestoreService {
           responseText: data['response_text'] as String?,
           completedAt: DateTime.tryParse(data['completed_at'] as String? ?? '') ?? DateTime.now(),
           streakDay: data['streak_day'] as int? ?? 0,
+          translationLang: data['translation_lang'] as String?,
         );
       }).toList();
     } catch (e) {

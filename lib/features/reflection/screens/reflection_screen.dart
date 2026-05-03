@@ -386,6 +386,9 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
         responseText: responseText,
         completedAt: DateTime.now(),
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
+        // Capture the active app language so the journal can later
+        // suppress this translation if the user switches languages.
+        translationLang: ref.read(languageProvider),
       );
 
       // Only honor the share toggle for tier-3 entries, mirroring where

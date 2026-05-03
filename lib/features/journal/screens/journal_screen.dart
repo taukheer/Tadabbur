@@ -36,6 +36,30 @@ String _cleanTranslation(String text) {
       .trim();
 }
 
+/// Whether an entry's stored translation should render given the user's
+/// current app language. The translation is captured at write-time in
+/// whatever language the user was viewing then; if they later switch
+/// languages, showing the old translation creates a confusing
+/// language-mismatch (e.g., an Arabic-mode user seeing Tamil text on
+/// their own past entries).
+///
+/// Rules:
+///   1. Empty translation → never render.
+///   2. Stored language is unknown (legacy entries from before the
+///      `translationLang` field existed) → suppress. Without a stored
+///      language we can't verify the translation matches what the user
+///      currently wants; showing it risks language collisions like
+///      Tamil text inside an Arabic-mode UI. The verse Arabic text +
+///      the user's own reflection still tell the story.
+///   3. Stored language matches current → render.
+///   4. Stored language differs → suppress.
+bool _translationVisible(JournalEntry entry, String currentLang) {
+  if (entry.translationText.trim().isEmpty) return false;
+  final stored = entry.translationLang;
+  if (stored == null || stored.isEmpty) return false;
+  return stored == currentLang;
+}
+
 class JournalScreen extends ConsumerStatefulWidget {
   const JournalScreen({super.key});
 
@@ -768,16 +792,21 @@ class _EntryDetailSheet extends ConsumerWidget {
           const SizedBox(height: 18),
 
           // ── Translation ──
-          Text(
-            '"${_cleanTranslation(entry.translationText)}"',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              fontStyle: FontStyle.italic,
-              height: 1.7,
-              fontSize: 15,
+          // Suppressed when the entry's stored translation is in a
+          // language different from the user's current app language —
+          // an Arabic-mode user shouldn't see Tamil text on entries
+          // they wrote while in Tamil mode.
+          if (_translationVisible(entry, lang))
+            Text(
+              '"${_cleanTranslation(entry.translationText)}"',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontStyle: FontStyle.italic,
+                height: 1.7,
+                fontSize: 15,
+              ),
             ),
-          ),
 
           const SizedBox(height: 28),
 
@@ -1579,15 +1608,18 @@ class _ReflectionBlock extends StatelessWidget {
 
 /// Ayah as supporting context below a reflection. Compact — one line
 /// of Arabic, one line of translation, and the reference pill.
-class _AyahContext extends StatelessWidget {
+class _AyahContext extends ConsumerWidget {
   final JournalEntry entry;
 
   const _AyahContext({required this.entry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final translation = _cleanTranslation(entry.translationText);
+    final lang = ref.watch(languageProvider);
+    final translation = _translationVisible(entry, lang)
+        ? _cleanTranslation(entry.translationText)
+        : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1648,15 +1680,18 @@ class _AyahContext extends StatelessWidget {
 
 /// Ayah as hero (when no reflection text was written). Gets the
 /// centered, larger treatment since the ayah itself is the subject.
-class _AyahHero extends StatelessWidget {
+class _AyahHero extends ConsumerWidget {
   final JournalEntry entry;
 
   const _AyahHero({required this.entry});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final translation = _cleanTranslation(entry.translationText);
+    final lang = ref.watch(languageProvider);
+    final translation = _translationVisible(entry, lang)
+        ? _cleanTranslation(entry.translationText)
+        : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

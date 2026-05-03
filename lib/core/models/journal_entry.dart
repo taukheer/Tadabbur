@@ -17,6 +17,16 @@ class JournalEntry {
   /// serialized entries deserialize cleanly without a migration.
   final bool isPinned;
 
+  /// Language code (e.g. `'en'`, `'ta'`, `'ar'`) the user was viewing
+  /// when this entry was written — i.e. the language [translationText]
+  /// is in. Lets the journal hide a stale translation when the user
+  /// later switches their app language: an Arabic-mode user shouldn't
+  /// see Tamil text on entries they wrote while in Tamil mode.
+  /// Null on legacy entries written before this field existed; the
+  /// render layer treats null as "language unknown" and hides the
+  /// translation defensively.
+  final String? translationLang;
+
   const JournalEntry({
     required this.id,
     required this.verseKey,
@@ -29,6 +39,7 @@ class JournalEntry {
     this.hijriDate,
     required this.streakDay,
     this.isPinned = false,
+    this.translationLang,
   });
 
   factory JournalEntry.fromJson(Map<String, dynamic> json) {
@@ -47,6 +58,7 @@ class JournalEntry {
       hijriDate: json['hijri_date'] as String?,
       streakDay: json['streak_day'] as int,
       isPinned: json['is_pinned'] as bool? ?? false,
+      translationLang: json['translation_lang'] as String?,
     );
   }
 
@@ -63,6 +75,7 @@ class JournalEntry {
       if (hijriDate != null) 'hijri_date': hijriDate,
       'streak_day': streakDay,
       if (isPinned) 'is_pinned': true,
+      if (translationLang != null) 'translation_lang': translationLang,
     };
   }
 
@@ -78,6 +91,7 @@ class JournalEntry {
     String? hijriDate,
     int? streakDay,
     bool? isPinned,
+    String? translationLang,
   }) {
     return JournalEntry(
       id: id ?? this.id,
@@ -91,6 +105,7 @@ class JournalEntry {
       hijriDate: hijriDate ?? this.hijriDate,
       streakDay: streakDay ?? this.streakDay,
       isPinned: isPinned ?? this.isPinned,
+      translationLang: translationLang ?? this.translationLang,
     );
   }
 
@@ -115,7 +130,8 @@ class JournalEntry {
         other.completedAt == completedAt &&
         other.hijriDate == hijriDate &&
         other.streakDay == streakDay &&
-        other.isPinned == isPinned;
+        other.isPinned == isPinned &&
+        other.translationLang == translationLang;
   }
 
   @override
@@ -132,6 +148,7 @@ class JournalEntry {
       hijriDate,
       streakDay,
       isPinned,
+      translationLang,
     );
   }
 }

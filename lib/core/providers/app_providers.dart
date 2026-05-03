@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/qf_user_profile.dart';
 import 'package:tadabbur/core/services/api_client.dart';
@@ -708,8 +709,17 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
 
         String arabicText = '';
         String translationText = '';
+        // Fetch the verse with a translation in the user's current
+        // language so synced entries arrive ready-to-display rather
+        // than carrying a stale English fallback for non-English users.
+        final hydrationLang = _storage.language;
+        final translationId =
+            AppLanguages.getByCode(hydrationLang).translationId.toString();
         try {
-          final ayah = await _quranApi.getVerseByKey(verseKey);
+          final ayah = await _quranApi.getVerseByKey(
+            verseKey,
+            translationId: translationId,
+          );
           arabicText = ayah.textUthmani;
           translationText = ayah.translationText ?? '';
         } catch (e) {
@@ -731,6 +741,7 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
           responseText: body,
           completedAt: _parseDate(raw) ?? DateTime.now(),
           streakDay: 0,
+          translationLang: hydrationLang,
         ));
       }
 
