@@ -9,6 +9,7 @@ import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/word.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
+import 'package:tadabbur/core/services/audio_service.dart';
 import 'package:tadabbur/core/services/home_widget_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
 
@@ -162,6 +163,39 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
 
   DailyAyahNotifier(this._ref) : super(const DailyAyahState()) {
     loadDailyAyah();
+    // Re-resolve the audio URL whenever the user picks a different
+    // reciter in Settings — without this, `state.audioUrl` keeps the
+    // URL captured during the initial load and the play button keeps
+    // playing the previous reciter.
+    _ref.listen<String>(reciterPathProvider, (prev, next) {
+      if (prev != null && prev != next) {
+        reloadAudio();
+      }
+    });
+  }
+
+  /// Re-resolve the audio URL for the verse currently in state, using
+  /// the latest reciter preferences. No-op if the ayah hasn't loaded
+  /// yet or the verse key is missing.
+  Future<void> reloadAudio() async {
+    final ayah = state.ayah;
+    if (ayah == null) return;
+    final storage = _ref.read(localStorageProvider);
+    final reciterId = storage.preferredReciterId;
+    final reciterPath = storage.reciterPath;
+    final quranApi = _ref.read(quranApiProvider);
+    try {
+      final url = await _resolveAudioUrl(
+        quranApi,
+        reciterId,
+        ayah.verseKey,
+        reciterPath,
+      );
+      if (!mounted) return;
+      state = state.copyWith(audioUrl: url);
+    } catch (e) {
+      SyncReporter.report('audio · reload', e, severity: SyncSeverity.quiet);
+    }
   }
 
   Future<void> loadDailyAyah() async {
@@ -323,14 +357,16 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   }
 
   /// Resolve the audio URL for a verse via the QF recitations endpoint.
-  /// Falls back to the legacy verses.quran.com path if the API call fails,
-  /// so audio still works when the recitations endpoint is unavailable.
+  /// Falls back to cdn.islamic.network — the only CDN that hosts per-ayah
+  /// files for all 6 reciters we ship — when the QF call fails or returns
+  /// no usable audio (the public unauth `/recitations/.../by_chapter`
+  /// endpoint currently returns an empty `audio_files` array).
   ///
   /// Fallback triggers are reported to Crashlytics (non-fatal) and
-  /// Analytics so silent 404s from a stale [reciterPath] or a QF outage
-  /// become visible instead of leaving users with broken audio and no
-  /// signal. If [reciterPath] is empty, the fallback URL would 404, so
-  /// we rethrow the original error rather than return a known-bad URL.
+  /// Analytics so a regression in either source is visible instead of
+  /// leaving users with a silent broken player. If [reciterPath] is
+  /// empty or the verseKey can't be resolved to an absolute ayah number,
+  /// the fallback URL can't be built — rethrow the original error.
   Future<String> _resolveAudioUrl(
     dynamic quranApi,
     int reciterId,
@@ -340,7 +376,8 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
     try {
       return await quranApi.getAudioUrl(reciterId, verseKey) as String;
     } catch (error, stack) {
-      if (reciterPath.isEmpty) {
+      final absAyah = absoluteAyahFromVerseKey(verseKey);
+      if (reciterPath.isEmpty || absAyah == null) {
         SyncReporter.report(
           'audio · no fallback path',
           error,
@@ -357,7 +394,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       unawaited(FirebaseCrashlytics.instance.recordError(
         error,
         stack,
-        reason: 'audio fallback to verses.quran.com CDN',
+        reason: 'audio fallback to cdn.islamic.network CDN',
         information: [
           'reciterId=$reciterId',
           'verseKey=$verseKey',
@@ -376,10 +413,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
         SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
       }));
 
-      final parts = verseKey.split(':');
-      final chapterPadded = parts[0].padLeft(3, '0');
-      final versePadded = parts[1].padLeft(3, '0');
-      return 'https://verses.quran.com/$reciterPath/mp3/$chapterPadded$versePadded.mp3';
+      return islamicNetworkAyahUrl(reciterPath, absAyah);
     }
   }
 

@@ -40,6 +40,14 @@ class HomeWidgetService {
     required Ayah ayah,
     required int dayNumber,
   }) async {
+    // iOS WidgetKit requires a configured App Group identifier (and
+    // matching entitlements) before saveWidgetData can write anywhere.
+    // We don't ship an iOS widget yet, so calling saveWidgetData on
+    // iOS just throws PlatformException(-7, AppGroupId not set) on
+    // every daily-ayah load. Skip cleanly until the iOS widget target
+    // and App Group are set up.
+    if (!Platform.isAndroid) return;
+
     try {
       // Keep the body short enough for the widget's two-line clamp.
       // Very long ayat (e.g. 2:282) would otherwise dominate the card.

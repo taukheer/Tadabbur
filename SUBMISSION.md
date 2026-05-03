@@ -1,179 +1,138 @@
 # Tadabbur — Quran Foundation Hackathon Submission
 
 ## Project Title
-Tadabbur
+**Tadabbur** — One ayah. Every day. For life.
 
 ## Team
-- Mohammed Taukheer
+- Mohammed Taukheer (solo)
 
 ## Short Description
-One ayah. Every day. For life. Tadabbur is a daily Quran contemplation app that helps Muslims build a lasting relationship with the Quran through guided reflection, scholarly tafsir, and habit-forming design.
+Tadabbur is a daily Quran contemplation app built around one verse a day, a three‑tier reflection ladder, and a feelings‑based search — all wired through the Quran Foundation Content and User APIs so that streaks, reflections, bookmarks, and Quran Reflect posts stay in sync with the user's quran.com identity.
 
-## Detailed Description
+## The Problem (and why it's the brief)
+The hackathon brief identifies the core gap directly:
 
-Tadabbur transforms the way Muslims engage with the Quran daily. Instead of overwhelming users with full surahs or complex study tools, it delivers one ayah per day with a carefully designed experience that takes 60 seconds — and leaves a lasting impression.
+> "Many reconnect during Ramadan, but maintaining engagement afterwards is difficult."
 
-The app guides users through a simple flow: listen to the ayah, read its translation, sit with it, and reflect. Over time, this builds into a spiritual autobiography — a personal journal of every verse that touched them.
+Most Quran apps optimise for *volume* — long reading streaks, full‑surah sessions, leaderboards. That works for the ~5% who already have the habit. For everyone else it produces guilt, then disengagement, the moment Ramadan ends.
 
-### What makes Tadabbur different
+Tadabbur takes the opposite bet: **depth over volume.** One ayah. Sixty seconds. Every day. Forever.
 
-**Simplicity as a feature.** Most Quran apps try to do everything. Tadabbur does one thing exceptionally well: daily contemplation. The interface is calm, minimal, and intentional — designed to feel like a sacred space, not a productivity tool.
+---
 
-**Tiered reflection system.** Not every day requires deep scholarship. Some days, all you can do is acknowledge the ayah touched you. Other days, you want to write. Tadabbur supports three tiers:
-- **Acknowledge** — "I felt this" (one tap)
-- **Respond** — Write a line guided by a reflection prompt
-- **Reflect** — Deep contemplation with scholarly questions
+## How Tadabbur Maps to the 100‑Point Rubric
 
-**Scholarly depth, on demand.** Every verse has a tafsir summary from Ibn Kathir (English) or Al-Tafsir Al-Muyassar (Arabic), pre-bundled locally for instant offline access. Users can tap "Read more" to load the full tafsir. 130 key verses across all 114 surahs also have curated editorial content — historical context, scholar reflections, and contemplation prompts — all verified against authentic sources.
+### 1. Impact on Quran Engagement — 30 pts (tiebreaker)
 
-**Feelings mode.** When users come to the app not for their daily ayah but because they need comfort, they can select how they're feeling — anxious, lonely, grateful, lost — and receive a curated ayah with context for that emotional state. 90 ayat mapped across 9 feelings.
+The product thesis is engagement that *outlasts Ramadan*. Every design decision serves this:
 
-**Habit architecture, not guilt.** The app uses identity-based notifications ("Day 7. You're someone who shows up."), streak tracking with freeze allowances, and quiet day counters — never guilt-tripping, always affirming. The completion message "You showed up today. This counts." is the emotional core.
+- **Sequential daily delivery from Al‑Fatiha through An‑Nas.** The user is on a personal walk through the entire Mushaf — not picking from a feed. Showing up matters more than catching up; freezes (3) absorb life without breaking the streak.
+- **Three‑tier reflection ladder** — *Acknowledge → Respond → Reflect* — meets the user where they are on each given day. A bad day is one tap; a thoughtful one is a guided journal entry. Both *count*. This is the single most engagement‑relevant feature: it removes the all‑or‑nothing failure mode that kills habit apps.
+- **Identity‑based notifications** ("Day 7. You're someone who shows up.") affirm a self‑concept rather than guilt‑trip. The completion screen line — *"You showed up today. This counts."* — is the emotional core.
+- **Feelings mode** catches the user when they come *because life is hard*, not because they're on schedule. 90 curated ayat across 9 emotional states (anxious, lonely, grateful, lost, hopeful, low, angry, confused, exploring) — randomised so the same emotion surfaces a different verse each time.
+- **The journal becomes a spiritual autobiography.** Every reflection is searchable, timestamped, and bound to its verse — so the longer the user stays, the more value the app accrues. Switching cost grows with use; that's how engagement compounds past Ramadan.
 
-**21 languages.** Every UI string, reflection prompt, and feeling label is translated into 21 languages including Arabic, Urdu, Tamil, Malayalam, French, Spanish, Turkish, Indonesian, Hindi, Bengali, Malay, German, Russian, Portuguese, Persian, Somali, Swahili, Chinese, Japanese, and Korean.
+### 2. Product Quality & UX — 20 pts
 
-## Core Features
+- **Designed as a sacred space, not a productivity tool** — calm palette, restrained motion, no streaks shouted at the user, no leaderboards, no emojis on Feeling cards.
+- **21 languages**, full‑coverage: Arabic, Urdu, Tamil, Malayalam, French, Spanish, Turkish, Indonesian, Hindi, Bengali, Malay, German, Russian, Portuguese, Persian, Somali, Swahili, Chinese, Japanese, Korean, English. Every UI string, reflection prompt, and feeling label is translated.
+- **Arabic typography** — 5 font options (AmiriQuran, Noto Naskh Arabic, system, etc.), 4 sizes, RTL‑safe, locale‑tagged for correct shaping. Optional transliteration for non‑Arabic readers, auto‑enabled when the onboarding flow detects no Arabic reading ability.
+- **6‑step onboarding** that personalises the experience: Arabic level, comprehension level, motivation (salah / connection / practice / learning), starting surah, language, sign‑in or guest. Output: a verse cadence, prompt style, and notification tone tuned to *this* user.
+- **Empty states, loading states, and error states are explicit** on every screen — no blank spinners, no silent failures. Recent polish pass added: error message surfacing on the daily‑ayah load failure, snackbar feedback on Feelings‑mode API failures, snackbar on journal pull‑to‑refresh failures, and an explicit *"Shared to Quran Reflect"* confirmation on the completion screen when the user opted in.
+- **Accessibility**: tooltips on icon‑only buttons, Semantics labels on the audio button, font‑size respect, contrast against dark/light themes.
 
-### Daily Ayah Experience
-- Sequential verse progression from Al-Fatiha through An-Nas
-- Arabic text in Uthmani script with customizable fonts (AmiriQuran, Noto Naskh, system)
-- Adjustable Arabic font size (Small / Medium / Large / Extra Large)
-- Translations in 21 languages from quran.com API
-- Optional transliteration for non-Arabic readers
-- Audio recitation from 6 world-renowned reciters via Islamic Network CDN
-- Surah pill showing surah name, ayah number, and juz number
-- Makki/Madani revelation type badge
-- Sajdah indicator for the 15 prostration verses
-- Thematic hook line ("Today's ayah invites you to reflect on mercy")
+### 3. Technical Execution — 20 pts
 
-### Scholarly Content
-- Tafsir summaries for 1,300+ verse passages pre-bundled (Ibn Kathir EN + Al-Muyassar AR)
-- 130 curated editorial entries across all 114 surahs (English + Arabic)
-- Each editorial entry includes: historical context, scholar reflection, tier 2 prompt, tier 3 question
-- Surah introduction for every surah
-- Full tafsir available on demand via "Read more" bottom sheet
-- Sources: Ibn Kathir, Al-Sa'di, Al-Qurtubi, Al-Tabari, Ibn al-Qayyim
-- All editorial content verified against fetched tafsir from quran.com canonical API
+- **Stack**: Flutter 3.41+ / Dart 3.11+ · Riverpod 2.6 · GoRouter 14.8 · Dio 5.7 (retry + exponential backoff with jitter) · just_audio · Firebase (Firestore + Crashlytics + Analytics) · flutter_local_notifications.
+- **Security posture**:
+  - OAuth2 with **PKCE** for QF sign‑in; secrets injected at build time via `--dart-define`, never committed.
+  - Tokens encrypted via `flutter_secure_storage` (Android EncryptedSharedPreferences / iOS Keychain).
+  - **Firestore deny‑by‑default rules**: only the owner can read/write their own `users/{uid}` doc and journal/bookmarks subcollections; per‑doc size caps; `feedback/` create‑only with no client read; rules deployed via repo‑tracked `firebase.json` (no Test Mode).
+  - Debug‑only API logging guarded by `kDebugMode`.
+  - State + code parameter validation on the OAuth callback.
+- **Offline‑first**: tafsir summaries (1,300+ passages, Ibn Kathir EN + Al‑Muyassar AR) and 130 editorial entries are pre‑bundled; the app is fully usable with no network. Firestore sync is fire‑and‑forget with a 50‑op replay queue cap. QF sync is non‑blocking with graceful degradation.
+- **Performance**: parallel fetch for ayah + words + editorial + surah info + tafsir; in‑memory caching of editorial JSON; 7‑day audio URL cache; idempotent loaders that survive backgrounding.
+- **Reliability**: audio resolution has a documented two‑tier fallback (QF recitations API → `cdn.islamic.network`); fallback events are recorded as non‑fatal Crashlytics records and an `audio_fallback_used` Analytics event so silent regressions are visible. Reciter selection writes both the QF reciter id (used by the audio call) and the CDN slug (used by the fallback) — the QF integration sees the actually‑selected reciter, not just a default.
+- **Error handling**: every catchable failure either retries, reports to `SyncReporter`, or surfaces user‑visible feedback — no silent `catch (_) {}` blocks in user‑facing flows.
 
-### Reflection System
-- Three-tier reflection: Acknowledge / Respond / Reflect
-- Guided reflection prompts (editorial-curated for key verses, generic translated for others)
-- Previous reflection memory ("Earlier, you paused on...")
-- Completion celebration with identity reinforcement
+### 4. Innovation & Creativity — 15 pts
 
-### Feelings Mode
-- 9 emotional states: low, anxious, angry, grateful, confused, lonely, hopeful, lost, exploring
-- 90 curated ayat (10 per feeling) with context explanations
-- Randomized selection to avoid predictability
-- Audio playback with reactive play/pause
+Three fresh ideas, each named and shipped:
 
-### Journal
-- Searchable reflection history
-- Filter by surah or reflection tier
-- Every reflection stored with verse key, Arabic text, translation, and timestamp
+1. **The three‑tier reflection ladder** (Acknowledge / Respond / Reflect). Tier‑1 is a single tap and counts as a complete day. Tier‑2 is a 1–2 line response to a curated prompt. Tier‑3 is a full journal entry with an editorial contemplation question. This isn't a setting — it's the daily decision the user makes, and it dissolves the "I don't have time to engage properly today" failure mode.
+2. **Feelings mode** — the user enters their emotional state and the Quran answers them. 90 verses, 9 emotions, randomised. Most Quran apps treat the Quran as a corpus to navigate; this treats it as a counsellor.
+3. **Identity‑based notifications.** Most habit apps shame ("You broke your streak!"). Tadabbur reinforces identity ("You're someone who shows up"). The wording shifts every milestone (Day 3, 7, 14, 30, 100, 365, plus ayat milestones) — a quiet, principled departure from gamification orthodoxy.
 
-### Habit & Identity System
-- Daily streak tracking with freeze allowances (3 gaps without breaking)
-- Milestone celebrations (Day 3, 7, 14, 30, 100, 365 + ayat milestones at 1, 50, 100)
-- Identity-based notifications ("You're building something", "You're consistent")
-- Day counter pill on the daily screen
-- First-time user guidance ("Sit with this for a moment")
-- Yesterday's continuity ("Welcome back. Pick up where you left off.")
+### 5. Effective Use of APIs — 15 pts
 
-### Personalization
-- Language selection (21 languages)
-- Arabic reading level assessment (fluent, basic, none)
-- Understanding level (most, some, none)
-- Motivation selection (salah, connection, practice, learning)
-- Starting surah choice (Al-Fatiha, Ya-Sin, Ar-Rahman, Al-Mulk, Juz Amma, or any of 114 surahs)
-- Auto-enabled transliteration for non-Arabic readers
-- Reciter selection (6 reciters)
-- Font and font size customization
-- Daily notification time picker
+Tadabbur uses **multiple Content APIs and multiple User APIs**, not the single‑category minimum.
 
-### Authentication
-- Google Sign-In (Android + iOS)
-- Quran Foundation OAuth2 PKCE
-- Guest mode (full functionality, local-only data)
-- Cloud sync via Firebase Firestore (non-blocking, fire-and-forget)
-
-## Technical Architecture
-
-### Stack
-- **Framework**: Flutter 3.41+ / Dart 3.11+
-- **State Management**: Riverpod 2.6.1
-- **Navigation**: GoRouter 14.8.1
-- **HTTP**: Dio 5.7.0 with retry logic and exponential backoff + jitter
-- **Audio**: just_audio 0.9.42
-- **Local Storage**: SharedPreferences (preferences) + flutter_secure_storage (auth tokens)
-- **Cloud**: Firebase Core, Firestore, Crashlytics, Analytics
-- **Auth**: google_sign_in, OAuth2 PKCE with crypto
-- **Notifications**: flutter_local_notifications with flutter_timezone
-- **UI**: Material 3, flutter_animate, google_fonts
-
-### Security
-- Auth tokens encrypted via flutter_secure_storage (Android EncryptedSharedPreferences)
-- OAuth credentials injected at build time via --dart-define (not in source code)
-- PKCE code verifier stored securely with cleanup after exchange
-- OAuth callback validates both code and state parameters
-- API logging restricted to debug mode only (kDebugMode guard)
-- Input validation with safe parsing (int.tryParse with fallbacks)
-
-### Performance
-- Tafsir summaries pre-bundled locally (0.6 MB) — zero API calls for scholarly content
-- Editorial content loaded from local JSON with in-memory caching
-- Exponential backoff with random jitter for API retries
-- Firestore retry queue capped at 50 operations to prevent memory leaks
-- Single parallel fetch for ayah + words + editorial + surah info + tafsir
-
-### Offline-First Design
-- All core functionality works without internet
-- Local SharedPreferences stores progress, journal, preferences
-- Tafsir summaries and editorial content bundled in app
-- Firestore sync is fire-and-forget with retry queue
-- QF API sync is non-blocking with graceful failure
-
-### Monitoring
-- Firebase Crashlytics for crash reporting (disabled in debug)
-- Firebase Analytics tracking: ayah_completed, reflection_added events
-- Automatic session, retention, and device analytics
-
-## API Integration
-
-### Content APIs (quran.com / QDC)
+#### Content APIs (Quran Foundation / QDC)
 | API | Endpoint | Usage |
 |-----|----------|-------|
-| Quran Text | `/verses/by_key/{key}` | Fetch Arabic text (Uthmani) + translation per verse |
-| Word-by-Word | `/verses/by_key/{key}?words=true` | Word breakdown with transliteration |
-| Translation | `/verses/by_key/{key}?translations={id}` | 21 language translations |
-| Tafsir | `/tafsirs/{slug}/by_ayah/{key}` | Full tafsir on demand (Read more) |
-| Chapters | `/chapters/{num}` | Surah info (revelation type, verse count) |
-| Audio | Islamic Network CDN | Per-verse recitation streaming |
+| Quran (Verses) | `/verses/by_key/{key}` | Daily verse Arabic (Uthmani) + chapter context |
+| Translation | `/verses/by_key/{key}?translations={id}` | Per‑user translation in 21 languages |
+| Word‑by‑word | `/verses/by_key/{key}?words=true` | Optional word breakdown + transliteration |
+| Audio | `/recitations/{reciter_id}/by_chapter/{chapter}` → `audio.qurancdn.com` | Attempted first for per‑verse audio. Each reciter selection is wired to the QF reciter id, so the call asks for the actually-selected reciter — not the default. Falls back to `cdn.islamic.network` (the only CDN with reliable per‑ayah files for all 7 reciters today) when QF returns no audio. Fallback events logged to Crashlytics + Analytics so a regression in either source is observable. |
+| Audio Reciters Catalogue | `/audio/reciters` | Live‑fetched on Settings open and cached for 7 days; the count of reciters available on Quran Foundation is rendered under the RECITER section header so the integration is visible to a judge in 5 seconds. |
+| Tafsir | `/tafsirs/{slug}/by_ayah/{key}` | Full tafsir on demand from the bottom sheet |
+| Chapters | `/chapters/{num}` | Surah metadata: revelation type, verse count, name variants |
 
-### User APIs (quran.com / QDC)
+#### User APIs (Quran Foundation)
+
+All user APIs are gated to QF‑authenticated users (`authType == quranFoundation`). For Google or Guest users the calls are silent no‑ops — no half‑completed sync state, no spurious 401s in logs.
+
 | API | Usage |
 |-----|-------|
-| Streak Tracking | `updateStreak()` — syncs daily streak on ayah completion |
-| Activity Logging | `logActivityDay()` — records daily Quran engagement |
-| Reflections | `saveReflection()` — syncs journal entries to QF |
-| Bookmarks | `addBookmark()` — auto-bookmarks ayat when user writes a reflection (Tier 2/3) |
+| **Activity & Goals** | `POST /v1/activity-days` — fires non‑blocking on every ayah completion. This is what drives streaks: QF computes streak length server‑side from the activity ledger, so streaks roam with the user across devices. |
+| **Reflections / Notes** | `POST /v1/notes` — every reflection (any tier) syncs as a note bound to the verse key. Tier‑1 acknowledgements include a placeholder body so they're recoverable as journal events even though the API requires a non‑empty payload. |
+| **Quran Reflect (Posts)** | Same `/v1/notes` call with `saveToQR: true`. Opt‑in per reflection via a toggle that only renders for tier‑3 entries (≥80 chars) on QF‑authenticated accounts. The completion screen confirms the post landed with a small *Shared to Quran Reflect* line so the user knows their words went public. |
+| **Bookmarks** | `POST /v1/bookmarks` — auto‑bookmarks any verse the user writes a tier‑2 or tier‑3 reflection on. The journal pull‑to‑refresh also calls `GET /v1/notes` to hydrate reflections written from quran.com on another device. |
 
-### Pre-bundled Data (from quran.com API, fetched at build time)
-| Data | Source | Entries |
-|------|--------|---------|
-| Tafsir summaries (EN) | Ibn Kathir via QDC API | 300 passage summaries |
-| Tafsir summaries (AR) | Al-Muyassar via QDC API | 1,013 passage summaries |
-| Editorial content (EN) | Curated from fetched tafsir | 130 entries |
-| Editorial content (AR) | Curated from fetched tafsir | 130 entries |
+#### Auth — also a QF API surface
+- **OAuth2 with PKCE** against the QF identity provider, scope `note` for personal notes + Quran Reflect publishing.
+- Falls back to **Google Sign‑In** or **Guest mode** (full local functionality, no remote sync) for users not in the QF identity.
 
-## Platforms
-- Android (tested, production-ready)
-- iOS (configured, simulator-tested)
+---
 
-## Links
-- GitHub: [repository URL]
-- Demo Video: [to be recorded]
-- APK Download: `build/app/outputs/flutter-apk/app-release.apk`
+## Core Features Summary
 
-## Contact
-- Email: thetadabburapp@gmail.com
+### Daily Ayah
+Sequential progression Al‑Fatiha → An‑Nas; Uthmani Arabic; 21 translations; transliteration; 7 reciters resolved through the QF audio API with `cdn.islamic.network` fallback; surah/juz/Makki‑Madani metadata; sajdah indicator on the 15 prostration verses; thematic hook line when verified editorial content exists.
+
+### Three‑Tier Reflection
+Acknowledge (1 tap) · Respond (1–2 lines, curated prompt) · Reflect (deep, with tier‑3 question). Every entry stored locally + Firestore + QF Notes. Tier‑3 has the opt‑in *Share to Quran Reflect* toggle.
+
+### Feelings Mode
+9 emotions, 90 ayat, randomised, with context, audio, and a quiet "Take a moment for dua" line.
+
+### Scholarly Content
+1,300+ pre‑bundled tafsir summaries (Ibn Kathir EN + Al‑Muyassar AR) for offline access; 130 curated editorial entries (historical context, scholar reflection, tier‑2 prompt, tier‑3 question) verified against the QDC API; "Read more" loads the full tafsir on demand.
+
+### Habit & Identity
+Streaks with 3 freezes; milestone celebrations (3 / 7 / 14 / 30 / 100 / 365 + ayat milestones at 1 / 50 / 100); identity‑based notifications; first‑time guidance; yesterday‑continuity copy.
+
+### Personalization
+Language · Arabic level · comprehension · motivation · starting surah · reciter · font · font size · daily notification time · transliteration toggle · Hijri/Gregorian journal headers.
+
+### Auth & Sync
+Google · QF OAuth2 PKCE · Guest. Cloud sync via Firestore (deny‑by‑default rules). QF sync is non‑blocking with retry queue.
+
+### Platforms
+- Android (production‑ready, signed APK builds via `scripts/build-apk.sh`)
+- iOS (configured, simulator‑tested)
+
+---
+
+## Submission Deliverables
+
+- **GitHub:** [https://github.com/taukheer/Tadabbur](https://github.com/taukheer/Tadabbur)
+- **Live demo:** Android APK + Play Store closed test (link to be added)
+- **Demo video (2–3 min):** to be recorded — script lands on the brief's *"engagement that outlasts Ramadan"* problem, then walks Daily Ayah → Three‑tier reflection → Feelings → Journal → Quran Reflect share.
+- **Contact:** thetadabburapp@gmail.com
+
+---
+
+## Why Tadabbur Should Win the Tiebreaker
+
+Impact on Quran Engagement is the most heavily weighted criterion (30 pts) **and the tiebreaker**. Tadabbur was designed from day one around the brief's literal problem statement: *make the relationship lasting, not just intense*. Every architectural decision — sequential delivery, three‑tier ladder, identity nudges, Feelings mode, the journal as autobiography — bends toward that single goal.

@@ -27,6 +27,44 @@ class SyncError {
     required this.error,
     required this.at,
   });
+
+  /// HTTP status code if the underlying error is an [ApiException].
+  /// Null for non-HTTP failures (network, parse, etc.).
+  int? get statusCode {
+    final e = error;
+    try {
+      // Avoid an `is ApiException` check here so this file doesn't
+      // need to import api_client.dart (would create a cycle).
+      final dynamic dyn = e;
+      final code = dyn.statusCode;
+      return code is int ? code : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Server‑returned error body if the underlying error is an
+  /// [ApiException] with a captured response payload. Trimmed to a
+  /// readable size so a giant HTML 500 page doesn't blow up a dialog.
+  String? get serverBody {
+    try {
+      final dynamic dyn = error;
+      final data = dyn.data;
+      if (data == null) return null;
+      final s = data.toString();
+      return s.length > 600 ? '${s.substring(0, 600)}…' : s;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Brief, single‑line summary of the error suitable for showing in a
+  /// snackbar or dialog. Never contains a stack trace.
+  String get summary {
+    final code = statusCode;
+    final base = error.toString();
+    return code != null ? 'HTTP $code · $base' : base;
+  }
 }
 
 /// Process-wide sink for sync failures.

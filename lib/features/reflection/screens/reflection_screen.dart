@@ -46,6 +46,10 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
   /// entries so short acknowledgements can't accidentally land in a
   /// public space.
   bool _shareToQuranReflect = false;
+  /// Tracks whether the just-saved reflection was actually published to
+  /// Quran Reflect, so the completion screen can surface confirmation
+  /// for the action the user opted into.
+  bool _didShareToQuranReflect = false;
   final _focusNode = FocusNode();
 
   @override
@@ -78,6 +82,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   alignment: Alignment.topLeft,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Close',
                     icon: Icon(
                       Icons.close,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
@@ -383,13 +388,14 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
       );
 
+      // Only honor the share toggle for tier-3 entries, mirroring where
+      // the UI exposes it. Shorter tiers silently save private even if
+      // the flag somehow lingers.
+      final willShare =
+          _shareToQuranReflect && tier == ReflectionTier.reflect;
       await ref.read(journalProvider.notifier).addEntry(
             entry,
-            // Only honor the share toggle for tier-3 entries, mirroring
-            // where the UI exposes it. Shorter tiers silently save
-            // private even if the flag somehow lingers.
-            shareToQuranReflect: _shareToQuranReflect &&
-                tier == ReflectionTier.reflect,
+            shareToQuranReflect: willShare,
           );
       await ref
           .read(userProgressProvider.notifier)
@@ -399,12 +405,16 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
       setState(() {
         _isSaving = false;
         _isComplete = true;
+        _didShareToQuranReflect = willShare;
       });
     } catch (e) {
       setState(() => _isSaving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          SnackBar(
+            content: Text(_t('could_not_save_reflection')),
+            duration: const Duration(seconds: 3),
+          ),
         );
       }
     }
@@ -457,6 +467,28 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                 ).animate().fadeIn(duration: 800.ms, delay: 600.ms),
+
+                if (_didShareToQuranReflect) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.public_rounded,
+                        size: 14,
+                        color: AppColors.primary.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Shared to Quran Reflect',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.primary.withValues(alpha: 0.6),
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ).animate().fadeIn(duration: 700.ms, delay: 800.ms),
+                ],
 
                 const Spacer(flex: 2),
 

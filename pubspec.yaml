@@ -85,8 +85,17 @@ flutter:
         - asset: assets/fonts/AmiriQuran-Regular.ttf
 
 flutter_launcher_icons:
-  android: true
+  # iOS: full-bleed launcher icon, opaque (Apple applies the rounded
+  # mask itself; alpha stripped to satisfy App Store validation).
   ios: true
-  image_path: "assets/images/app_icon.png"
-  min_sdk_android: 21
   remove_alpha_ios: true
+  image_path: "branding/app_icon_1024.png"
+
+  # Android: legacy round/square launcher icon for pre-Oreo, plus the
+  # adaptive icon (foreground + solid background) for Android 8+, plus
+  # the monochrome layer for Android 13+ themed icons.
+  android: true
+  min_sdk_android: 21
+  adaptive_icon_background: "#0A2E2A"
+  adaptive_icon_foreground: "branding/app_icon_foreground_1024.png"
+  adaptive_icon_monochrome: "branding/app_icon_monochrome_1024.png"

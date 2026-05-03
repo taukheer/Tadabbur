@@ -33,24 +33,33 @@ class AppShell extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          Column(
-            children: [
-              if (isOffline)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  color: theme.colorScheme.error,
-                  child: Text(
-                    t('offline_mode'),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onError,
+          // SafeArea(top: true, bottom: false) keeps the status-bar
+          // gutter clear so the offline / sync-error banners don't
+          // collide with the system clock and battery icons. Children
+          // (the daily ayah, journal, etc.) manage their own SafeAreas
+          // internally, so we only enforce top here.
+          SafeArea(
+            top: true,
+            bottom: false,
+            child: Column(
+              children: [
+                if (isOffline)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    color: theme.colorScheme.error,
+                    child: Text(
+                      t('offline_mode'),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onError,
+                      ),
                     ),
                   ),
-                ),
-              const _SyncErrorBanner(),
-              Expanded(child: child),
-            ],
+                const _SyncErrorBanner(),
+                Expanded(child: child),
+              ],
+            ),
           ),
           // Ambient time-of-day tint floats above the scaffold without
           // taking layout space or blocking touches. Near-invisible
@@ -146,37 +155,99 @@ class _SyncErrorBanner extends StatelessWidget {
         if (DateTime.now().difference(err.at) > const Duration(seconds: 30)) {
           return const SizedBox.shrink();
         }
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        return Material(
           color: const Color(0xFFFFF4E5),
-          child: Row(
-            children: [
-              const Icon(Icons.sync_problem_rounded,
-                  size: 14, color: Color(0xFFB07700)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "Couldn't sync ${err.what} · saved locally",
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: const Color(0xFF7A5600),
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: SyncReporter.dismiss,
-                borderRadius: BorderRadius.circular(12),
-                child: const Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Icon(Icons.close_rounded,
+          child: InkWell(
+            onTap: () => _showSyncErrorDetails(context, err),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.sync_problem_rounded,
                       size: 14, color: Color(0xFFB07700)),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Couldn't sync ${err.what} · saved locally",
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: const Color(0xFF7A5600),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: SyncReporter.dismiss,
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 4),
+                      child: Icon(Icons.close_rounded,
+                          size: 14, color: Color(0xFFB07700)),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
     );
   }
+}
+
+/// Shows the underlying status code and error string in a small dialog
+/// so the user (or the dev triaging a report) can see *why* the sync
+/// failed, instead of just "couldn't sync." Copy-to-clipboard helps
+/// when forwarding the message in a bug report.
+void _showSyncErrorDetails(BuildContext context, SyncError err) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: Text("Sync failed: ${err.what}"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (err.statusCode != null)
+                Text('Status code: ${err.statusCode}'),
+              if (err.statusCode != null) const SizedBox(height: 8),
+              SelectableText(
+                err.summary,
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (err.serverBody != null) ...[
+                const SizedBox(height: 8),
+                const Text('Server response:',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                SelectableText(
+                  err.serverBody!,
+                  style:
+                      const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Your reflection is safe — saved locally even when sync fails.',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
 }

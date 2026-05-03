@@ -2,26 +2,57 @@ import 'dart:async';
 
 import 'package:just_audio/just_audio.dart';
 
-/// Bitrates, by reciter path, for the cdn.islamic.network ayah endpoint.
-///
-/// That CDN publishes recitations at 64/128/192 kbps; most reciters are
-/// available at 128, but As-Sudais was encoded at 192 only. Keeping the
-/// mapping here (instead of duplicating a ternary at every call site)
-/// means adding a new reciter bitrate is a one-line change.
+/// Bitrates by reciter slug for the cdn.islamic.network ayah endpoint,
+/// which we use as the audio fallback when the QF recitations endpoint
+/// is unavailable. Most reciters are at 128 kbps; Sudais is encoded at
+/// 192 only — the override map keeps the fallback URL builder a single
+/// expression.
 const Map<String, String> _islamicNetworkBitrateByReciter = {
   'abdurrahmaansudais': '192',
 };
 const String _islamicNetworkDefaultBitrate = '128';
 
-/// Build the cdn.islamic.network URL for a single ayah recitation.
-///
-/// [reciterPath] is the CDN slug (e.g. `alafasy`, `husary`). [absAyahNum]
-/// is the absolute ayah number across the whole Mushaf (1..6236). The
-/// caller is responsible for computing the absolute number.
+/// Builds a per-ayah audio URL on cdn.islamic.network for the given
+/// reciter slug and absolute ayah number (1..6236). Used as the fallback
+/// path when the Quran Foundation recitations endpoint returns no files
+/// (which it does for unauthenticated public callers as of May 2026).
 String islamicNetworkAyahUrl(String reciterPath, int absAyahNum) {
-  final bitrate =
-      _islamicNetworkBitrateByReciter[reciterPath] ?? _islamicNetworkDefaultBitrate;
+  final bitrate = _islamicNetworkBitrateByReciter[reciterPath] ??
+      _islamicNetworkDefaultBitrate;
   return 'https://cdn.islamic.network/quran/audio/$bitrate/ar.$reciterPath/$absAyahNum.mp3';
+}
+
+/// Surah verse counts (index 1..114). Used to translate a `surah:ayah`
+/// pair to the absolute ayah number that cdn.islamic.network expects.
+const List<int> _surahVerseCounts = [
+  0, 7, 286, 200, 176, 120, 165, 206, 75, 129, 109,
+  123, 111, 43, 52, 99, 128, 111, 110, 98, 135,
+  112, 78, 118, 64, 77, 227, 93, 88, 69, 60,
+  34, 30, 73, 54, 45, 83, 182, 88, 75, 85,
+  54, 53, 89, 59, 37, 35, 38, 29, 18, 45,
+  60, 49, 62, 55, 78, 96, 29, 22, 24, 13,
+  14, 11, 11, 18, 12, 12, 30, 52, 52, 44,
+  28, 28, 20, 56, 40, 31, 50, 40, 46, 42,
+  29, 19, 36, 25, 22, 17, 19, 26, 30, 20,
+  15, 21, 11, 8, 8, 19, 5, 8, 8, 11,
+  11, 8, 3, 9, 5, 4, 7, 3, 6, 3,
+  5, 4, 5, 6,
+];
+
+/// Convert a `verseKey` ("65:7") to the absolute ayah number 1..6236.
+/// Returns null for malformed keys or out-of-range surahs.
+int? absoluteAyahFromVerseKey(String verseKey) {
+  final parts = verseKey.split(':');
+  if (parts.length != 2) return null;
+  final surah = int.tryParse(parts[0]);
+  final ayah = int.tryParse(parts[1]);
+  if (surah == null || ayah == null) return null;
+  if (surah < 1 || surah >= _surahVerseCounts.length) return null;
+  int total = 0;
+  for (int i = 1; i < surah; i++) {
+    total += _surahVerseCounts[i];
+  }
+  return total + ayah;
 }
 
 /// Service that wraps [AudioPlayer] for Quran audio playback.

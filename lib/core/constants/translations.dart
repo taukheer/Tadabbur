@@ -127,6 +127,7 @@ class AppTranslations {
       'try_another': 'Show another ayah',
       'make_dua': 'Take a moment for dua',
       'could_not_load': 'Could not load today\'s ayah',
+      'could_not_save_reflection': 'Could not save your reflection. Please try again.',
       'try_again': 'Try again',
       'search_reflections': 'Search your reflections...',
       'journal_begins': 'Your journal begins with your first ayah.',

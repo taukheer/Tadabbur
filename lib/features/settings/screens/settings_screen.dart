@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/models/reciter.dart';
 import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
@@ -13,19 +14,110 @@ import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart'
 import 'package:tadabbur/features/journal/screens/journal_screen.dart'
     show YearStats, YearInAyatSheet, hijriYearLabel;
 
-const _reciters = [
-  _ReciterOption('alafasy', 'Mishary Rashid Alafasy'),
-  _ReciterOption('husary', 'Mahmoud Khalil Al-Husary'),
-  _ReciterOption('minshawi', 'Mohamed Siddiq El-Minshawi'),
-  _ReciterOption('abdurrahmaansudais', 'Abdurrahman As-Sudais'),
-  _ReciterOption('muhammadayyoub', 'Muhammad Ayyub'),
-  _ReciterOption('shaatree', 'Abu Bakr Ash-Shaatree'),
+/// Map from a Quran Foundation `recitations.id` (the value used in
+/// `/recitations/{id}/by_chapter` audio calls) to the corresponding
+/// `cdn.islamic.network` slug we use as the offline‑friendly fallback
+/// path. Only Murattal recordings are mapped — Mujawwad and Muallim
+/// styles share the same CDN slug as Murattal, which would mislead
+/// users into thinking they picked one style when they're hearing
+/// another.
+const Map<int, String> _qfIdToCdnSlug = {
+  7: 'alafasy',              // Mishari Rashid al-`Afasy (Murattal)
+  6: 'husary',               // Mahmoud Khalil Al-Husary (Murattal)
+  9: 'minshawi',             // Mohamed Siddiq al-Minshawi (Murattal)
+  3: 'abdurrahmaansudais',   // Abdur-Rahman as-Sudais (Murattal)
+  4: 'shaatree',             // Abu Bakr al-Shatri (Murattal)
+  2: 'abdulbasitmurattal',   // AbdulBaset AbdulSamad (Murattal)
+};
+
+/// Reciters that exist on `cdn.islamic.network` but aren't published
+/// in the QF reciter catalogue. They're appended to the displayed list
+/// after the QF‑sourced rows. `qfId` is null so the audio resolver
+/// skips the QF call and goes straight to the CDN fallback for these.
+const List<_ReciterOption> _cdnOnlyReciters = [
+  _ReciterOption(
+    qfId: null,
+    cdnPath: 'muhammadayyoub',
+    name: 'Muhammad Ayyub',
+    style: 'Murattal',
+  ),
+];
+
+/// Hardcoded fallback used when the QF reciter catalogue can't be
+/// fetched (offline first launch, transient API outage). Mirrors the
+/// shape we'd build from QF — just without the live names/styles.
+const List<_ReciterOption> _hardcodedReciters = [
+  _ReciterOption(qfId: 7, cdnPath: 'alafasy',
+      name: 'Mishary Rashid Alafasy', style: 'Murattal'),
+  _ReciterOption(qfId: 6, cdnPath: 'husary',
+      name: 'Mahmoud Khalil Al-Husary', style: 'Murattal'),
+  _ReciterOption(qfId: 9, cdnPath: 'minshawi',
+      name: 'Mohamed Siddiq El-Minshawi', style: 'Murattal'),
+  _ReciterOption(qfId: 3, cdnPath: 'abdurrahmaansudais',
+      name: 'Abdurrahman As-Sudais', style: 'Murattal'),
+  _ReciterOption(qfId: 4, cdnPath: 'shaatree',
+      name: 'Abu Bakr Ash-Shaatree', style: 'Murattal'),
+  _ReciterOption(qfId: 2, cdnPath: 'abdulbasitmurattal',
+      name: 'AbdulBaset AbdulSamad', style: 'Murattal'),
+  ..._cdnOnlyReciters,
 ];
 
 class _ReciterOption {
+  final int? qfId;
   final String cdnPath;
   final String name;
-  const _ReciterOption(this.cdnPath, this.name);
+  final String? style;
+  const _ReciterOption({
+    required this.qfId,
+    required this.cdnPath,
+    required this.name,
+    this.style,
+  });
+}
+
+/// Build the reciter list to display in Settings, sourced from the live
+/// QF `/audio/reciters` response when available and falling back to the
+/// hardcoded catalogue otherwise. Returns `(reciters, fromQf)` so the
+/// UI can label the list as live‑sourced when it actually is.
+({List<_ReciterOption> reciters, bool fromQf}) _buildReciterList(
+  AsyncValue<List<Reciter>> async,
+) {
+  final qfList = async.maybeWhen(data: (l) => l, orElse: () => null);
+  if (qfList == null || qfList.isEmpty) {
+    return (reciters: _hardcodedReciters, fromQf: false);
+  }
+
+  // Map QF rows to displayable options, keeping only Murattal‑style
+  // recordings (the CDN slug match is style‑agnostic — showing the
+  // same slug under a "Mujawwad" label would mislead).
+  final fromQf = <_ReciterOption>[];
+  final seenIds = <int>{};
+  for (final r in qfList) {
+    final slug = _qfIdToCdnSlug[r.id];
+    if (slug == null) continue;
+    if (r.style != null && r.style != 'Murattal') continue;
+    if (!seenIds.add(r.id)) continue;
+    fromQf.add(_ReciterOption(
+      qfId: r.id,
+      cdnPath: slug,
+      name: r.name,
+      style: r.style,
+    ));
+  }
+
+  // Order to match the hardcoded list (Mishary first, etc.) so reciter
+  // ordering doesn't change at random when QF reorders its catalogue.
+  const order = [7, 6, 9, 3, 4, 2];
+  fromQf.sort((a, b) {
+    final ai = order.indexOf(a.qfId ?? -1);
+    final bi = order.indexOf(b.qfId ?? -1);
+    if (ai == -1 && bi == -1) return 0;
+    if (ai == -1) return 1;
+    if (bi == -1) return -1;
+    return ai.compareTo(bi);
+  });
+
+  return (reciters: [...fromQf, ..._cdnOnlyReciters], fromQf: true);
 }
 
 const _fontSizes = [
@@ -216,22 +308,55 @@ class SettingsScreen extends ConsumerWidget {
 
               // === RECITER ===
               _SectionLabel('RECITER', theme),
-              const SizedBox(height: 10),
-              ..._reciters.map((r) => _ReciterTile(
-                    name: r.name,
-                    isSelected: currentReciter == r.cdnPath,
-                    onTap: () async {
-                      await storage.setReciterPath(r.cdnPath);
-                      ref.read(reciterPathProvider.notifier).state = r.cdnPath;
-                      ref.read(firestoreServiceProvider)
-                          .saveUserProfile(reciterPath: r.cdnPath)
-                          .catchError((Object e) {
-                        SyncReporter.report('reciter preference', e,
-                            severity: SyncSeverity.quiet);
-                      });
-                    },
-                    theme: theme,
-                  )),
+              Builder(builder: (context) {
+                final result =
+                    _buildReciterList(ref.watch(qfRecitersProvider));
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (result.fromQf)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Names and styles synced from Quran Foundation',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+                    ...result.reciters.map((r) => _ReciterTile(
+                          name: r.name,
+                          isSelected: currentReciter == r.cdnPath,
+                          onTap: () async {
+                            // Persist BOTH the QF reciter id (used by
+                            // the QF recitations API) and the CDN slug
+                            // (used by the Islamic Network fallback).
+                            // Without the id, the QF audio call always
+                            // asks for the default reciter regardless
+                            // of the user's choice — a real integration
+                            // bug, not just a UX one.
+                            await storage.setReciterPath(r.cdnPath);
+                            if (r.qfId != null) {
+                              await storage
+                                  .setPreferredReciterId(r.qfId!);
+                            }
+                            ref.read(reciterPathProvider.notifier).state =
+                                r.cdnPath;
+                            ref.read(firestoreServiceProvider)
+                                .saveUserProfile(reciterPath: r.cdnPath)
+                                .catchError((Object e) {
+                              SyncReporter.report('reciter preference', e,
+                                  severity: SyncSeverity.quiet);
+                            });
+                          },
+                          theme: theme,
+                        )),
+                  ],
+                );
+              }),
 
               const SizedBox(height: 28),
 

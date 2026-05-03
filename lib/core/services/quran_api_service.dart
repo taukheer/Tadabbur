@@ -221,31 +221,35 @@ class QuranApiService {
     });
   }
 
-  /// Fetches the list of available reciters.
+  /// Fetches the list of available reciters from the QF Audio API.
   ///
-  /// QDC response shape: `{"reciters": [...]}`
+  /// QDC endpoint: `/audio/reciters`
+  /// Response shape: `{"reciters": [{id, reciter_id, name, style, qirat}, ...]}`
+  ///
+  /// Cached for 7 days — the reciter list is essentially static; refetching
+  /// every Settings open is wasteful and would surface intermittent network
+  /// errors for no benefit.
   Future<List<Reciter>> getReciters() async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>(
-        '/resources/recitations',
-      );
+    return _cached('reciters:list', () async {
+      try {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/audio/reciters',
+        );
 
-      final data = response.data;
-      if (data == null || data['recitations'] == null) {
-        return [];
+        final data = response.data;
+        final list = data?['reciters'];
+        if (list is! List) return <Reciter>[];
+
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(Reciter.fromJson)
+            .toList();
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(message: 'Failed to fetch reciters: $e');
       }
-
-      final recitersList = data['recitations'] as List<dynamic>;
-      return recitersList
-          .map(
-            (json) => Reciter.fromJson(json as Map<String, dynamic>),
-          )
-          .toList();
-    } on ApiException {
-      rethrow;
-    } catch (e) {
-      throw ApiException(message: 'Failed to fetch reciters: $e');
-    }
+    });
   }
 
   // ---------------------------------------------------------------------------

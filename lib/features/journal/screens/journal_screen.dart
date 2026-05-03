@@ -146,8 +146,21 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
           // user wrote on quran.com from another device get pulled in
           // on demand. Safe to call while already hydrating — the
           // notifier's concurrency guard reuses the in-flight Future.
-          onRefresh: () =>
-              ref.read(journalProvider.notifier).hydrateFromQF(),
+          // Errors are surfaced via SnackBar so a silent refresh
+          // failure (offline, auth expired) is visible to the user.
+          onRefresh: () async {
+            try {
+              await ref.read(journalProvider.notifier).hydrateFromQF();
+            } catch (_) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not sync. Check your connection.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          },
           color: theme.colorScheme.primary,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(
@@ -1968,15 +1981,17 @@ class _TierFilterChips extends StatelessWidget {
       (ReflectionTier.reflect, 'Reflected', Icons.auto_awesome_outlined),
     ];
 
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: options.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final (tier, label, icon) = options[i];
+    // Wrap (not horizontal ListView) so the last chip never clips on
+    // narrower phones (iPhone 16e is 393pt — barely fits all four with
+    // icons). Wrap flows the overflow chip onto a second row instead of
+    // hiding it behind a non-discoverable horizontal scroll.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: options.map((opt) {
+          final (tier, label, icon) = opt;
           final selected = current == tier;
           return Material(
             color: Colors.transparent,
@@ -2029,7 +2044,7 @@ class _TierFilterChips extends StatelessWidget {
               ),
             ),
           );
-        },
+        }).toList(),
       ),
     );
   }

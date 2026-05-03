@@ -12,6 +12,7 @@ import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/quran_api_service.dart';
 import 'package:tadabbur/core/services/user_api_service.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
+import 'package:tadabbur/core/models/reciter.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
@@ -181,6 +182,14 @@ final arabicFontSizeProvider = StateProvider<double>((ref) {
 
 final reciterPathProvider = StateProvider<String>((ref) {
   return ref.watch(localStorageProvider).reciterPath;
+});
+
+/// The full reciter catalogue from Quran Foundation
+/// (`/audio/reciters`). Lazy — fires the first time a UI surface
+/// reads it (currently the Settings screen). Cached at the API
+/// layer for 7 days so flipping in and out of Settings is free.
+final qfRecitersProvider = FutureProvider<List<Reciter>>((ref) async {
+  return ref.watch(quranApiProvider).getReciters();
 });
 
 final languageProvider = StateProvider<String>((ref) {
@@ -779,7 +788,9 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
       parameters: {
         'verse_key': entry.verseKey,
         'tier': entry.tier.name,
-        'has_text': entry.responseText != null,
+        // Firebase Analytics rejects bool params (asserts in debug, drops
+        // silently in release). Stringify so the field is queryable.
+        'has_text': entry.responseText != null ? 'true' : 'false',
       },
     ).catchError((Object e) {
       SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);

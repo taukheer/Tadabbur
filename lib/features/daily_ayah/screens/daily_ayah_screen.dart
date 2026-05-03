@@ -9,7 +9,6 @@ import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/tafsir_option.dart';
-import 'package:tadabbur/core/services/audio_service.dart';
 import 'package:tadabbur/core/widgets/golden_stroke.dart';
 import 'package:tadabbur/core/widgets/sajdah_glyph.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
@@ -60,20 +59,34 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
 
   Widget _buildError(ThemeData theme, String? message, WidgetRef ref) {
     final lang = ref.watch(languageProvider);
+    final headline = AppTranslations.get('could_not_load', lang);
+    final detail = (message != null && message.trim().isNotEmpty) ? message : null;
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(AppTranslations.get('could_not_load', lang),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5))),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: () =>
-                ref.read(dailyAyahProvider.notifier).loadDailyAyah(),
-            child: Text(AppTranslations.get('try_again', lang)),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(headline,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+            if (detail != null) ...[
+              const SizedBox(height: 8),
+              Text(detail,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.45))),
+            ],
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () =>
+                  ref.read(dailyAyahProvider.notifier).loadDailyAyah(),
+              child: Text(AppTranslations.get('try_again', lang)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -93,13 +106,12 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
-    final reciterPath = ref.watch(reciterPathProvider);
     final isDark = theme.brightness == Brightness.dark;
     String t(String key) => AppTranslations.get(key, lang);
 
-    // Build audio URL from Islamic Network CDN (uses absolute ayah number)
-    final absAyahNum = _absoluteAyahNumber(ayah.surahNumber, ayah.ayahNumber);
-    final liveAudioUrl = islamicNetworkAyahUrl(reciterPath, absAyahNum);
+    // Audio URL is resolved by the provider via the QF recitations endpoint,
+    // with a verses.quran.com fallback when the recitations call fails.
+    final liveAudioUrl = state.audioUrl;
 
     // Only show thematic hook when we have editorial content (verified, not guessed)
     final ayahTheme = editorial != null
@@ -463,6 +475,25 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 ),
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
+            // Attribution line: makes the curated editorial layer
+            // visibly grounded in classical tafsir, so a careful reader
+            // can see we're drawing on a named scholar — not paraphrasing
+            // anonymously. Hidden when scholarName is empty.
+            if (editorial.scholarName.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: Text(
+                  'Drawing on ${editorial.scholarName}',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.28),
+                    fontStyle: FontStyle.italic,
+                    fontSize: 11,
+                  ),
+                ),
+              ).animate().fadeIn(duration: 500.ms, delay: 750.ms),
+            ],
             const SizedBox(height: 8),
           ] else if (state.tafsirSummary != null) ...[
             Padding(
@@ -593,11 +624,12 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
   static String _surahName(int num) =>
       num > 0 && num <= 114 ? kSurahNames[num] : 'Surah $num';
 
-  /// Extract first 1-2 sentences as a short meaning.
   /// Extract first sentence only — keep it light.
   static String _shortMeaning(String context) {
-    final sentences = context.split(RegExp(r'(?<=[.!?])\s+'));
-    return sentences.first;
+    final trimmed = context.trim();
+    if (trimmed.isEmpty) return trimmed;
+    final sentences = trimmed.split(RegExp(r'(?<=[.!?])\s+'));
+    return sentences.isNotEmpty ? sentences.first : trimmed;
   }
 
   /// Show tafsir in a bottom sheet, loaded from the QDC API.
@@ -634,29 +666,6 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
   static String _hijriToday() {
     final h = HijriCalendar.now();
     return '${h.hDay} ${h.longMonthName} ${h.hYear}';
-  }
-
-  /// Convert surah:ayah to absolute ayah number (1-6236).
-  static int _absoluteAyahNumber(int surah, int ayah) {
-    const verseCounts = [
-      0, 7, 286, 200, 176, 120, 165, 206, 75, 129, 109,
-      123, 111, 43, 52, 99, 128, 111, 110, 98, 135,
-      112, 78, 118, 64, 77, 227, 93, 88, 69, 60,
-      34, 30, 73, 54, 45, 83, 182, 88, 75, 85,
-      54, 53, 89, 59, 37, 35, 38, 29, 18, 45,
-      60, 49, 62, 55, 78, 96, 29, 22, 24, 13,
-      14, 11, 11, 18, 12, 12, 30, 52, 52, 44,
-      28, 28, 20, 56, 40, 31, 50, 40, 46, 42,
-      29, 19, 36, 25, 22, 17, 19, 26, 30, 20,
-      15, 21, 11, 8, 8, 19, 5, 8, 8, 11,
-      11, 8, 3, 9, 5, 4, 7, 3, 6, 3,
-      5, 4, 5, 6,
-    ];
-    int total = 0;
-    for (int i = 1; i < surah && i < verseCounts.length; i++) {
-      total += verseCounts[i];
-    }
-    return total + ayah;
   }
 
   static String? _detectTheme(String translation) {
@@ -756,9 +765,9 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
       t('what_stayed'),
       t('sit_moment'),
     ];
-    final fallbackPrompt = lightPrompts[
-        (widget.ayah.ayahNumber as int) % lightPrompts.length];
-    final prompt = widget.editorial?.tier2Prompt as String? ?? fallbackPrompt;
+    final fallbackPrompt =
+        lightPrompts[widget.ayah.ayahNumber % lightPrompts.length];
+    final prompt = widget.editorial?.tier2Prompt ?? fallbackPrompt;
 
     // Show a previous reflection only:
     // - If there are 5+ written entries (meaningful history)
@@ -889,9 +898,9 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
     try {
       final entry = JournalEntry(
         id: const Uuid().v4(),
-        verseKey: widget.ayah.verseKey as String,
-        arabicText: widget.ayah.textUthmani as String,
-        translationText: (widget.ayah.translationText as String?) ?? '',
+        verseKey: widget.ayah.verseKey,
+        arabicText: widget.ayah.textUthmani,
+        translationText: widget.ayah.translationText ?? '',
         tier: ReflectionTier.acknowledge,
         completedAt: DateTime.now(),
         streakDay: ref.read(userProgressProvider).totalAyatCompleted + 1,
@@ -995,6 +1004,7 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
     if (widget.audioUrl == null) return const SizedBox.shrink();
 
     final audioService = ref.read(audioServiceProvider);
+    final lang = ref.watch(languageProvider);
 
     return StreamBuilder<PlayerState>(
       stream: audioService.playerStateStream,
@@ -1026,8 +1036,8 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
                     size: 20,
                   ),
             label: Text(isPlaying
-                ? AppTranslations.get('pause', ref.watch(languageProvider))
-                : AppTranslations.get('listen', ref.watch(languageProvider))),
+                ? AppTranslations.get('pause', lang)
+                : AppTranslations.get('listen', lang)),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primaryDarkButton,
               foregroundColor: Colors.white,
