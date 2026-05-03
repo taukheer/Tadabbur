@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/main.dart';
 import 'package:tadabbur/features/onboarding/screens/onboarding_screen.dart';
+import 'package:tadabbur/features/splash/splash_screen.dart';
 import 'package:tadabbur/features/daily_ayah/screens/daily_ayah_screen.dart';
 import 'package:tadabbur/features/journal/screens/journal_screen.dart';
 import 'package:tadabbur/features/settings/screens/settings_screen.dart';
@@ -17,7 +18,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   final safeFallback = hasOnboarded ? '/home' : '/onboarding';
 
   return GoRouter(
-    initialLocation: safeFallback,
+    // Cold-start always lands on the animated splash; the splash widget
+    // navigates onward to /home or /onboarding once its choreography
+    // finishes. Every other entry point (deep link, hot restart) still
+    // reaches the right destination via the redirect block below.
+    initialLocation: '/splash',
     observers: [TadabburApp.analyticsObserver],
     // Top-level redirect: catches the cold-start deep link case where
     // Flutter forwards the raw custom-scheme URI
@@ -69,6 +74,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       );
     },
     routes: [
+      // Animated splash. Plays for ~1 second on cold start, then routes
+      // to /home or /onboarding depending on whether the user has
+      // completed first-run setup.
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),

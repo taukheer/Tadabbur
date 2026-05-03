@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_bg">#0F3D1F</color>
+    <!-- Splash background must match the adaptive icon background
+         (#0A2E2A) exactly so the OS splash → Flutter splash → home
+         transition has no perceptible color seam. -->
+    <color name="splash_bg">#0A2E2A</color>
 
     <!-- Widget palette — matches AppColors on the Flutter side. -->
     <color name="widget_bg_top">#FFFBF0</color>
