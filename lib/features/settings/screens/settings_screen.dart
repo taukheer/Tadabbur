@@ -951,16 +951,44 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
 
     try {
       final storage = widget.ref.read(localStorageProvider);
+      // Pull whatever identity we have so the feedback email isn't
+      // anonymous. Order of preference for `display_name`/`email`:
+      //   1. Google / Apple Sign-In (authUserProvider) — has them directly.
+      //   2. Quran Foundation OAuth (qfProfileProvider) — uses our
+      //      derived displayName + raw email/username.
+      //   3. Guest mode — leaves both fields null; the email template
+      //      just shows "(guest)" which is honest.
+      final authUser = widget.ref.read(authUserProvider);
+      final qfProfile = widget.ref.read(qfProfileProvider);
+      final authType = storage.authType.name; // guest/google/quranFoundation
+
+      String? displayName = authUser?.name;
+      String? email = authUser?.email;
+      if ((displayName == null || displayName.isEmpty) && qfProfile != null) {
+        displayName = qfProfile.displayName;
+      }
+      if ((email == null || email.isEmpty) && qfProfile?.email != null) {
+        email = qfProfile!.email;
+      }
+      final qfUsername = qfProfile?.username;
 
       // Writes to /feedback in Firestore. The collection's security
       // rule requires `request.auth != null` + a size cap; anonymous
       // Firebase Auth (wired in main.dart) satisfies the auth check
       // for every install. Viewable in Firebase Console at
-      // tadabbur-492408 → Firestore → feedback.
+      // tadabbur-492408 → Firestore → feedback. The `onFeedbackCreated`
+      // Cloud Function emails the founder address with whichever
+      // identity fields we managed to capture below.
       await FirebaseFirestore.instance.collection('feedback').add({
         'category': _category,
         'message': _controller.text.trim(),
         'user_id': storage.userId ?? 'guest',
+        'auth_type': authType,
+        if (displayName != null && displayName.isNotEmpty)
+          'display_name': displayName,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (qfUsername != null && qfUsername.isNotEmpty)
+          'qf_username': qfUsername,
         'language': storage.language,
         'verse_key': storage.getProgress()?.currentVerseKey ?? '1:1',
         'created_at': FieldValue.serverTimestamp(),

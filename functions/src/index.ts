@@ -70,18 +70,43 @@ export const onFeedbackCreated = onDocumentCreated(
     const category = (data.category as string) ?? "general";
     const message = (data.message as string) ?? "(no message body)";
     const userId = (data.user_id as string) ?? "guest";
+    const authType = (data.auth_type as string) ?? "unknown";
+    const displayName = (data.display_name as string) ?? "";
+    const email = (data.email as string) ?? "";
+    const qfUsername = (data.qf_username as string) ?? "";
     const language = (data.language as string) ?? "?";
     const verseKey = (data.verse_key as string) ?? "?";
     const platform = (data.platform as string) ?? "?";
     const createdAt = data.created_at?.toDate?.() ?? new Date();
 
-    const subject = `[Tadabbur · ${category}] feedback from ${userId === "guest" ? "guest" : userId.substring(0, 8)}`;
+    // Subject line shows the most-identifying thing we have. Falls
+    // back through display name → email → short uid → "guest" so a
+    // glance at the inbox tells the founder who to reach out to.
+    const subjectIdentity = displayName.length > 0
+      ? displayName
+      : email.length > 0
+        ? email
+        : userId === "guest"
+          ? "guest"
+          : userId.substring(0, 8);
+    const subject = `[Tadabbur · ${category}] feedback from ${subjectIdentity}`;
+
+    // Identity block. Only renders the lines we actually have data
+    // for so the email stays clean on guest submissions instead of
+    // showing a wall of empty fields.
+    const identityLines: string[] = [
+      `Auth method: ${authType}`,
+    ];
+    if (displayName) identityLines.push(`Name: ${displayName}`);
+    if (email) identityLines.push(`Email: ${email}`);
+    if (qfUsername) identityLines.push(`quran.com handle: ${qfUsername}`);
+    identityLines.push(`Firebase UID: ${userId}`);
 
     // Plain-text body. Keeping it simple so it reads cleanly in any
     // mail client and doesn't trip Gmail's "view full message" cutoff.
     const body = [
       `Category: ${category}`,
-      `User: ${userId}`,
+      ...identityLines,
       `Language: ${language}`,
       `Verse on screen: ${verseKey}`,
       `Platform: ${platform}`,
@@ -94,7 +119,9 @@ export const onFeedbackCreated = onDocumentCreated(
       "",
       "─────────────────────────",
       "",
-      `Reply-to: open Firebase Console → Firestore → feedback/${docId}`,
+      email
+        ? `Reply directly: ${email}`
+        : `Reply-to: open Firebase Console → Firestore → feedback/${docId}`,
     ].join("\n");
 
     // Gmail SMTP via Nodemailer. Port 465 with TLS is the most reliable
