@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
@@ -24,7 +25,9 @@ Future<void> openShareCardSheet({
   required BuildContext context,
   required Ayah ayah,
   required int dayNumber,
+  required String lang,
 }) async {
+  String t(String key) => AppTranslations.get(key, lang);
   // Flag missing translations so we notice if it's happening in
   // production. The card itself degrades gracefully (omits the
   // translation block), but silently shipping an incomplete share card
@@ -73,14 +76,14 @@ Future<void> openShareCardSheet({
               ),
               const SizedBox(height: 18),
               Text(
-                'Share this ayah',
+                t('share_ayah'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Preview',
+                t('share_card_preview'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
@@ -120,7 +123,7 @@ Future<void> openShareCardSheet({
                         ),
                       ),
                       child: Text(
-                        'Cancel',
+                        t('cancel'),
                         style: TextStyle(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.6),
@@ -141,7 +144,7 @@ Future<void> openShareCardSheet({
                         if (ctx.mounted) Navigator.of(ctx).pop();
                       },
                       icon: const Icon(Icons.ios_share_rounded, size: 18),
-                      label: const Text('Share'),
+                      label: Text(t('share_button')),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),

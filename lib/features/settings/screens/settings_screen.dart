@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/reciter.dart';
 import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
@@ -150,6 +151,12 @@ class SettingsScreen extends ConsumerWidget {
     final currentAyah =
         int.tryParse(progress.currentVerseKey.split(':').last) ?? 1;
 
+    // Localization helper: shorthand wrapper around AppTranslations.get
+    // so each label below stays a one-liner. Reading languageProvider
+    // here makes the whole settings tree re-render on language change.
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
@@ -158,7 +165,7 @@ class SettingsScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Settings',
+              Text(t('settings'),
                   style: theme.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w700)),
 
@@ -178,7 +185,7 @@ class SettingsScreen extends ConsumerWidget {
               // in-memory only and resets to null at cold start),
               // producing two contradictory cards.
               if (storage.authType != AuthType.quranFoundation) ...[
-                _SectionLabel('ACCOUNT', theme),
+                _SectionLabel(t('section_account'), theme),
                 const SizedBox(height: 10),
                 _AccountTile(ref: ref, theme: theme),
                 const SizedBox(height: 28),
@@ -186,7 +193,7 @@ class SettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
 
               // === CURRENT POSITION — tap to change ===
-              _SectionLabel('CURRENT POSITION', theme),
+              _SectionLabel(t('section_current_position'), theme),
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: () => _showSurahPicker(context, ref, progress),
@@ -227,7 +234,7 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        'Change',
+                        t('change'),
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: AppColors.primary
                               .withValues(alpha: 0.5),
@@ -246,7 +253,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === LANGUAGE ===
-              _SectionLabel('LANGUAGE', theme),
+              _SectionLabel(t('section_language'), theme),
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: () => _showLanguagePicker(context, ref, storage),
@@ -289,7 +296,7 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      Text('Change',
+                      Text(t('change'),
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: AppColors.primary
                                 .withValues(alpha: 0.5),
@@ -307,7 +314,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === RECITER ===
-              _SectionLabel('RECITER', theme),
+              _SectionLabel(t('section_reciter'), theme),
               Builder(builder: (context) {
                 final result =
                     _buildReciterList(ref.watch(qfRecitersProvider));
@@ -318,7 +325,7 @@ class SettingsScreen extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          'Names and styles synced from Quran Foundation',
+                          t('reciter_synced_caption'),
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.4),
@@ -361,21 +368,21 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === DAILY REMINDER ===
-              _SectionLabel('DAILY REMINDER', theme),
+              _SectionLabel(t('section_daily_reminder'), theme),
               const SizedBox(height: 10),
               _NotificationTile(ref: ref, theme: theme),
 
               const SizedBox(height: 28),
 
               // === TAFSIR SCHOLAR ===
-              _SectionLabel('TAFSIR SCHOLAR', theme),
+              _SectionLabel(t('section_tafsir_scholar'), theme),
               const SizedBox(height: 10),
               _TafsirScholarTile(theme: theme),
 
               const SizedBox(height: 28),
 
               // === TRANSLITERATION ===
-              _SectionLabel('TRANSLITERATION', theme),
+              _SectionLabel(t('section_transliteration'), theme),
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
@@ -392,10 +399,10 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Show transliteration',
+                          Text(t('show_transliteration'),
                               style: theme.textTheme.bodyMedium
                                   ?.copyWith(fontWeight: FontWeight.w500)),
-                          Text('Roman script below Arabic text',
+                          Text(t('roman_script_label'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurface
                                       .withValues(alpha: 0.35),
@@ -418,7 +425,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === JOURNAL DATES ===
-              _SectionLabel('JOURNAL DATES', theme),
+              _SectionLabel(t('section_journal_dates'), theme),
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
@@ -436,12 +443,11 @@ class SettingsScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Use Hijri months',
+                          Text(t('use_hijri_months'),
                               style: theme.textTheme.bodyMedium
                                   ?.copyWith(fontWeight: FontWeight.w500)),
                           Text(
-                            'Section headers show "Ramadan 1447" '
-                            'instead of "March 2026".',
+                            t('hijri_months_hint'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.35),
@@ -467,13 +473,24 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === ARABIC FONT SIZE ===
-              _SectionLabel('ARABIC FONT SIZE', theme),
+              _SectionLabel(t('section_arabic_font_size'), theme),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: _fontSizes.map((f) {
                   final (label, size) = f;
+                  // Map the canonical English label → translation key
+                  // so the chips localize even though the raw constant
+                  // stays in English (used elsewhere as a stable id).
+                  final key = switch (label) {
+                    'Small' => 'font_size_small',
+                    'Medium' => 'font_size_medium',
+                    'Large' => 'font_size_large',
+                    'Extra Large' => 'font_size_extra_large',
+                    _ => label,
+                  };
+                  final localizedLabel = t(key);
                   final isSelected =
                       (currentFontSize - size).abs() < 1;
                   return GestureDetector(
@@ -506,7 +523,7 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       ),
                       child: Text(
-                        label,
+                        localizedLabel,
                         style: TextStyle(
                           color: isSelected
                               ? AppColors.primary
@@ -526,7 +543,7 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === ARABIC FONT STYLE ===
-              _SectionLabel('ARABIC FONT', theme),
+              _SectionLabel(t('section_arabic_font'), theme),
               const SizedBox(height: 12),
               ...ArabicFonts.options.map((font) => GestureDetector(
                     onTap: () async {
@@ -574,7 +591,7 @@ class SettingsScreen extends ConsumerWidget {
                                           fontSize: 14,
                                         )),
                                     const SizedBox(width: 8),
-                                    Text(font.description,
+                                    Text(t(font.descriptionKey),
                                         style: theme.textTheme.bodySmall?.copyWith(
                                           color: theme.colorScheme.onSurface
                                               .withValues(alpha: 0.35),
@@ -610,14 +627,14 @@ class SettingsScreen extends ConsumerWidget {
               // journal tab surfaces the banner only during the
               // Dec 15 – Jan 15 window; users who want to revisit an
               // older review or peek mid-year come here.
-              _SectionLabel('YEAR IN AYAT', theme),
+              _SectionLabel(t('section_year_in_ayat'), theme),
               const SizedBox(height: 10),
               _YearlyReviewsTile(ref: ref, theme: theme),
 
               const SizedBox(height: 28),
 
               // === FEEDBACK ===
-              _SectionLabel('FEEDBACK', theme),
+              _SectionLabel(t('section_feedback'), theme),
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: () => _showFeedbackSheet(context, ref),
@@ -640,10 +657,10 @@ class SettingsScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Send Feedback',
+                            Text(t('send_feedback'),
                                 style: theme.textTheme.bodyMedium
                                     ?.copyWith(fontWeight: FontWeight.w500)),
-                            Text('Help us improve Tadabbur',
+                            Text(t('help_improve'),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.35),
@@ -670,18 +687,18 @@ class SettingsScreen extends ConsumerWidget {
               Center(
                 child: Column(
                   children: [
-                    Text('Tadabbur',
+                    Text('Tadabbur', // brand name — not translated
                         style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.3),
                             fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
-                    Text('Built on Quran Foundation APIs',
+                    Text(t('app_built_on'),
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.2))),
                     const SizedBox(height: 2),
-                    Text('Free for every Muslim. Forever.',
+                    Text(t('app_free_forever'),
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.2),
@@ -1187,6 +1204,8 @@ class _NotificationTile extends StatelessWidget {
     final notifService = ref.watch(notificationServiceProvider);
     final scheduled = notifService.getScheduledTime();
     final isEnabled = scheduled != null;
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final timeStr = isEnabled
         ? TimeOfDay(hour: scheduled.hour, minute: scheduled.minute)
             .format(context)
@@ -1228,7 +1247,7 @@ class _NotificationTile extends StatelessWidget {
                   Text(
                     isEnabled
                         ? 'Daily reminder at $timeStr'
-                        : 'Set a daily reminder',
+                        : t('set_daily_reminder'),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
                       color: isEnabled
@@ -1239,7 +1258,7 @@ class _NotificationTile extends StatelessWidget {
                   Text(
                     isEnabled
                         ? '"Your ayah for today is waiting"'
-                        : 'One notification per day, your chosen time',
+                        : t('set_daily_reminder_hint'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.35),
@@ -1251,7 +1270,7 @@ class _NotificationTile extends StatelessWidget {
               ),
             ),
             Text(
-              isEnabled ? 'Change' : 'Set time',
+              isEnabled ? t('change') : t('set_time'),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: AppColors.primary.withValues(alpha: 0.5),
               ),
@@ -1297,6 +1316,8 @@ class _AccountTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final authUser = ref.watch(authUserProvider);
     final isGuest = authUser == null;
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     if (isGuest) {
       return GestureDetector(
@@ -1328,10 +1349,10 @@ class _AccountTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Guest mode',
+                    Text(t('account_guest_mode'),
                         style: theme.textTheme.bodyMedium
                             ?.copyWith(fontWeight: FontWeight.w500)),
-                    Text('Sign in to save your journey',
+                    Text(t('sign_in_journey'),
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
                                 .withValues(alpha: 0.35),
@@ -1339,7 +1360,7 @@ class _AccountTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Text('Sign in',
+              Text(t('sign_in_button'),
                   style: theme.textTheme.labelMedium?.copyWith(
                       color: AppColors.primary.withValues(alpha: 0.6))),
             ],
@@ -1400,7 +1421,7 @@ class _AccountTile extends StatelessWidget {
               await authService.signOut();
               ref.read(authUserProvider.notifier).state = null;
             },
-            child: Text('Sign out',
+            child: Text(t('sign_out_button'),
                 style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurface
                         .withValues(alpha: 0.35))),
@@ -1486,6 +1507,8 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1493,7 +1516,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            'Account',
+            t('section_account_title_case'),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontWeight: FontWeight.w500,
@@ -1527,7 +1550,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Delete account',
+                        t('delete_account'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
                           color:
@@ -1536,7 +1559,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Permanently delete your account and all data',
+                        t('delete_account_hint'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.4),
@@ -1566,6 +1589,8 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
 
   Future<void> _confirmDelete() async {
     final theme = Theme.of(context);
+    final lang = ref.read(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1573,7 +1598,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Text('Delete account?'),
+        title: Text(t('delete_account_title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1601,14 +1626,14 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.error,
             ),
-            child: const Text('Delete forever'),
+            child: Text(t('delete_forever')),
           ),
         ],
       ),
@@ -1633,9 +1658,9 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
 
         // Show confirmation
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account deleted'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(t('account_deleted')),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -2028,7 +2053,7 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Shown when you tap "Read more" on an ayah.',
+            AppTranslations.get('tafsir_scholar_hint', rawLang),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontSize: 12,

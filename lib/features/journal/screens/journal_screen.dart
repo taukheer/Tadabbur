@@ -709,7 +709,8 @@ class _EntryDetailSheet extends ConsumerWidget {
           // ── Header: date on one line, surah:ayah on the next ──
           Center(
             child: Text(
-              formatLongDate(entry.completedAt, useHijri: useHijri),
+              formatLongDate(entry.completedAt,
+                  useHijri: useHijri, locale: lang),
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 letterSpacing: 0.3,
@@ -739,7 +740,7 @@ class _EntryDetailSheet extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Ayah $ayahNum',
+                  '${AppTranslations.get('ayah', lang)} $ayahNum',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
@@ -872,7 +873,7 @@ class _DetailReflectionBlock extends StatelessWidget {
             )
           else
             Text(
-              'A moment of presence with this ayah.',
+              AppTranslations.get('moment_of_presence', lang),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                 fontStyle: FontStyle.italic,
@@ -885,22 +886,27 @@ class _DetailReflectionBlock extends StatelessWidget {
   }
 
   (String, IconData, Color) _tierMeta(ReflectionTier tier, ThemeData theme) {
+    final label = AppTranslations.get(switch (tier) {
+      ReflectionTier.acknowledge => 'tier_acknowledged',
+      ReflectionTier.respond => 'tier_responded',
+      ReflectionTier.reflect => 'tier_reflected',
+    }, lang);
     switch (tier) {
       case ReflectionTier.acknowledge:
         return (
-          'ACKNOWLEDGED',
+          label.toUpperCase(),
           Icons.favorite_border_rounded,
           AppColors.tier1,
         );
       case ReflectionTier.respond:
         return (
-          'RESPONDED',
+          label.toUpperCase(),
           Icons.chat_bubble_outline_rounded,
           AppColors.tier2,
         );
       case ReflectionTier.reflect:
         return (
-          'REFLECTED',
+          label.toUpperCase(),
           Icons.auto_awesome_outlined,
           AppColors.tier3,
         );
@@ -1064,6 +1070,7 @@ class _EntryActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
     // Watch the live entry state so the pin icon reflects toggles in
     // real time — the passed-in [entry] is a snapshot from when the
     // sheet opened.
@@ -1094,7 +1101,7 @@ class _EntryActions extends ConsumerWidget {
               foregroundColor: theme.colorScheme.primary,
             ),
             icon: const Icon(Icons.edit_note_rounded, size: 20),
-            label: const Text('Reflect again'),
+            label: Text(AppTranslations.get('reflect_again', lang)),
           ),
         ),
         const SizedBox(width: 10),
@@ -1311,13 +1318,28 @@ String formatMediumDate(DateTime date, {required bool useHijri}) {
 /// "Friday, 24 Dhū al-Qa'dah 1447"), Hijri-aware. The weekday stays
 /// in the device's locale either way — Hijri doesn't reindex days of
 /// the week, they're the same seven days.
-String formatLongDate(DateTime date, {required bool useHijri}) {
+String formatLongDate(
+  DateTime date, {
+  required bool useHijri,
+  String locale = 'en',
+}) {
+  // Try locale-specific formatting; if the locale's date data isn't
+  // initialized in this build (only Tamil + English are guaranteed), the
+  // intl package throws — we fall back to the default English format
+  // rather than crash mid-render.
+  String safeFormat(String pattern, [String? loc]) {
+    try {
+      return DateFormat(pattern, loc).format(date);
+    } catch (_) {
+      return DateFormat(pattern).format(date);
+    }
+  }
   if (useHijri) {
     final h = HijriCalendar.fromDate(date);
-    final weekday = DateFormat('EEEE').format(date);
+    final weekday = safeFormat('EEEE', locale);
     return '$weekday, ${h.hDay} ${h.longMonthName} ${h.hYear}';
   }
-  return DateFormat('EEEE, d MMMM yyyy').format(date);
+  return safeFormat('EEEE, d MMMM yyyy', locale);
 }
 
 /// Hijri-year label for a Gregorian year. A Gregorian year typically
@@ -1362,16 +1384,11 @@ class _JournalCard extends ConsumerWidget {
     }
   }
 
-  String get _tierLabel {
-    switch (entry.tier) {
-      case ReflectionTier.acknowledge:
-        return 'Acknowledged';
-      case ReflectionTier.respond:
-        return 'Responded';
-      case ReflectionTier.reflect:
-        return 'Reflected';
-    }
-  }
+  String get _tierLabel => AppTranslations.get(switch (entry.tier) {
+        ReflectionTier.acknowledge => 'tier_acknowledged',
+        ReflectionTier.respond => 'tier_responded',
+        ReflectionTier.reflect => 'tier_reflected',
+      }, lang);
 
   String _relativeDate(DateTime date, bool useHijri) {
     final now = DateTime.now();
@@ -1482,7 +1499,7 @@ class _JournalCard extends ConsumerWidget {
                 ),
               ),
               child: Text(
-                'This spoke to me',
+                AppTranslations.get('this_spoke_to_me', lang),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: AppColors.warmBrown,
                   fontSize: 11,
@@ -1916,6 +1933,8 @@ class _MonthHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final useHijri = ref.watch(useHijriDatesProvider);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final now = DateTime.now();
     String label;
     if (useHijri) {
@@ -1926,11 +1945,11 @@ class _MonthHeader extends ConsumerWidget {
       final hNow = HijriCalendar.now();
       final sameMonth = h.hMonth == hNow.hMonth && h.hYear == hNow.hYear;
       label = sameMonth
-          ? 'This month'
+          ? t('this_month')
           : '${h.longMonthName} ${h.hYear}'.toUpperCase();
     } else {
       label = (date.year == now.year && date.month == now.month)
-          ? 'This month'
+          ? t('this_month')
           : date.year == now.year
               ? DateFormat('MMMM').format(date).toUpperCase()
               : DateFormat('MMMM yyyy').format(date).toUpperCase();
@@ -1965,20 +1984,22 @@ class _MonthHeader extends ConsumerWidget {
 /// Horizontal row of tier filter chips. Lives above the entry list.
 /// Null selection = "All" — tapping All again is a no-op, tapping
 /// the current tier again clears to All (standard toggle behavior).
-class _TierFilterChips extends StatelessWidget {
+class _TierFilterChips extends ConsumerWidget {
   final ReflectionTier? current;
   final ValueChanged<ReflectionTier?> onChanged;
 
   const _TierFilterChips({required this.current, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final options = <(ReflectionTier?, String, IconData)>[
-      (null, 'All', Icons.all_inclusive_rounded),
-      (ReflectionTier.acknowledge, 'Acknowledged', Icons.favorite_border_rounded),
-      (ReflectionTier.respond, 'Responded', Icons.chat_bubble_outline_rounded),
-      (ReflectionTier.reflect, 'Reflected', Icons.auto_awesome_outlined),
+      (null, t('tier_filter_all'), Icons.all_inclusive_rounded),
+      (ReflectionTier.acknowledge, t('tier_acknowledged'), Icons.favorite_border_rounded),
+      (ReflectionTier.respond, t('tier_responded'), Icons.chat_bubble_outline_rounded),
+      (ReflectionTier.reflect, t('tier_reflected'), Icons.auto_awesome_outlined),
     ];
 
     // Wrap (not horizontal ListView) so the last chip never clips on
@@ -2330,21 +2351,23 @@ class _SurahHeader extends StatelessWidget {
 
 /// Lens toggle: Time vs. Qur'an. Sits below the tier filter chips.
 /// Two-pill segmented control so the choice is visible but quiet.
-class _LensToggle extends StatelessWidget {
+class _LensToggle extends ConsumerWidget {
   final _JournalLens current;
   final ValueChanged<_JournalLens> onChanged;
 
   const _LensToggle({required this.current, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
       child: Row(
         children: [
           Text(
-            'GROUP BY',
+            t('group_by'),
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               letterSpacing: 1.2,
@@ -2354,14 +2377,14 @@ class _LensToggle extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           _LensPill(
-            label: 'Time',
+            label: t('group_by_time'),
             icon: Icons.schedule_rounded,
             selected: current == _JournalLens.time,
             onTap: () => onChanged(_JournalLens.time),
           ),
           const SizedBox(width: 8),
           _LensPill(
-            label: "Quran",
+            label: t('group_by_quran'),
             icon: Icons.auto_stories_outlined,
             selected: current == _JournalLens.surah,
             onTap: () => onChanged(_JournalLens.surah),

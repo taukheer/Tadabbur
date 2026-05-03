@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
+import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
-class UnderstandingLayers extends StatelessWidget {
+class UnderstandingLayers extends ConsumerWidget {
   final EditorialContent? editorial;
   final bool showContext;
   final bool showScholar;
@@ -20,15 +23,18 @@ class UnderstandingLayers extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (editorial == null) return const SizedBox.shrink();
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     return Column(
       children: [
         // Historical Context
         _RevealableSection(
           icon: Icons.history_edu_rounded,
-          title: 'Historical Context',
+          title: t('historical_context'),
+          tapToRevealLabel: t('tap_to_reveal'),
           content: editorial!.historicalContext,
           isRevealed: showContext,
           onTap: onToggleContext,
@@ -39,7 +45,8 @@ class UnderstandingLayers extends StatelessWidget {
         // Scholar's Reflection
         _RevealableSection(
           icon: Icons.menu_book_rounded,
-          title: "Scholar's Reflection",
+          title: t('scholar_reflection'),
+          tapToRevealLabel: t('tap_to_reveal'),
           subtitle: editorial!.scholarName,
           content: editorial!.scholarReflection,
           isRevealed: showScholar,
@@ -54,6 +61,7 @@ class UnderstandingLayers extends StatelessWidget {
 class _RevealableSection extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String tapToRevealLabel;
   final String? subtitle;
   final String content;
   final bool isRevealed;
@@ -63,6 +71,7 @@ class _RevealableSection extends StatelessWidget {
   const _RevealableSection({
     required this.icon,
     required this.title,
+    required this.tapToRevealLabel,
     this.subtitle,
     required this.content,
     required this.isRevealed,
@@ -143,7 +152,7 @@ class _RevealableSection extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 8),
               Text(
-                'Tap to reveal',
+                tapToRevealLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: accentColor.withValues(alpha: 0.4),
                   fontStyle: FontStyle.italic,

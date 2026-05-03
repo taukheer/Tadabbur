@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
@@ -63,6 +64,7 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
     final journal = ref.watch(journalProvider);
     final progress = ref.watch(userProgressProvider);
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
 
     // Count reflections per calendar day (local time) so we can map
     // the counts to heatmap intensity levels. Using a Map<DateTime,int>
@@ -130,7 +132,7 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
           // rather than a historical summary. The streak copy below
           // does the same job in natural language, better.
           Text(
-            'Your practice',
+            AppTranslations.get('your_practice', lang),
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurface,
@@ -195,7 +197,7 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
   }
 }
 
-class _StreakLine extends StatelessWidget {
+class _StreakLine extends ConsumerWidget {
   final int currentStreak;
   final int longestStreak;
   const _StreakLine({
@@ -205,10 +207,11 @@ class _StreakLine extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
     return Text(
-      _copyFor(currentStreak, longestStreak),
+      _copyFor(currentStreak, longestStreak, lang),
       style: theme.textTheme.bodySmall?.copyWith(
         color: AppColors.warmBrown.withValues(alpha: 0.6),
         fontSize: 11,
@@ -221,51 +224,57 @@ class _StreakLine extends StatelessWidget {
   /// "1 day streak · longest 1" with language that rewards the user
   /// for who they are rather than what they've tallied. Milestone tiers
   /// match the notification service so the whole app tells one story.
-  static String _copyFor(int current, int longest) {
+  static String _copyFor(int current, int longest, String lang) {
+    String t(String key) => AppTranslations.get(key, lang);
+    String fill(String s, Map<String, String> vars) {
+      var out = s;
+      vars.forEach((k, v) => out = out.replaceAll('{$k}', v));
+      return out;
+    }
     if (current == 0) {
-      if (longest == 0) {
-        return 'Light your first square. Today\'s the day.';
-      }
-      return 'The thread slipped. Come back — it\'s still yours.';
+      return longest == 0
+          ? t('streak_first_square')
+          : t('streak_thread_slipped');
     }
     if (current == 1) {
-      return longest > 1
-          ? 'Back again. Day 1 of the next stretch.'
-          : 'Day 1. The thread begins.';
+      return longest > 1 ? t('streak_back_again') : t('streak_day_one');
     }
     if (current < 7) {
-      return 'Day $current. The rhythm is forming.';
+      return fill(t('streak_rhythm_forming'), {'n': '$current'});
     }
     if (current == 7) {
-      return 'One week. You\'re someone who returns.';
+      return t('streak_one_week');
     }
     if (current < 14) {
-      return 'Day $current · longest $longest. Keep the thread.';
+      return fill(t('streak_keep_thread'),
+          {'n': '$current', 'longest': '$longest'});
     }
     if (current < 30) {
-      return 'Day $current. Every square is your hand raised.';
+      return fill(t('streak_hand_raised'), {'n': '$current'});
     }
     if (current < 100) {
-      return 'Day $current. This is who you are now.';
+      return fill(t('streak_who_you_are'), {'n': '$current'});
     }
-    return 'Day $current. A quiet, deliberate life.';
+    return fill(t('streak_deliberate_life'), {'n': '$current'});
   }
 }
 
-class _DetailLine extends StatelessWidget {
+class _DetailLine extends ConsumerWidget {
   final DateTime date;
   final int count;
   const _DetailLine({super.key, required this.date, required this.count});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final label = _formatDate(date);
     final right = count == 0
-        ? 'no entry'
+        ? t('heatmap_no_entry')
         : count == 1
-            ? '1 reflection'
-            : '$count reflections';
+            ? t('heatmap_one_reflection')
+            : t('heatmap_n_reflections').replaceAll('{n}', '$count');
     return Text(
       '$label · $right',
       style: theme.textTheme.bodySmall?.copyWith(
@@ -762,14 +771,16 @@ Color _colorForCount({required int count, required bool isFuture}) {
   return AppColors.primary.withValues(alpha: 0.88);
 }
 
-class _Legend extends StatelessWidget {
+class _Legend extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(
-          'Less',
+          t('heatmap_less'),
           style: TextStyle(
             fontSize: 9,
             color: AppColors.warmBrown.withValues(alpha: 0.55),
@@ -785,7 +796,7 @@ class _Legend extends StatelessWidget {
         _LegendCell(color: _colorForCount(count: 3, isFuture: false)),
         const SizedBox(width: 6),
         Text(
-          'More',
+          t('heatmap_more'),
           style: TextStyle(
             fontSize: 9,
             color: AppColors.warmBrown.withValues(alpha: 0.55),
@@ -820,7 +831,7 @@ class _LegendCell extends StatelessWidget {
 /// whose math implied a completion meter (15% fill at An-Nisa read as
 /// "15% done," misleading). Here there's no bar and no percentage; just
 /// a statement of where you are, which is the truth.
-class _PositionLine extends StatelessWidget {
+class _PositionLine extends ConsumerWidget {
   final String currentVerseKey;
   final int last30Active;
 
@@ -830,8 +841,10 @@ class _PositionLine extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef wref) {
     final theme = Theme.of(context);
+    final lang = wref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final surahName = surahNameFromKey(currentVerseKey);
     // Canonical Islamic verse reference — "An-Nisa 4:11" — is shorter
     // than "An-Nisa · ayah 11" and reads as the form Muslims are
@@ -840,8 +853,8 @@ class _PositionLine extends StatelessWidget {
 
     final right = switch (last30Active) {
       0 => null,
-      1 => '1 day this month',
-      _ => '$last30Active days this month',
+      1 => t('days_this_month_one').replaceAll('{n}', '1'),
+      _ => t('days_this_month_other').replaceAll('{n}', '$last30Active'),
     };
 
     return Row(

@@ -348,9 +348,9 @@ class _FeelingAudioButton extends ConsumerWidget {
             } catch (_) {
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Could not play audio. Please try again.'),
-                  duration: Duration(seconds: 3),
+                SnackBar(
+                  content: Text(AppTranslations.get('audio_play_error', lang)),
+                  duration: const Duration(seconds: 3),
                 ),
               );
             }
@@ -396,12 +396,12 @@ class _FeelingAudioButton extends ConsumerWidget {
 class _FeelingVisual {
   final Color accent;
   final IconData icon;
-  final String subtitle;
+  final String subtitleKey;
 
   const _FeelingVisual({
     required this.accent,
     required this.icon,
-    required this.subtitle,
+    required this.subtitleKey,
   });
 
   // All icons use the Material Rounded family for a single,
@@ -409,51 +409,54 @@ class _FeelingVisual {
   // filled variants made the picker feel assembled rather than
   // designed. Rounded is soft enough to feel emotional without being
   // childish.
+  // Subtitles are stored as translation keys (resolved at render time
+  // via AppTranslations.get) so the picker localizes with the rest of
+  // the UI rather than shipping English-only sub-descriptions.
   static const _map = {
     'low': _FeelingVisual(
       accent: Color(0xFF3C4563),
       icon: Icons.nights_stay_rounded,
-      subtitle: 'When something weighs on you',
+      subtitleKey: 'feeling_low_sub',
     ),
     'anxious': _FeelingVisual(
       accent: Color(0xFF5C7082),
       icon: Icons.air_rounded,
-      subtitle: "When the mind won't settle",
+      subtitleKey: 'feeling_anxious_sub',
     ),
     'angry': _FeelingVisual(
       accent: Color(0xFF8B4543),
       icon: Icons.local_fire_department_rounded,
-      subtitle: "When there's fire in your chest",
+      subtitleKey: 'feeling_angry_sub',
     ),
     'grateful': _FeelingVisual(
       accent: AppColors.accent,
       icon: Icons.auto_awesome_rounded,
-      subtitle: "When you want to say thank you",
+      subtitleKey: 'feeling_grateful_sub',
     ),
     'confused': _FeelingVisual(
       accent: Color(0xFF6B8474),
       icon: Icons.blur_on_rounded,
-      subtitle: "When you can't find the edges",
+      subtitleKey: 'feeling_confused_sub',
     ),
     'lonely': _FeelingVisual(
       accent: Color(0xFF6B557A),
       icon: Icons.waves_rounded,
-      subtitle: "When no one else is there",
+      subtitleKey: 'feeling_lonely_sub',
     ),
     'hopeful': _FeelingVisual(
       accent: Color(0xFFB07C6E),
       icon: Icons.wb_twilight_rounded,
-      subtitle: "When something is beginning",
+      subtitleKey: 'feeling_hopeful_sub',
     ),
     'lost': _FeelingVisual(
       accent: AppColors.primary,
       icon: Icons.explore_rounded,
-      subtitle: "When you need a direction",
+      subtitleKey: 'feeling_lost_sub',
     ),
     'exploring': _FeelingVisual(
       accent: Color(0xFF7A7466),
       icon: Icons.auto_stories_rounded,
-      subtitle: "Just sitting with the Quran",
+      subtitleKey: 'feeling_exploring_sub',
     ),
   };
 
@@ -462,7 +465,7 @@ class _FeelingVisual {
       const _FeelingVisual(
         accent: AppColors.primary,
         icon: Icons.circle_rounded,
-        subtitle: '',
+        subtitleKey: '',
       );
 }
 
@@ -471,7 +474,7 @@ class _FeelingVisual {
 /// calm line-art glyph, the state as a single word in typographic
 /// weight, and a short italic framing underneath. No emoji, no
 /// caricature — just room for the user to recognize themselves.
-class _FeelingRow extends StatelessWidget {
+class _FeelingRow extends ConsumerWidget {
   final FeelingAyah feeling;
   final bool selected;
   final bool isDark;
@@ -489,8 +492,9 @@ class _FeelingRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
     final visual = _FeelingVisual.forId(feeling.id);
     final accent = visual.accent;
     final baseSurface = isDark
@@ -586,10 +590,10 @@ class _FeelingRow extends StatelessWidget {
                               letterSpacing: -0.2,
                             ),
                           ),
-                          if (visual.subtitle.isNotEmpty) ...[
+                          if (visual.subtitleKey.isNotEmpty) ...[
                             const SizedBox(height: 3),
                             Text(
-                              visual.subtitle,
+                              AppTranslations.get(visual.subtitleKey, lang),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurface
                                     .withValues(alpha: 0.5),

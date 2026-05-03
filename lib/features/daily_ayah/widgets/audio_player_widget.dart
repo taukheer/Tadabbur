@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
 
@@ -80,6 +81,8 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
 
     final audioService = ref.read(audioServiceProvider);
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final progress = _duration.inMilliseconds > 0
         ? _position.inMilliseconds / _duration.inMilliseconds
         : 0.0;
@@ -109,16 +112,16 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
               : IconButton(
                   onPressed: () => _togglePlayback(audioService),
                   tooltip: _isPlaying
-                      ? 'Pause recitation'
-                      : 'Play recitation',
+                      ? t('audio_pause_recitation')
+                      : t('audio_play_recitation'),
                   icon: Icon(
                     _isPlaying
                         ? Icons.pause_rounded
                         : Icons.play_arrow_rounded,
                     size: 28,
                     semanticLabel: _isPlaying
-                        ? 'Pause recitation'
-                        : 'Play recitation',
+                        ? t('audio_pause_recitation')
+                        : t('audio_play_recitation'),
                   ),
                   color: theme.colorScheme.primary,
                   padding: EdgeInsets.zero,
@@ -210,7 +213,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
 /// Button + popup menu for picking how many times the ayah loops.
 /// Renders either a plain repeat icon (when not looping) or an active
 /// iteration badge like "2/5" when a memorization session is running.
-class _LoopMenuButton extends StatelessWidget {
+class _LoopMenuButton extends ConsumerWidget {
   final int selected;
   final int activeCurrent;
   final int activeTotal;
@@ -226,12 +229,14 @@ class _LoopMenuButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isLooping = activeTotal > 1;
     final hasSelection = selected > 1;
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     return PopupMenuButton<int>(
-      tooltip: 'Memorization loop',
+      tooltip: t('audio_memorization_loop'),
       initialValue: selected,
       onSelected: onChanged,
       position: PopupMenuPosition.over,
@@ -239,11 +244,11 @@ class _LoopMenuButton extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: 1, child: Text('Play once')),
-        PopupMenuItem(value: 3, child: Text('Repeat 3×')),
-        PopupMenuItem(value: 5, child: Text('Repeat 5×')),
-        PopupMenuItem(value: 10, child: Text('Repeat 10×')),
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 1, child: Text(t('audio_play_once'))),
+        PopupMenuItem(value: 3, child: Text(t('audio_repeat_3'))),
+        PopupMenuItem(value: 5, child: Text(t('audio_repeat_5'))),
+        PopupMenuItem(value: 10, child: Text(t('audio_repeat_10'))),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

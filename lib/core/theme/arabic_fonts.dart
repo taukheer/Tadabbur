@@ -6,31 +6,31 @@ class ArabicFonts {
     ArabicFontOption(
       id: 'AmiriQuran',
       name: 'Amiri Quran',
-      description: 'Classic, elegant Naskh',
+      descriptionKey: 'font_desc_amiri_quran',
       preview: 'بِسْمِ ٱللَّهِ',
     ),
     ArabicFontOption(
       id: 'Amiri',
       name: 'Amiri',
-      description: 'Traditional book style',
+      descriptionKey: 'font_desc_amiri',
       preview: 'بِسْمِ ٱللَّهِ',
     ),
     ArabicFontOption(
       id: 'ScheherazadeNew',
       name: 'Scheherazade',
-      description: 'Beautiful Naskh script',
+      descriptionKey: 'font_desc_scheherazade',
       preview: 'بِسْمِ ٱللَّهِ',
     ),
     ArabicFontOption(
       id: 'NotoNaskhArabic',
       name: 'Noto Naskh',
-      description: 'Clean, modern Naskh',
+      descriptionKey: 'font_desc_noto_naskh',
       preview: 'بِسْمِ ٱللَّهِ',
     ),
     ArabicFontOption(
       id: 'Lateef',
       name: 'Lateef',
-      description: 'Nastaliq-inspired style',
+      descriptionKey: 'font_desc_lateef',
       preview: 'بِسْمِ ٱللَّهِ',
     ),
   ];
@@ -77,13 +77,16 @@ class ArabicFonts {
 class ArabicFontOption {
   final String id;
   final String name;
-  final String description;
+  /// Translation key for the font's one-line genre description
+  /// (e.g. "Classic, elegant Naskh"). Resolved at render time so the
+  /// description localizes alongside the rest of the UI.
+  final String descriptionKey;
   final String preview;
 
   const ArabicFontOption({
     required this.id,
     required this.name,
-    required this.description,
+    required this.descriptionKey,
     required this.preview,
   });
 }

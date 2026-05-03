@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/word.dart';
+import 'package:tadabbur/core/providers/app_providers.dart';
 
-class WordByWordWidget extends StatelessWidget {
+class WordByWordWidget extends ConsumerWidget {
   final List<Word> words;
   final bool visible;
 
@@ -13,10 +16,11 @@ class WordByWordWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!visible) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final lang = ref.watch(languageProvider);
     // Filter out end markers, keep only actual words
     final actualWords =
         words.where((w) => w.charTypeName == 'word').toList();
@@ -43,7 +47,7 @@ class WordByWordWidget extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Word by Word',
+                AppTranslations.get('word_by_word', lang),
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,

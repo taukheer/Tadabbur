@@ -567,12 +567,13 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                   context: context,
                   ayah: ayah,
                   dayNumber: progress.dayNumber,
+                  lang: lang,
                 ),
                 icon: Icon(Icons.share_outlined,
                     size: 18,
                     color: theme.colorScheme.primary.withValues(alpha: 0.5)),
                 label: Text(
-                  'Share this ayah',
+                  t('share_ayah'),
                   style: TextStyle(
                     color: theme.colorScheme.primary.withValues(alpha: 0.5),
                     fontSize: 13,

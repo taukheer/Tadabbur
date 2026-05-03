@@ -158,6 +158,147 @@ class AppTranslations {
       'surah_rahman_desc': 'The Most Merciful',
       'surah_mulk_desc': 'Sovereignty — protection in the grave',
       'surah_juz_amma_desc': 'The short surahs you hear in salah',
+
+      // Settings — section headers (uppercase styling applied at render)
+      'section_account': 'ACCOUNT',
+      'section_current_position': 'CURRENT POSITION',
+      'section_language': 'LANGUAGE',
+      'section_reciter': 'RECITER',
+      'section_daily_reminder': 'DAILY REMINDER',
+      'section_tafsir_scholar': 'TAFSIR SCHOLAR',
+      'section_transliteration': 'TRANSLITERATION',
+      'section_journal_dates': 'JOURNAL DATES',
+      'section_arabic_font_size': 'ARABIC FONT SIZE',
+      'section_arabic_font': 'ARABIC FONT',
+      'section_year_in_ayat': 'YEAR IN AYAT',
+      'section_feedback': 'FEEDBACK',
+      'section_account_title_case': 'Account',
+
+      // Settings — buttons / labels
+      'change': 'Change',
+      'set_time': 'Set time',
+      'account_guest_mode': 'Guest mode',
+      'sign_in_journey': 'Sign in to save your journey',
+      'sign_in_button': 'Sign in',
+      'sign_out_button': 'Sign out',
+      'show_transliteration': 'Show transliteration',
+      'roman_script_label': 'Roman script below Arabic text',
+      'use_hijri_months': 'Use Hijri months',
+      'hijri_months_hint': 'Section headers show "Ramadan 1447" instead of "March 2026".',
+      'set_daily_reminder': 'Set a daily reminder',
+      'set_daily_reminder_hint': 'One notification per day, your chosen time',
+      'tafsir_scholar_hint': 'Shown when you tap "Read more" on an ayah.',
+      'reciter_synced_caption': 'Names and styles synced from Quran Foundation',
+      'send_feedback': 'Send Feedback',
+      'help_improve': 'Help us improve Tadabbur',
+      'delete_account': 'Delete account',
+      'delete_account_hint': 'Permanently delete your account and all data',
+      'delete_account_title': 'Delete account?',
+      'delete_forever': 'Delete forever',
+      'cancel': 'Cancel',
+      'account_deleted': 'Account deleted',
+      'sign_out_qf_confirm': 'Sign out of quran.com?',
+      'signed_out_qf': 'Signed out of quran.com.',
+      'app_built_on': 'Built on Quran Foundation APIs',
+      'app_free_forever': 'Free for every Muslim. Forever.',
+      'font_size_small': 'Small',
+      'font_size_medium': 'Medium',
+      'font_size_large': 'Large',
+      'font_size_extra_large': 'Extra Large',
+
+      // Journal
+      'your_practice': 'Your practice',
+      'thread_begins': 'Day {n}. The thread begins.',
+      'days_this_month_one': '{n} day this month',
+      'days_this_month_other': '{n} days this month',
+      'tier_acknowledged': 'Acknowledged',
+      'tier_responded': 'Responded',
+      'tier_reflected': 'Reflected',
+      'tier_filter_all': 'All',
+      'group_by': 'GROUP BY',
+      'group_by_time': 'Time',
+      'group_by_quran': 'Quran',
+      'this_month': 'This month',
+      'reflect_again': 'Reflect again',
+      'sync_error_connection': 'Could not sync. Check your connection.',
+
+      // Daily ayah
+      'share_ayah': 'Share this ayah',
+      'ayah_bookmarked': 'Ayah bookmarked',
+      'this_spoke_to_me': 'This spoke to me',
+
+      // Audio modes
+      'audio_play_once': 'Play once',
+      'audio_repeat_3': 'Repeat 3×',
+      'audio_repeat_5': 'Repeat 5×',
+      'audio_repeat_10': 'Repeat 10×',
+
+      // Journal / share
+      'share_button': 'Share',
+
+      // Feelings
+      'audio_play_error': 'Could not play audio. Please try again.',
+
+      // Audio player widget
+      'audio_pause_recitation': 'Pause recitation',
+      'audio_play_recitation': 'Play recitation',
+      'audio_memorization_loop': 'Memorization loop',
+
+      // Understanding layers (scholar tab)
+      'historical_context': 'Historical Context',
+      'scholar_reflection': "Scholar's Reflection",
+      'tap_to_reveal': 'Tap to reveal',
+
+      // Activity heatmap — streak copy variants
+      'streak_first_square': "Light your first square. Today's the day.",
+      'streak_thread_slipped': "The thread slipped. Come back — it's still yours.",
+      'streak_back_again': 'Back again. Day 1 of the next stretch.',
+      'streak_day_one': 'Day 1. The thread begins.',
+      'streak_rhythm_forming': 'Day {n}. The rhythm is forming.',
+      'streak_one_week': "One week. You're someone who returns.",
+      'streak_keep_thread': 'Day {n} · longest {longest}. Keep the thread.',
+      'streak_hand_raised': 'Day {n}. Every square is your hand raised.',
+      'streak_who_you_are': 'Day {n}. This is who you are now.',
+      'streak_deliberate_life': 'Day {n}. A quiet, deliberate life.',
+
+      // Activity heatmap — detail line under tapped cell
+      'heatmap_no_entry': 'no entry',
+      'heatmap_one_reflection': '1 reflection',
+      'heatmap_n_reflections': '{n} reflections',
+
+      // Activity heatmap — legend / position line
+      'heatmap_less': 'Less',
+      'heatmap_more': 'More',
+
+      // Share card
+      'share_card_preview': 'Preview',
+
+      // Year-in-ayat card
+      'year_in_ayat_eyebrow': 'YEAR IN AYAT',
+      'most_returned_to': 'MOST RETURNED TO',
+      'year_card_tagline': 'May these be written in your scales.',
+      'close_label': 'Close',
+
+      // Feeling sub-descriptions (one-liners under each feeling)
+      'feeling_low_sub': 'When something weighs on you',
+      'feeling_anxious_sub': "When the mind won't settle",
+      'feeling_angry_sub': "When there's fire in your chest",
+      'feeling_grateful_sub': 'When you want to say thank you',
+      'feeling_confused_sub': "When you can't find the edges",
+      'feeling_lonely_sub': 'When no one else is there',
+      'feeling_hopeful_sub': 'When something is beginning',
+      'feeling_lost_sub': 'When you need a direction',
+      'feeling_exploring_sub': 'Just sitting with the Quran',
+
+      // Journal — placeholder body for tier-1 (acknowledge) entries
+      'moment_of_presence': 'A moment of presence with this ayah.',
+
+      // Arabic font genre descriptions (subtitle under each font name)
+      'font_desc_amiri_quran': 'Classic, elegant Naskh',
+      'font_desc_amiri': 'Traditional book style',
+      'font_desc_scheherazade': 'Beautiful Naskh script',
+      'font_desc_noto_naskh': 'Clean, modern Naskh',
+      'font_desc_lateef': 'Nastaliq-inspired style',
     },
     'ar': {
       'welcome_line': 'ستون ثانية مع القرآن.\nكل صباح.\nوفي يوم ما، ستتغير\nصلاتك.',
@@ -278,6 +419,87 @@ class AppTranslations {
       'surah_rahman_desc': 'الرحمن',
       'surah_mulk_desc': 'الملك — حماية في القبر',
       'surah_juz_amma_desc': 'السور القصيرة التي تسمعها في الصلاة',
+
+      // Settings — section headers
+      'section_account': 'الحساب',
+      'section_current_position': 'الموضع الحالي',
+      'section_language': 'اللغة',
+      'section_reciter': 'القارئ',
+      'section_daily_reminder': 'التذكير اليومي',
+      'section_tafsir_scholar': 'عالم التفسير',
+      'section_transliteration': 'النقل الحرفي',
+      'section_journal_dates': 'تواريخ المذكرة',
+      'section_arabic_font_size': 'حجم الخط العربي',
+      'section_arabic_font': 'الخط العربي',
+      'section_year_in_ayat': 'سنة من الآيات',
+      'section_feedback': 'الملاحظات',
+      'section_account_title_case': 'الحساب',
+
+      // Settings — buttons / labels
+      'change': 'تغيير',
+      'set_time': 'تحديد الوقت',
+      'account_guest_mode': 'وضع الضيف',
+      'sign_in_journey': 'سجّل الدخول لحفظ رحلتك',
+      'sign_in_button': 'تسجيل الدخول',
+      'sign_out_button': 'تسجيل الخروج',
+      'show_transliteration': 'إظهار النقل الحرفي',
+      'roman_script_label': 'الحروف اللاتينية تحت النص العربي',
+      'use_hijri_months': 'استخدم الأشهر الهجرية',
+      'hijri_months_hint': 'تظهر عناوين الأقسام «رمضان ١٤٤٧» بدلاً من «مارس ٢٠٢٦».',
+      'set_daily_reminder': 'حدّد تذكيراً يومياً',
+      'set_daily_reminder_hint': 'إشعار واحد في اليوم في الوقت الذي تختاره',
+      'tafsir_scholar_hint': 'يظهر عند الضغط على "اقرأ المزيد" في الآية.',
+      'reciter_synced_caption': 'الأسماء والأنماط متزامنة من مؤسسة القرآن',
+      'send_feedback': 'أرسل ملاحظاتك',
+      'help_improve': 'ساعدنا في تحسين تدبر',
+      'delete_account': 'حذف الحساب',
+      'delete_account_hint': 'حذف حسابك وجميع بياناتك بشكل دائم',
+      'delete_account_title': 'حذف الحساب؟',
+      'delete_forever': 'حذف نهائي',
+      'cancel': 'إلغاء',
+      'account_deleted': 'تم حذف الحساب',
+      'sign_out_qf_confirm': 'تسجيل الخروج من quran.com؟',
+      'signed_out_qf': 'تم تسجيل الخروج من quran.com.',
+      'app_built_on': 'مبني على واجهات مؤسسة القرآن',
+      'app_free_forever': 'مجاني لكل مسلم. للأبد.',
+      'font_size_small': 'صغير',
+      'font_size_medium': 'متوسط',
+      'font_size_large': 'كبير',
+      'font_size_extra_large': 'كبير جداً',
+
+      // Journal
+      'your_practice': 'ممارستك',
+      'thread_begins': 'اليوم {n}. يبدأ الخيط.',
+      'days_this_month_one': 'يوم واحد هذا الشهر',
+      'days_this_month_other': '{n} أيام هذا الشهر',
+      'tier_acknowledged': 'اعترفت',
+      'tier_responded': 'استجبت',
+      'tier_reflected': 'تأملت',
+      'tier_filter_all': 'الكل',
+      'group_by': 'تجميع حسب',
+      'group_by_time': 'الوقت',
+      'group_by_quran': 'القرآن',
+      'this_month': 'هذا الشهر',
+      'reflect_again': 'تأمل مرة أخرى',
+      'sync_error_connection': 'تعذرت المزامنة. تحقق من اتصالك.',
+
+      // Daily ayah
+      'share_ayah': 'شارك هذه الآية',
+      'ayah_bookmarked': 'تم وضع علامة على الآية',
+      'this_spoke_to_me': 'لامست قلبي',
+
+      // Audio modes
+      'audio_play_once': 'تشغيل مرة واحدة',
+      'audio_repeat_3': 'تكرار ٣ مرات',
+      'audio_repeat_5': 'تكرار ٥ مرات',
+      'audio_repeat_10': 'تكرار ١٠ مرات',
+
+      // Journal / share
+      'share_button': 'مشاركة',
+
+      // Feelings
+      'audio_play_error': 'تعذر تشغيل الصوت. يرجى المحاولة مرة أخرى.',
+
       'how_feeling': 'كيف تشعر؟',
       'feeling_subtitle': 'توجه إلى القرآن في هذه اللحظة.',
       'feeling_low': 'حزين',
@@ -562,6 +784,148 @@ class AppTranslations {
       'surah_rahman_desc': 'அளவற்ற அருளாளன்',
       'surah_mulk_desc': 'ஆட்சி — கப்ரில் பாதுகாப்பு',
       'surah_juz_amma_desc': 'தொழுகையில் கேட்கும் சிறு சூராக்கள்',
+
+      // Settings — section headers
+      'section_account': 'கணக்கு',
+      'section_current_position': 'தற்போதைய இடம்',
+      'section_language': 'மொழி',
+      'section_reciter': 'ஓதுபவர்',
+      'section_daily_reminder': 'தினசரி நினைவூட்டல்',
+      'section_tafsir_scholar': 'தஃப்சீர் அறிஞர்',
+      'section_transliteration': 'ஒலிபெயர்ப்பு',
+      'section_journal_dates': 'குறிப்பேட்டு தேதிகள்',
+      'section_arabic_font_size': 'அரபி எழுத்து அளவு',
+      'section_arabic_font': 'அரபி எழுத்துரு',
+      'section_year_in_ayat': 'ஆண்டின் ஆயத்துகள்',
+      'section_feedback': 'கருத்து',
+      'section_account_title_case': 'கணக்கு',
+
+      // Settings — buttons / labels
+      'change': 'மாற்று',
+      'set_time': 'நேரம் அமை',
+      'account_guest_mode': 'விருந்தினர் பயன்முறை',
+      'sign_in_journey': 'உங்கள் பயணத்தை சேமிக்க உள்நுழையவும்',
+      'sign_in_button': 'உள்நுழையவும்',
+      'sign_out_button': 'வெளியேறு',
+      'show_transliteration': 'ஒலிபெயர்ப்பைக் காட்டு',
+      'roman_script_label': 'அரபி உரைக்குக் கீழே ரோமன் எழுத்து',
+      'use_hijri_months': 'ஹிஜ்ரி மாதங்களைப் பயன்படுத்து',
+      'hijri_months_hint': 'பிரிவு தலைப்புகள் "மார்ச் 2026" க்குப் பதிலாக "ரமலான் 1447" காட்டும்.',
+      'set_daily_reminder': 'தினசரி நினைவூட்டல் அமை',
+      'set_daily_reminder_hint': 'நாளுக்கு ஒரு அறிவிப்பு, நீங்கள் தேர்ந்தெடுத்த நேரத்தில்',
+      'tafsir_scholar_hint': 'ஒரு ஆயத்தில் "மேலும் படிக்க" தட்டும்போது காட்டப்படும்.',
+      'reciter_synced_caption': 'குர்ஆன் அறக்கட்டளையிலிருந்து பெயர்களும் பாணிகளும் ஒத்திசைக்கப்பட்டன',
+      'send_feedback': 'கருத்து அனுப்பு',
+      'help_improve': 'தடப்புரை மேம்படுத்த உதவுங்கள்',
+      'delete_account': 'கணக்கை நீக்கு',
+      'delete_account_hint': 'உங்கள் கணக்கையும் அனைத்துத் தரவையும் நிரந்தரமாக நீக்கு',
+      'delete_account_title': 'கணக்கை நீக்கவா?',
+      'delete_forever': 'என்றென்றும் நீக்கு',
+      'cancel': 'ரத்து',
+      'account_deleted': 'கணக்கு நீக்கப்பட்டது',
+      'sign_out_qf_confirm': 'quran.com இலிருந்து வெளியேறவா?',
+      'signed_out_qf': 'quran.com இலிருந்து வெளியேறினீர்கள்.',
+      'app_built_on': 'குர்ஆன் அறக்கட்டளை API களில் கட்டமைக்கப்பட்டது',
+      'app_free_forever': 'ஒவ்வொரு முஸ்லிமுக்கும். என்றென்றும்.',
+      'font_size_small': 'சிறிய',
+      'font_size_medium': 'நடுத்தர',
+      'font_size_large': 'பெரிய',
+      'font_size_extra_large': 'மிகப் பெரிய',
+
+      // Journal
+      'your_practice': 'உங்கள் பயிற்சி',
+      'thread_begins': 'நாள் {n}. பயணம் தொடங்குகிறது.',
+      'days_this_month_one': 'இந்த மாதம் {n} நாள்',
+      'days_this_month_other': 'இந்த மாதம் {n} நாட்கள்',
+      'tier_acknowledged': 'ஏற்றுக்கொண்டது',
+      'tier_responded': 'பதிலளித்தது',
+      'tier_reflected': 'சிந்தித்தது',
+      'tier_filter_all': 'அனைத்தும்',
+      'group_by': 'வரிசைப்படுத்து',
+      'group_by_time': 'நேரம்',
+      'group_by_quran': 'குர்ஆன்',
+      'this_month': 'இந்த மாதம்',
+      'reflect_again': 'மீண்டும் சிந்தி',
+      'sync_error_connection': 'ஒத்திசைக்க முடியவில்லை. உங்கள் இணைப்பைச் சரிபார்க்கவும்.',
+
+      // Daily ayah
+      'share_ayah': 'இந்த ஆயத்தை பகிர்',
+      'ayah_bookmarked': 'ஆயத் புத்தகக்குறி இடப்பட்டது',
+      'this_spoke_to_me': 'இது என்னோடு பேசியது',
+
+      // Audio modes
+      'audio_play_once': 'ஒருமுறை இயக்கு',
+      'audio_repeat_3': '3× மீண்டும்',
+      'audio_repeat_5': '5× மீண்டும்',
+      'audio_repeat_10': '10× மீண்டும்',
+
+      // Journal / share
+      'share_button': 'பகிர்',
+
+      // Feelings
+      'audio_play_error': 'ஆடியோவை இயக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+
+      // Audio player widget
+      'audio_pause_recitation': 'ஓதுதலை இடைநிறுத்து',
+      'audio_play_recitation': 'ஓதுதலை இயக்கு',
+      'audio_memorization_loop': 'மனனம் சுற்று',
+
+      // Understanding layers
+      'historical_context': 'வரலாற்றுச் சூழல்',
+      'scholar_reflection': 'அறிஞரின் பிரதிபலிப்பு',
+      'tap_to_reveal': 'காண தட்டவும்',
+
+      // Activity heatmap — streak copy variants
+      'streak_first_square': 'உங்கள் முதல் சதுரத்தை ஏற்றுங்கள். இன்று அந்த நாள்.',
+      'streak_thread_slipped': 'இழை நழுவியது. திரும்பி வாருங்கள் — இது இன்னும் உங்களுடையதே.',
+      'streak_back_again': 'மீண்டும். அடுத்த கட்டத்தின் நாள் 1.',
+      'streak_day_one': 'நாள் 1. பயணம் தொடங்குகிறது.',
+      'streak_rhythm_forming': 'நாள் {n}. ஒத்திசைவு உருவாகிறது.',
+      'streak_one_week': 'ஒரு வாரம். நீங்கள் திரும்பும் ஒருவர்.',
+      'streak_keep_thread': 'நாள் {n} · நீளமானது {longest}. இழையை வைத்திருங்கள்.',
+      'streak_hand_raised': 'நாள் {n}. ஒவ்வொரு சதுரமும் உங்கள் கை உயர்த்தலே.',
+      'streak_who_you_are': 'நாள் {n}. நீங்கள் இப்போது இவர்.',
+      'streak_deliberate_life': 'நாள் {n}. அமைதியான, நோக்குடன் கூடிய வாழ்க்கை.',
+
+      // Activity heatmap — detail line
+      'heatmap_no_entry': 'பதிவு இல்லை',
+      'heatmap_one_reflection': '1 பிரதிபலிப்பு',
+      'heatmap_n_reflections': '{n} பிரதிபலிப்புகள்',
+
+      // Activity heatmap — legend
+      'heatmap_less': 'குறைவு',
+      'heatmap_more': 'அதிகம்',
+
+      // Share card
+      'share_card_preview': 'முன்னோட்டம்',
+
+      // Year-in-ayat card
+      'year_in_ayat_eyebrow': 'ஆண்டின் ஆயத்துகள்',
+      'most_returned_to': 'அதிகம் திரும்பியவை',
+      'year_card_tagline': 'இவை உங்கள் தராசில் எழுதப்படட்டும்.',
+      'close_label': 'மூடு',
+
+      // Feeling sub-descriptions
+      'feeling_low_sub': 'ஏதோ ஒன்று உங்களைப் பாரப்படுத்தும் போது',
+      'feeling_anxious_sub': 'மனம் அமைதியடையாத போது',
+      'feeling_angry_sub': 'நெஞ்சில் நெருப்பு எரியும் போது',
+      'feeling_grateful_sub': 'நன்றி சொல்ல விரும்பும் போது',
+      'feeling_confused_sub': 'எல்லைகள் தெரியாத போது',
+      'feeling_lonely_sub': 'வேறு யாரும் இல்லாத போது',
+      'feeling_hopeful_sub': 'ஏதோ ஒன்று தொடங்கும் போது',
+      'feeling_lost_sub': 'திசை தேவைப்படும் போது',
+      'feeling_exploring_sub': 'வெறுமனே குர்ஆனுடன் இருக்க',
+
+      // Journal — placeholder body for tier-1 (acknowledge) entries
+      'moment_of_presence': 'இந்த ஆயத்துடன் ஒரு கணம் இருந்தீர்கள்.',
+
+      // Arabic font genre descriptions
+      'font_desc_amiri_quran': 'பாரம்பரிய, அழகான நஸ்க்',
+      'font_desc_amiri': 'பாரம்பரிய புத்தக பாணி',
+      'font_desc_scheherazade': 'அழகிய நஸ்க் எழுத்து',
+      'font_desc_noto_naskh': 'தெளிவான, நவீன நஸ்க்',
+      'font_desc_lateef': 'நஸ்தாலிக் தாக்கம் கொண்ட பாணி',
+
       'how_feeling': 'நீங்கள் எப்படி உணர்கிறீர்கள்?',
       'feeling_subtitle': 'இந்த நேரத்தில் குர்ஆனை நோக்கித் திரும்புங்கள்.',
       'feeling_low': 'சோகமாக',
