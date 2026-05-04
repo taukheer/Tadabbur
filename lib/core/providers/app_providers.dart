@@ -318,16 +318,20 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
   }
 
   /// Sync activity with Quran Foundation APIs.
-  /// Non-blocking — local writes already succeeded, so a QF failure
-  /// means the quran.com mirror is lagging, not that the user lost
-  /// data. Surfaced to the UI as a subtle banner so the user knows
-  /// their stats on quran.com may be out of date.
+  /// Non-blocking and best-effort. The local write has already
+  /// succeeded by the time we get here, so a QF failure means only
+  /// that the quran.com mirror is lagging. We log to Crashlytics for
+  /// observability but do NOT surface a user-visible banner: the user
+  /// can't act on it (refresh-token recovery is automatic), and
+  /// alarming them on every failure creates noise on flaky networks.
   void _syncWithQF(DateTime now) {
     _userApi.updateStreak().catchError((Object e) {
-      SyncReporter.report('streak · quran.com', e);
+      SyncReporter.report('streak · quran.com', e,
+          severity: SyncSeverity.quiet);
     });
     _userApi.logActivityDay(now).catchError((Object e) {
-      SyncReporter.report('activity · quran.com', e);
+      SyncReporter.report('activity · quran.com', e,
+          severity: SyncSeverity.quiet);
     });
   }
 
@@ -561,7 +565,8 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     await _storage.saveBookmarks(state);
 
     _userApi.addBookmark(verseKey).catchError((Object e) {
-      SyncReporter.report('bookmark · quran.com', e);
+      SyncReporter.report('bookmark · quran.com', e,
+          severity: SyncSeverity.quiet);
     });
 
     // Firestore write is queued for replay via the pending key, so
@@ -596,7 +601,8 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     final qfBookmarkId = bookmark?.qfBookmarkId;
     if (qfBookmarkId != null) {
       _userApi.removeBookmark(qfBookmarkId).catchError((Object e) {
-        SyncReporter.report('bookmark · quran.com', e);
+        SyncReporter.report('bookmark · quran.com', e,
+            severity: SyncSeverity.quiet);
       });
     }
 
@@ -820,7 +826,8 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
     // Auto-bookmark on QF when user wrote a reflection (Tier 2/3)
     if (entry.tier != ReflectionTier.acknowledge && entry.responseText != null) {
       _userApi.addBookmark(entry.verseKey).catchError((Object e) {
-        SyncReporter.report('bookmark · quran.com', e);
+        SyncReporter.report('bookmark · quran.com', e,
+            severity: SyncSeverity.quiet);
       });
     }
   }
@@ -847,7 +854,8 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
           },
         )
         .catchError((Object e) {
-      SyncReporter.report('reflection · quran.com', e);
+      SyncReporter.report('reflection · quran.com', e,
+          severity: SyncSeverity.quiet);
     });
   }
 
