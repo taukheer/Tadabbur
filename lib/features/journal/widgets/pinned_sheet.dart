@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:tadabbur/core/models/journal_entry.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/features/journal/screens/journal_screen.dart'
     show JournalCard;
@@ -29,7 +30,7 @@ class PinnedSheet extends StatelessWidget {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      constraints: kAdaptiveSheetConstraints,      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

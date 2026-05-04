@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:tadabbur/core/constants/feelings.dart';
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
@@ -63,9 +64,11 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
         ),
       ),
       body: SafeArea(
-        child: _ayah != null
-            ? _buildAyahView(theme, t, lang)
-            : _buildFeelingPicker(theme, t),
+        child: MaxWidthContainer(
+          child: _ayah != null
+              ? _buildAyahView(theme, t, lang)
+              : _buildFeelingPicker(theme, t),
+        ),
       ),
     );
   }

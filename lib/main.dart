@@ -26,8 +26,16 @@ const _kForegroundHydrateCooldown = Duration(seconds: 30);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // iPhone is locked to portrait via Info.plist (one orientation),
+  // while iPad allows all four for Split View / Slide Over compliance
+  // (Apple guideline 2.5.1). Letting Flutter accept any orientation
+  // here lets iOS pick whatever the device class permits, instead of
+  // forcing portrait everywhere and breaking iPad layouts on rotate.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   // Initialize Firebase

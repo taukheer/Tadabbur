@@ -7,6 +7,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/ayah.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/widgets/golden_stroke.dart';
@@ -643,19 +644,25 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      constraints: kAdaptiveSheetConstraints,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
-        minChildSize: 0.3,
-        expand: false,
-        builder: (ctx, scrollController) => _TafsirSheet(
-          verseKey: verseKey,
-          lang: lang,
-          scrollController: scrollController,
+      builder: (ctx) => Center(
+        child: ConstrainedBox(
+          constraints: kAdaptiveSheetConstraints,
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.6,
+            maxChildSize: 0.9,
+            minChildSize: 0.3,
+            expand: false,
+            builder: (ctx, scrollController) => _TafsirSheet(
+              verseKey: verseKey,
+              lang: lang,
+              scrollController: scrollController,
+            ),
+          ),
         ),
       ),
     );
@@ -1323,7 +1330,7 @@ class _CompletedState extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      constraints: kAdaptiveSheetConstraints,      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

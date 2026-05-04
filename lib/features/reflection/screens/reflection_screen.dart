@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
@@ -71,9 +72,10 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+        child: MaxWidthContainer(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             // Close button
             SliverToBoxAdapter(
               child: Padding(
@@ -308,6 +310,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
 
             const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
+          ),
         ),
       ),
     );

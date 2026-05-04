@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/widgets/time_of_day_ribbon.dart';
@@ -18,6 +19,17 @@ class AppShell extends ConsumerWidget {
     return 0;
   }
 
+  void _navigateTo(BuildContext context, int i) {
+    switch (i) {
+      case 0:
+        context.go('/home');
+      case 1:
+        context.go('/journal');
+      case 2:
+        context.go('/settings');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = _currentIndex(context);
@@ -30,108 +42,184 @@ class AppShell extends ConsumerWidget {
         ) ??
         false;
 
-    return Scaffold(
-      body: Stack(
+    final useRail = context.useSideNavigation;
+
+    // Body content shared between phone and tablet layouts. Wraps the
+    // routed child in a max-width container on tablet so screens don't
+    // stretch across an iPad's full 13-inch width — text stays
+    // comfortable to read, and the chrome (offline banner, sync error
+    // banner) still spans the full window.
+    final bodyContent = SafeArea(
+      top: true,
+      bottom: false,
+      child: Column(
         children: [
-          // SafeArea(top: true, bottom: false) keeps the status-bar
-          // gutter clear so the offline / sync-error banners don't
-          // collide with the system clock and battery icons. Children
-          // (the daily ayah, journal, etc.) manage their own SafeAreas
-          // internally, so we only enforce top here.
-          SafeArea(
-            top: true,
-            bottom: false,
-            child: Column(
-              children: [
-                if (isOffline)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    color: theme.colorScheme.error,
-                    child: Text(
-                      t('offline_mode'),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onError,
-                      ),
-                    ),
-                  ),
-                const _SyncErrorBanner(),
-                Expanded(child: child),
-              ],
+          if (isOffline)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              color: theme.colorScheme.error,
+              child: Text(
+                t('offline_mode'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onError,
+                ),
+              ),
             ),
-          ),
-          // Ambient time-of-day tint floats above the scaffold without
-          // taking layout space or blocking touches. Near-invisible
-          // during the day; deepens warmly at fajr/maghrib so the app
-          // feels aware of the times the user prays.
-          const Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: TimeOfDayRibbon(),
+          const _SyncErrorBanner(),
+          Expanded(
+            child: MaxWidthContainer(child: child),
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: theme.colorScheme.primary.withValues(alpha: 0.06),
-              width: 0.5,
+    );
+
+    return Scaffold(
+      body: Row(
+        children: [
+          if (useRail)
+            _AdaptiveNavigationRail(
+              selectedIndex: index,
+              onDestinationSelected: (i) => _navigateTo(context, i),
+              t: t,
+            ),
+          Expanded(
+            child: Stack(
+              children: [
+                bodyContent,
+                // Ambient time-of-day tint floats above the scaffold
+                // without taking layout space or blocking touches.
+                // Near-invisible during the day; deepens warmly at
+                // fajr/maghrib so the app feels aware of the times
+                // the user prays. Phones only — on iPad the larger
+                // canvas competes with the band, so we follow the
+                // YouVersion / Apple Books pattern of pure status-bar →
+                // content with no ambient chrome.
+                if (!useRail)
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: TimeOfDayRibbon(),
+                  ),
+              ],
             ),
           ),
-        ),
-        child: NavigationBar(
-          selectedIndex: index,
-          onDestinationSelected: (i) {
-            switch (i) {
-              case 0:
-                context.go('/home');
-              case 1:
-                context.go('/journal');
-              case 2:
-                context.go('/settings');
-            }
-          },
-          backgroundColor: theme.colorScheme.surface,
-          indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-          elevation: 0,
-          height: 60,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.auto_stories_outlined,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  semanticLabel: t('today')),
-              selectedIcon:
-                  Icon(Icons.auto_stories, color: theme.colorScheme.primary,
-                  semanticLabel: t('today')),
-              label: t('today'),
-              tooltip: t('today'),
+        ],
+      ),
+      bottomNavigationBar: useRail
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: NavigationBar(
+                selectedIndex: index,
+                onDestinationSelected: (i) => _navigateTo(context, i),
+                backgroundColor: theme.colorScheme.surface,
+                indicatorColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.08),
+                elevation: 0,
+                height: 60,
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: [
+                  NavigationDestination(
+                    icon: Icon(Icons.auto_stories_outlined,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        semanticLabel: t('today')),
+                    selectedIcon: Icon(Icons.auto_stories,
+                        color: theme.colorScheme.primary,
+                        semanticLabel: t('today')),
+                    label: t('today'),
+                    tooltip: t('today'),
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.book_outlined,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        semanticLabel: t('journal')),
+                    selectedIcon: Icon(Icons.book,
+                        color: theme.colorScheme.primary,
+                        semanticLabel: t('journal')),
+                    label: t('journal'),
+                    tooltip: t('journal'),
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings_outlined,
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        semanticLabel: t('settings')),
+                    selectedIcon: Icon(Icons.settings,
+                        color: theme.colorScheme.primary,
+                        semanticLabel: t('settings')),
+                    label: t('settings'),
+                    tooltip: t('settings'),
+                  ),
+                ],
+              ),
             ),
-            NavigationDestination(
-              icon: Icon(Icons.book_outlined,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  semanticLabel: t('journal')),
-              selectedIcon:
-                  Icon(Icons.book, color: theme.colorScheme.primary,
-                  semanticLabel: t('journal')),
-              label: t('journal'),
-              tooltip: t('journal'),
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  semanticLabel: t('settings')),
-              selectedIcon:
-                  Icon(Icons.settings, color: theme.colorScheme.primary,
-                  semanticLabel: t('settings')),
-              label: t('settings'),
-              tooltip: t('settings'),
-            ),
-          ],
-        ),
+    );
+  }
+}
+
+/// Side navigation rail used at expanded window widths (iPad landscape,
+/// foldable unfolded landscape, desktop). Replaces the bottom
+/// [NavigationBar] so the iPad never feels like a stretched phone.
+class _AdaptiveNavigationRail extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final String Function(String) t;
+
+  const _AdaptiveNavigationRail({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: true,
+      bottom: true,
+      child: NavigationRail(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: onDestinationSelected,
+        backgroundColor: theme.colorScheme.surface,
+        indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+        labelType: NavigationRailLabelType.all,
+        useIndicator: true,
+        groupAlignment: -0.85,
+        destinations: [
+          NavigationRailDestination(
+            icon: Icon(Icons.auto_stories_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            selectedIcon: Icon(Icons.auto_stories,
+                color: theme.colorScheme.primary),
+            label: Text(t('today')),
+          ),
+          NavigationRailDestination(
+            icon: Icon(Icons.book_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            selectedIcon:
+                Icon(Icons.book, color: theme.colorScheme.primary),
+            label: Text(t('journal')),
+          ),
+          NavigationRailDestination(
+            icon: Icon(Icons.settings_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+            selectedIcon:
+                Icon(Icons.settings, color: theme.colorScheme.primary),
+            label: Text(t('settings')),
+          ),
+        ],
       ),
     );
   }

@@ -4,10 +4,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 
 /// Force modern lining figures (1, 2, 3 at consistent height) on stat
@@ -38,7 +38,7 @@ Future<void> openYearInAyatShareSheet({
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
+    constraints: kAdaptiveSheetConstraints,    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -95,21 +95,27 @@ Future<void> openYearInAyatShareSheet({
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        await _captureAndShare(
-                          cardKey: cardKey,
-                          gregorianYear: gregorianYear,
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                      },
-                      icon: const Icon(Icons.ios_share_rounded, size: 18),
-                      label: const Text('Share'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    // See share_card.dart for the iPad popover-anchor
+                    // rationale — sharePositionOrigin is required on
+                    // iPad or the share call silently no-ops.
+                    child: Builder(
+                      builder: (btnCtx) => FilledButton.icon(
+                        onPressed: () async {
+                          await _captureAndShare(
+                            cardKey: cardKey,
+                            gregorianYear: gregorianYear,
+                            buttonContext: btnCtx,
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        },
+                        icon: const Icon(Icons.ios_share_rounded, size: 18),
+                        label: const Text('Share'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -127,6 +133,7 @@ Future<void> openYearInAyatShareSheet({
 Future<void> _captureAndShare({
   required GlobalKey cardKey,
   required int gregorianYear,
+  BuildContext? buttonContext,
 }) async {
   final boundary = cardKey.currentContext?.findRenderObject()
       as RenderRepaintBoundary?;
@@ -137,14 +144,25 @@ Future<void> _captureAndShare({
   if (byteData == null) return;
   final pngBytes = byteData.buffer.asUint8List();
 
-  final tempDir = await getTemporaryDirectory();
+  // See share_card.dart for the systemTemp rationale — bypasses
+  // path_provider which is broken on iOS 26.x simulator.
+  final tempDir = Directory.systemTemp;
   final file = File('${tempDir.path}/tadabbur_year_$gregorianYear.png');
   await file.writeAsBytes(pngBytes, flush: true);
+
+  Rect? origin;
+  if (buttonContext != null && buttonContext.mounted) {
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      origin = box.localToGlobal(Offset.zero) & box.size;
+    }
+  }
 
   await Share.shareXFiles(
     [XFile(file.path, mimeType: 'image/png')],
     subject: 'My Year in Ayat · $gregorianYear · Tadabbur',
     text: 'My Year in Ayat · $gregorianYear · https://tadabbur-beige.vercel.app',
+    sharePositionOrigin: origin,
   );
 }
 

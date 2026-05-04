@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
@@ -64,6 +65,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
+        child: MaxWidthContainer(
         child: Column(
           children: [
             // Progress dots
@@ -154,6 +156,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -767,7 +770,7 @@ class _StartingPointPage extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      constraints: kAdaptiveSheetConstraints,      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

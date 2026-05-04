@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
@@ -655,7 +656,7 @@ void _openEntryDetail(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Theme.of(context).colorScheme.surface,
+    constraints: kAdaptiveSheetConstraints,    backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -1203,7 +1204,7 @@ void _openBookmarkDetail(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: theme.colorScheme.surface,
+    constraints: kAdaptiveSheetConstraints,    backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),

@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:tadabbur/core/constants/translations.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
@@ -148,7 +149,7 @@ void _openBookmarkDetail(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: theme.colorScheme.surface,
+    constraints: kAdaptiveSheetConstraints,    backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),

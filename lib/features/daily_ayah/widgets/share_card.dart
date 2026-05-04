@@ -6,10 +6,10 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:tadabbur/core/constants/surahs.dart';
+import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/constants/translations.dart';
 import 'package:tadabbur/core/models/ayah.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
@@ -54,7 +54,7 @@ Future<void> openShareCardSheet({
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: theme.colorScheme.surface,
+    constraints: kAdaptiveSheetConstraints,    backgroundColor: theme.colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -93,7 +93,18 @@ Future<void> openShareCardSheet({
               // Scaled-down preview of the card. The actual rendered
               // image is always 1080x1350 regardless of the preview
               // size so the share asset is crisp on any device.
-              Flexible(
+              //
+              // Capped at 560 logical pixels of height: on a phone the
+              // modal sheet's natural height already keeps the card
+              // compact; on iPad the modal can grow to ~1000 pixels
+              // tall and an uncapped 4:5 card would balloon to a
+              // 720×900 cream slab with a short ayah floating in the
+              // top quarter. Capping height (and width via the 4:5
+              // aspect ratio) gives a 448×560 preview centered in the
+              // sheet — readable, intentional, and consistent across
+              // device classes.
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 560),
                 child: AspectRatio(
                   aspectRatio: 4 / 5,
                   child: ClipRRect(
@@ -134,22 +145,32 @@ Future<void> openShareCardSheet({
                   const SizedBox(width: 10),
                   Expanded(
                     flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        HapticFeedback.mediumImpact();
-                        await _captureAndShare(
-                          cardKey: cardKey,
-                          ayah: ayah,
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                      },
-                      icon: const Icon(Icons.ios_share_rounded, size: 18),
-                      label: Text(t('share_button')),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    // Builder gives us a context whose RenderBox sits
+                    // inside the FilledButton — we use it to derive the
+                    // sharePositionOrigin needed for the iPad share
+                    // popover. iPad's UIActivityViewController is a
+                    // popover that *must* anchor to a screen rect, so
+                    // calling Share.shareXFiles without an origin on
+                    // iPad fails silently. iPhone ignores the origin.
+                    child: Builder(
+                      builder: (btnCtx) => FilledButton.icon(
+                        onPressed: () async {
+                          HapticFeedback.mediumImpact();
+                          await _captureAndShare(
+                            cardKey: cardKey,
+                            ayah: ayah,
+                            buttonContext: btnCtx,
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        },
+                        icon: const Icon(Icons.ios_share_rounded, size: 18),
+                        label: Text(t('share_button')),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -167,30 +188,64 @@ Future<void> openShareCardSheet({
 Future<void> _captureAndShare({
   required GlobalKey cardKey,
   required Ayah ayah,
+  BuildContext? buttonContext,
 }) async {
-  final boundary = cardKey.currentContext?.findRenderObject()
-      as RenderRepaintBoundary?;
-  if (boundary == null) return;
+  // Compute share popover origin BEFORE the async gap (button context
+  // may unmount during the capture/file-write). iPad's
+  // UIActivityViewController is a popover that *must* anchor to a
+  // sourceRect — without it the share call silently no-ops on iPad.
+  Rect? origin;
+  if (buttonContext != null && buttonContext.mounted) {
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      origin = box.localToGlobal(Offset.zero) & box.size;
+    }
+  }
 
-  // 3x pixel ratio gives us a 3240x4050 output — crisp on retina
-  // displays and high enough for feed/story uploads without upscaling.
-  final image = await boundary.toImage(pixelRatio: 3.0);
-  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-  if (byteData == null) return;
-  final pngBytes = byteData.buffer.asUint8List();
+  try {
+    final boundary = cardKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary?;
+    if (boundary == null) {
+      debugPrint('[Share] capture aborted: no RepaintBoundary');
+      return;
+    }
 
-  final tempDir = await getTemporaryDirectory();
-  final file = File(
-    '${tempDir.path}/tadabbur_${ayah.verseKey.replaceAll(':', '_')}.png',
-  );
-  await file.writeAsBytes(pngBytes, flush: true);
+    // 3x pixel ratio gives us a 3240x4050 output — crisp on retina
+    // displays and high enough for feed/story uploads without upscaling.
+    final image = await boundary.toImage(pixelRatio: 3.0);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) {
+      debugPrint('[Share] capture aborted: byteData null');
+      return;
+    }
+    final pngBytes = byteData.buffer.asUint8List();
+    debugPrint('[Share] captured ${pngBytes.length} bytes');
 
-  final surahName = surahNameFromKey(ayah.verseKey);
-  await Share.shareXFiles(
-    [XFile(file.path, mimeType: 'image/png')],
-    subject: '$surahName ${ayah.verseKey} · Tadabbur',
-    text: '$surahName ${ayah.verseKey} · https://tadabbur-beige.vercel.app',
-  );
+    // Use dart:io's systemTemp instead of path_provider's
+    // getTemporaryDirectory(). path_provider's iOS implementation goes
+    // through objective_c.framework FFI bindings that fail on the iOS
+    // 26.x simulator runtime, silently breaking share. systemTemp uses
+    // a direct stat of /private/tmp so it works reliably on both
+    // simulator and device.
+    final tempDir = Directory.systemTemp;
+    final file = File(
+      '${tempDir.path}/tadabbur_${ayah.verseKey.replaceAll(':', '_')}.png',
+    );
+    await file.writeAsBytes(pngBytes, flush: true);
+    debugPrint('[Share] wrote ${file.path}');
+
+    final surahName = surahNameFromKey(ayah.verseKey);
+    final result = await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'image/png')],
+      subject: '$surahName ${ayah.verseKey} · Tadabbur',
+      text: '$surahName ${ayah.verseKey} · https://tadabbur-beige.vercel.app',
+      sharePositionOrigin: origin,
+    );
+    debugPrint('[Share] result: ${result.status}');
+  } catch (e, stack) {
+    debugPrint('[Share] FAILED: $e\n$stack');
+    SyncReporter.report('share', e, severity: SyncSeverity.quiet);
+  }
 }
 
 /// The actual card that gets rendered to PNG. Always sized to a
@@ -303,12 +358,61 @@ class _ShareCard extends StatelessWidget {
               ),
             ),
           ),
-          // Main content — tighter vertical rhythm than before.
-          // Top padding just clears the Day badge; no filler SizedBox.
+          // Wordmark footer — positioned at the bottom of the card,
+          // independent of content length so short verses don't
+          // strand it half-way up while long verses don't shove it
+          // off-screen. Mirrors the day badge anchor at the top.
+          Positioned(
+            bottom: 30,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Tadabbur',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 2,
+                    height: 2,
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'One ayah. Every day.',
+                    style: TextStyle(
+                      color: AppColors.warmBrown.withValues(alpha: 0.6),
+                      fontSize: 9,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Main content — vertically centered between the day badge
+          // (top-left) and wordmark (bottom-center). Padding insets
+          // clear those two anchors. With MainAxisAlignment.center on
+          // the Column, short ayat sit in the middle of the card
+          // instead of clumping at the top with cream emptiness below.
           Padding(
-            padding: const EdgeInsets.fromLTRB(32, 66, 32, 24),
+            padding: const EdgeInsets.fromLTRB(32, 75, 32, 70),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
               children: [
                 // Arabic text — the hero
                 Text(
@@ -338,17 +442,16 @@ class _ShareCard extends StatelessWidget {
                 // Translation: char-count sizing picks a readable
                 // target; FittedBox(scaleDown) acts as a *safety net*
                 // only when the text still overflows (pathologically
-                // long verses like 4:6). Because the starting size is
-                // already tuned to the text length, the safety net
-                // rarely needs to kick in, and when it does the
-                // down-scale is small rather than collapsing to
-                // unreadable pixels.
+                // long verses like 4:6). Flexible (not Expanded) lets
+                // the block size to its content for short verses
+                // while still bounding it for long ones — which is
+                // what keeps the layout centered instead of stretched.
                 if (translation.isNotEmpty)
-                  Expanded(
+                  Flexible(
                     child: LayoutBuilder(
                       builder: (context, c) => FittedBox(
                         fit: BoxFit.scaleDown,
-                        alignment: Alignment.topCenter,
+                        alignment: Alignment.center,
                         child: SizedBox(
                           width: c.maxWidth,
                           child: Text(
@@ -366,10 +469,8 @@ class _ShareCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  )
-                else
-                  const Spacer(),
-                const SizedBox(height: 12),
+                  ),
+                const SizedBox(height: 14),
                 // Verse reference
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -393,41 +494,6 @@ class _ShareCard extends StatelessWidget {
                       letterSpacing: 0.3,
                     ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                // Wordmark footer
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      'Tadabbur',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 2,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 2,
-                      height: 2,
-                      decoration: const BoxDecoration(
-                        color: AppColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'One ayah. Every day.',
-                      style: TextStyle(
-                        color: AppColors.warmBrown.withValues(alpha: 0.6),
-                        fontSize: 9,
-                        fontStyle: FontStyle.italic,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
