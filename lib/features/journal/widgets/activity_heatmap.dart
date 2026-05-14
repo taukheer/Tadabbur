@@ -126,19 +126,9 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header — just a quiet label, no competing chip.
-          // Previous iterations showed "N of 30 days" in a pill on the
-          // right; that reads as a challenge counter ("day N of 30")
-          // rather than a historical summary. The streak copy below
-          // does the same job in natural language, better.
-          Text(
-            AppTranslations.get('your_practice', lang),
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 4),
+          // "Your practice" label was here. Dropped — the calendar
+          // week + streak line below speak for themselves, and the
+          // label was jargon a non-tech-savvy user wouldn't parse.
           // Detail line: either the tapped-cell info (fades in for 3s)
           // or the streak summary. Swap via AnimatedSwitcher so the
           // transition feels intentional, not jumpy.
@@ -851,11 +841,13 @@ class _PositionLine extends ConsumerWidget {
     // already used to seeing in translations and tafsir.
     final ref = '$surahName $currentVerseKey';
 
-    final right = switch (last30Active) {
-      0 => null,
-      1 => t('days_this_month_one').replaceAll('{n}', '1'),
-      _ => t('days_this_month_other').replaceAll('{n}', '$last30Active'),
-    };
+    // Hide the "N days this month" stat until the user has built a
+    // real cadence (≥ 7 active days). On day 1 the stat reads
+    // "1 day this month" which can feel critical / stat-shaming
+    // when the user just started. Stats appear when they're earned.
+    final right = last30Active >= 7
+        ? t('days_this_month_other').replaceAll('{n}', '$last30Active')
+        : null;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

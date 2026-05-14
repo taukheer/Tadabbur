@@ -88,9 +88,22 @@ void main() async {
   // the service itself so the Settings screen can read
   // `notifService.lastScheduleError` and tell users their reminder
   // didn't actually arm.
+  //
+  // First-launch default: if the user has never set a reminder time,
+  // seed it to 08:00 local so every new user starts on a daily cadence
+  // without having to dig into Settings. The user can change or
+  // disable in Settings whenever they want — we only set the default
+  // once. Without this seed, the previous behavior was opt-in only:
+  // permission was requested but no alarm was ever armed, so a user
+  // who never visited Settings got zero reminders.
   final notifService = NotificationService(localStorage);
   try {
     await notifService.init();
+    if (localStorage.notificationTime == null ||
+        localStorage.notificationTime!.isEmpty) {
+      await localStorage.setNotificationTime('08:00');
+      debugPrint('[Notifications] Default reminder seeded at 08:00 local');
+    }
     notifService.requestPermission(); // fire-and-forget
     notifService.ensureDailyScheduled().catchError((Object e) {
       notifService.lastScheduleError = e.toString();

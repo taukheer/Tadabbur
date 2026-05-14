@@ -80,6 +80,43 @@ class NotificationService {
     _initialized = true;
   }
 
+  /// Check whether the OS will actually deliver notifications for this
+  /// app. Returns `true` when permissions are granted (or unknown on
+  /// platforms where the API doesn't expose state — we err on the side
+  /// of "enabled" to avoid false banners), `false` when explicitly
+  /// denied.
+  ///
+  /// Used by the home screen to show a soft "Notifications are off"
+  /// banner so users who skipped/denied the permission prompt have a
+  /// recovery path without digging into system settings blind.
+  Future<bool> areNotificationsEnabled() async {
+    await init();
+    try {
+      if (Platform.isAndroid) {
+        final android = _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        if (android == null) return true;
+        final enabled = await android.areNotificationsEnabled();
+        return enabled ?? true;
+      }
+      if (Platform.isIOS) {
+        final ios = _plugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>();
+        if (ios == null) return true;
+        final settings = await ios.checkPermissions();
+        // `isEnabled` is null on older iOS; treat as enabled.
+        return settings?.isEnabled ?? true;
+      }
+    } catch (e) {
+      debugPrint(
+        '[NotificationService] areNotificationsEnabled failed: $e',
+      );
+    }
+    return true;
+  }
+
   /// Request notification permissions (iOS + Android 13+).
   Future<bool> requestPermission() async {
     final ios = _plugin

@@ -238,7 +238,7 @@ Future<void> _captureAndShare({
     final result = await Share.shareXFiles(
       [XFile(file.path, mimeType: 'image/png')],
       subject: '$surahName ${ayah.verseKey} · Tadabbur',
-      text: '$surahName ${ayah.verseKey} · https://tadabbur-beige.vercel.app',
+      text: '$surahName ${ayah.verseKey} · https://tadabbur-jet.vercel.app',
       sharePositionOrigin: origin,
     );
     debugPrint('[Share] result: ${result.status}');

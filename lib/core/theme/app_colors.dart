@@ -108,10 +108,13 @@ abstract final class AppColors {
   // ---------------------------------------------------------------------------
   // Revelation type & Sajdah indicators
   // ---------------------------------------------------------------------------
-  static const Color makkiSurface = Color(0xFFFFF8E1);
-  static const Color makkiText = Color(0xFF8B6914);
-  static const Color madaniSurface = Color(0xFFE8F5E9);
-  static const Color madaniText = Color(0xFF2E7D32);
+  static const Color makkiSurface = Color(0xFFFFF4D6);
+  static const Color makkiText = Color(0xFF7A5A12);
+  // Sage-green palette to harmonize with the warm-beige pill it lives
+  // inside. The previous Material-green (#E8F5E9 / #2E7D32) clashed with
+  // the warm-brown chrome — too saturated, wrong undertone.
+  static const Color madaniSurface = Color(0xFFE2EAD8);
+  static const Color madaniText = Color(0xFF4A6B3F);
   static const Color sajdahSurface = Color(0xFFEDE7F6);
   static const Color sajdahText = Color(0xFF4A148C);
 

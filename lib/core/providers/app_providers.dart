@@ -71,6 +71,16 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref.watch(localStorageProvider));
 });
 
+/// Whether the OS will actually deliver notifications for this app.
+/// Used by the home screen + Settings to surface a soft recovery
+/// banner when the user has denied (or never granted) the permission.
+/// Rechecked on each app foreground via the refresh family on the
+/// home screen — no live listener needed since the only way state
+/// changes is the user leaving to OS Settings and coming back.
+final notificationsEnabledProvider = FutureProvider<bool>((ref) async {
+  return ref.watch(notificationServiceProvider).areNotificationsEnabled();
+});
+
 /// QF profile (name/avatar/email) for the signed-in user, cached in
 /// local storage. Null while we haven't fetched yet or the user isn't
 /// signed in via QF OAuth. Surfaced in Settings so the OAuth link is

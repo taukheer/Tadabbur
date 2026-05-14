@@ -74,11 +74,14 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
   String _searchQuery = '';
   Timer? _debounce;
 
-  /// When set, only entries of this tier show in the list. `null`
-  /// means "all tiers". Drives the filter chip row under the search
-  /// bar — essential once a user has hundreds of entries and wants
-  /// to focus on just their deeper reflections.
-  ReflectionTier? _tierFilter;
+  /// Set of tiers currently in scope. Empty = "all tiers" (no filter).
+  /// Drives the filter chip row under the search bar. Was previously
+  /// `ReflectionTier?` (single-tier) which exposed three internal tier
+  /// names to the user (Acknowledged, Responded, Reflected). The
+  /// updated UI consolidates to All / Quick / Written — "Written"
+  /// covers both `respond` and `reflect`, so we need a Set, not a
+  /// single tier.
+  Set<ReflectionTier> _tierFilter = const {};
 
   /// How the journal list is organized. `time` groups entries by
   /// month (reads as a diary). `surah` groups entries by chapter of
@@ -116,8 +119,8 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
 
     // Apply the tier filter on top of search — search narrows by
     // content, tier narrows by depth. Both can be active together.
-    if (_tierFilter != null) {
-      entries = entries.where((e) => e.tier == _tierFilter).toList();
+    if (_tierFilter.isNotEmpty) {
+      entries = entries.where((e) => _tierFilter.contains(e.tier)).toList();
     }
 
     // Partition pinned entries into their own section. Pinned lives
@@ -196,7 +199,11 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               // ── Header ──
               SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                // Reduced top padding (20→12) and dropped the italic
+                // tagline so the calendar card sits closer to the top.
+                // Title also shrunk from headlineSmall → titleLarge to
+                // free vertical space for the actual entry list below.
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -206,9 +213,10 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       children: [
                         Text(
                           t('your_journal'),
-                          style: theme.textTheme.headlineSmall?.copyWith(
+                          style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimaryLight,
+                            fontSize: 22,
                           ),
                         ),
                         const Spacer(),
@@ -247,17 +255,10 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
-
-                    // Tagline — short enough to never wrap awkwardly
-                    Text(
-                      t('journal_tagline'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.3),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
+                    // Italic "Your journey with the Quran" tagline was
+                    // here. Removed — it was ~30px of chrome saying
+                    // nothing the title doesn't already convey, and
+                    // pushing the calendar / entry list further down.
 
                     // Only surface a count line here when reflections
                     // are absent — bookmarks-only users need somewhere
@@ -444,8 +445,8 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
               SliverToBoxAdapter(
                 child: _TierFilterChips(
                   current: _tierFilter,
-                  onChanged: (t) {
-                    setState(() => _tierFilter = t);
+                  onChanged: (s) {
+                    setState(() => _tierFilter = s);
                   },
                 ),
               ),
@@ -479,12 +480,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
             if (allEntries.isNotEmpty &&
                 entries.isEmpty &&
                 _searchQuery.isEmpty &&
-                _tierFilter != null)
+                _tierFilter.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                   child: Text(
-                    'No ${_tierFilter!.name} entries yet.',
+                    'No entries in this filter yet.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface
                           .withValues(alpha: 0.45),
@@ -1441,6 +1442,12 @@ class JournalCard extends ConsumerWidget {
     final dateStr = _relativeDate(entry.completedAt, useHijri);
     final response = entry.responseText?.trim() ?? '';
     final hasReflection = response.isNotEmpty;
+    // Hide the date label on "Today" entries — every entry from today
+    // would otherwise prefix with "Today · …" which adds noise. The
+    // user already knows what day it is. Past entries keep the date.
+    final isToday =
+        dateStr == AppTranslations.get('today_label', lang);
+    final shouldShowDate = showDate && !isToday;
 
     return Container(
       width: double.infinity,
@@ -1469,7 +1476,7 @@ class JournalCard extends ConsumerWidget {
           // depth over time, not just their cadence.
           Row(
             children: [
-              if (showDate)
+              if (shouldShowDate)
                 Text(
                   dateStr,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -1512,33 +1519,12 @@ class JournalCard extends ConsumerWidget {
             // clear: below the line is what you were reflecting *on*.
             _AyahContext(entry: entry),
           ] else ...[
-            // No reflection body — this is an "acknowledge" entry.
-            // The ayah stays as the hero since the user chose to sit
-            // with it silently. A small footer notes that choice.
+            // Acknowledge-only entry: just the ayah. The "This spoke
+            // to me" pill that used to sit below was identical on every
+            // ack entry — it added visual weight without information.
+            // The tier icon in the entry header (heart icon for
+            // "Acknowledged") already conveys the same meaning.
             _AyahHero(entry: entry),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.warmSurface,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: AppColors.warmBorder.withValues(alpha: 0.5),
-                  width: 0.5,
-                ),
-              ),
-              child: Text(
-                AppTranslations.get('this_spoke_to_me', lang),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown,
-                  fontSize: 11,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
           ],
         ],
       ),
@@ -1825,38 +1811,19 @@ class _BookmarkCardCompact extends ConsumerWidget {
 
           const SizedBox(height: 6),
 
-          // Surah reference + small Arabic
+          // Surah reference. The Arabic snippet that used to sit on
+          // the right was truncated mid-word with "..." on most verses,
+          // which read as a render bug. The translation above is the
+          // identifying line; the full Arabic shows when the user taps
+          // through. Removing keeps the card tight and honest.
           Padding(
             padding: const EdgeInsets.only(left: 26),
-            child: Row(
-              children: [
-                // Surah · verse key
-                Text(
-                  '${surahNameFromKey(bookmark.verseKey)}  ·  ${bookmark.verseKey}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.warmBrown.withValues(alpha: 0.6),
-                    fontSize: 10,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Arabic snippet (faded, spiritual anchor)
-                Expanded(
-                  child: Text(
-                    bookmark.arabicText,
-                    locale: const Locale('ar'),
-                    textDirection: TextDirection.rtl,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'AmiriQuran',
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.2),
-                      height: 1.6,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              '${surahNameFromKey(bookmark.verseKey)}  ·  ${bookmark.verseKey}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.warmBrown.withValues(alpha: 0.6),
+                fontSize: 10,
+              ),
             ),
           ),
         ],
@@ -2023,8 +1990,9 @@ class _MonthHeader extends ConsumerWidget {
 /// Null selection = "All" — tapping All again is a no-op, tapping
 /// the current tier again clears to All (standard toggle behavior).
 class _TierFilterChips extends ConsumerWidget {
-  final ReflectionTier? current;
-  final ValueChanged<ReflectionTier?> onChanged;
+  /// Set of tiers currently in scope. Empty = "All".
+  final Set<ReflectionTier> current;
+  final ValueChanged<Set<ReflectionTier>> onChanged;
 
   const _TierFilterChips({required this.current, required this.onChanged});
 
@@ -2033,31 +2001,54 @@ class _TierFilterChips extends ConsumerWidget {
     final theme = Theme.of(context);
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
-    final options = <(ReflectionTier?, String, IconData)>[
-      (null, t('tier_filter_all'), Icons.all_inclusive_rounded),
-      (ReflectionTier.acknowledge, t('tier_acknowledged'), Icons.favorite_border_rounded),
-      (ReflectionTier.respond, t('tier_responded'), Icons.chat_bubble_outline_rounded),
-      (ReflectionTier.reflect, t('tier_reflected'), Icons.auto_awesome_outlined),
+
+    // Three chips — All / Quick / Written. Down from four because the
+    // earlier set (All + Acknowledged + Responded + Reflected) leaked
+    // internal tier names to users. The data model still has three
+    // tiers; "Written" maps to {respond, reflect} so a user who tapped
+    // through a prompt or wrote a longer reflection both surface here.
+    final options = <(Set<ReflectionTier>, String, IconData)>[
+      (
+        const <ReflectionTier>{},
+        t('tier_filter_all'),
+        Icons.all_inclusive_rounded,
+      ),
+      (
+        const {ReflectionTier.acknowledge},
+        t('filter_quick'),
+        Icons.favorite_border_rounded,
+      ),
+      (
+        const {ReflectionTier.respond, ReflectionTier.reflect},
+        t('filter_written'),
+        Icons.edit_outlined,
+      ),
     ];
 
-    // Wrap (not horizontal ListView) so the last chip never clips on
-    // narrower phones (iPhone 16e is 393pt — barely fits all four with
-    // icons). Wrap flows the overflow chip onto a second row instead of
-    // hiding it behind a non-discoverable horizontal scroll.
+    // Wrap (not horizontal ListView) so chips never clip on narrow
+    // phones. With three chips this almost always fits one row.
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
         children: options.map((opt) {
-          final (tier, label, icon) = opt;
-          final selected = current == tier;
+          final (tiers, label, icon) = opt;
+          final selected = tiers.length == current.length &&
+              tiers.containsAll(current);
           return Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
                 HapticFeedback.selectionClick();
-                onChanged(selected && tier != null ? null : tier);
+                // Tapping the active chip on a non-All option resets
+                // to All (empty set). Tapping All while already on
+                // All is a no-op.
+                if (selected && tiers.isNotEmpty) {
+                  onChanged(const <ReflectionTier>{});
+                } else {
+                  onChanged(tiers);
+                }
               },
               borderRadius: BorderRadius.circular(18),
               child: Container(

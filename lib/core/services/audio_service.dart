@@ -9,6 +9,7 @@ import 'package:just_audio/just_audio.dart';
 /// expression.
 const Map<String, String> _islamicNetworkBitrateByReciter = {
   'abdurrahmaansudais': '192',
+  'saoodshuraym': '64',
 };
 const String _islamicNetworkDefaultBitrate = '128';
 

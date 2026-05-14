@@ -161,7 +161,7 @@ Future<void> _captureAndShare({
   await Share.shareXFiles(
     [XFile(file.path, mimeType: 'image/png')],
     subject: 'My Year in Ayat · $gregorianYear · Tadabbur',
-    text: 'My Year in Ayat · $gregorianYear · https://tadabbur-beige.vercel.app',
+    text: 'My Year in Ayat · $gregorianYear · https://tadabbur-jet.vercel.app',
     sharePositionOrigin: origin,
   );
 }

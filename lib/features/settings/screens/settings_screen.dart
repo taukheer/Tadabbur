@@ -37,11 +37,25 @@ const Map<int, String> _qfIdToCdnSlug = {
 /// in the QF reciter catalogue. They're appended to the displayed list
 /// after the QF‑sourced rows. `qfId` is null so the audio resolver
 /// skips the QF call and goes straight to the CDN fallback for these.
+///
+/// Saud Al-Shuraim was previously pinned to row 1 of the list — but
+/// the app's default reciter is Mishari Rashid al-Afasy (defaultReciterId
+/// = 7), so the pinned-first row never carried the ✓. That visual
+/// mismatch ("why is the second name selected?") was confusing. With
+/// Saud in the natural CDN tail, the first row is the actual default,
+/// matching user expectation. Discoverability is unaffected since the
+/// reciter picker is a bottom sheet — 2 taps reach any reciter.
 const List<_ReciterOption> _cdnOnlyReciters = [
   _ReciterOption(
     qfId: null,
     cdnPath: 'muhammadayyoub',
     name: 'Muhammad Ayyub',
+    style: 'Murattal',
+  ),
+  _ReciterOption(
+    qfId: null,
+    cdnPath: 'saoodshuraym',
+    name: 'Saud Al-Shuraim',
     style: 'Murattal',
   ),
 ];
@@ -120,7 +134,10 @@ class _ReciterOption {
     return ai.compareTo(bi);
   });
 
-  return (reciters: [...fromQf, ..._cdnOnlyReciters], fromQf: true);
+  return (
+    reciters: [...fromQf, ..._cdnOnlyReciters],
+    fromQf: true,
+  );
 }
 
 const _fontSizes = [
@@ -179,22 +196,28 @@ class SettingsScreen extends ConsumerWidget {
               // the row is silent so it can't mislead.
               _QfIdentityRow(ref: ref, theme: theme),
 
-              // === ACCOUNT ===
-              // Hidden for QF-authenticated users because the identity
-              // row above already tells the full story. Without this
-              // guard, _AccountTile would fall back to "Guest mode" on
-              // every relaunch (it reads authUserProvider, which is
-              // in-memory only and resets to null at cold start),
-              // producing two contradictory cards.
+              // === ACCOUNT GROUP ===
+              // For QF-authenticated users the identity row above
+              // already carries the account info, so this block is
+              // suppressed there (without the guard, _AccountTile falls
+              // back to "Guest mode" on relaunch because authUserProvider
+              // resets to null at cold start).
               if (storage.authType != AuthType.quranFoundation) ...[
+                _GroupHeader(t('group_account'), theme),
                 _SectionLabel(t('section_account'), theme),
                 const SizedBox(height: 10),
                 _AccountTile(ref: ref, theme: theme),
                 const SizedBox(height: 28),
-              ] else
-                const SizedBox(height: 8),
+              ],
 
-              // === CURRENT POSITION — tap to change ===
+              // === READING GROUP ===
+              // Reading-practice preferences: where you are in the
+              // Quran, who recites, which scholar's tafsir loads on
+              // tap, and whether transliteration appears. Daily
+              // reminder lives here too because it's a reading-cadence
+              // setting, not an OS-level toggle.
+              _GroupHeader(t('group_reading'), theme),
+
               _SectionLabel(t('section_current_position'), theme),
               const SizedBox(height: 10),
               GestureDetector(
@@ -316,54 +339,59 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === RECITER ===
+              // Collapsed to a single tap-to-change row matching the
+              // Language pattern. Previously an inline vertical list
+              // of 8 reciters took ~480px; the bottom-sheet picker
+              // shows the same list in a focused modal.
               _SectionLabel(t('section_reciter'), theme),
+              const SizedBox(height: 10),
               Builder(builder: (context) {
                 final result =
                     _buildReciterList(ref.watch(qfRecitersProvider));
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (result.fromQf)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          t('reciter_synced_caption'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.4),
-                            fontSize: 11,
+                final current = result.reciters.firstWhere(
+                  (r) => r.cdnPath == currentReciter,
+                  orElse: () => result.reciters.first,
+                );
+                return GestureDetector(
+                  onTap: () => _showReciterPicker(
+                      context, ref, storage, result.reciters, currentReciter),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                          color: AppColors.warmBorder, width: 0.5),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            // "Murattal" subtitle dropped — 7 of 8
+                            // reciters in our list are Murattal, so
+                            // the label carries no information. Single
+                            // name reads cleaner and matches the
+                            // Language row pattern next to it.
+                            current.name,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 10),
-                    ...result.reciters.map((r) => _ReciterTile(
-                          name: r.name,
-                          isSelected: currentReciter == r.cdnPath,
-                          onTap: () async {
-                            // Persist BOTH the QF reciter id (used by
-                            // the QF recitations API) and the CDN slug
-                            // (used by the Islamic Network fallback).
-                            // Without the id, the QF audio call always
-                            // asks for the default reciter regardless
-                            // of the user's choice — a real integration
-                            // bug, not just a UX one.
-                            await storage.setReciterPath(r.cdnPath);
-                            if (r.qfId != null) {
-                              await storage
-                                  .setPreferredReciterId(r.qfId!);
-                            }
-                            ref.read(reciterPathProvider.notifier).state =
-                                r.cdnPath;
-                            ref.read(firestoreServiceProvider)
-                                .saveUserProfile(reciterPath: r.cdnPath)
-                                .catchError((Object e) {
-                              SyncReporter.report('reciter preference', e,
-                                  severity: SyncSeverity.quiet);
-                            });
-                          },
-                          theme: theme,
-                        )),
-                  ],
+                        Text(t('change'),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppColors.primary
+                                    .withValues(alpha: 0.5))),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right_rounded,
+                            size: 18,
+                            color: AppColors.primary
+                                .withValues(alpha: 0.3)),
+                      ],
+                    ),
+                  ),
                 );
               }),
 
@@ -426,6 +454,12 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
+              // === DISPLAY GROUP ===
+              // Visual preferences: dates calendar, Arabic font + size.
+              // Anything that changes how content looks, not what
+              // content is loaded.
+              _GroupHeader(t('group_display'), theme),
+
               // === JOURNAL DATES ===
               _SectionLabel(t('section_journal_dates'), theme),
               const SizedBox(height: 10),
@@ -475,71 +509,29 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === ARABIC FONT SIZE ===
+              // Slider with discrete divisions instead of a chip group.
+              // Four chips in a Wrap looked awkward (2 rows on most
+              // phones) and treated size as a category. A slider says
+              // "size is continuous and adjustable" which is the
+              // accurate mental model.
               _SectionLabel(t('section_arabic_font_size'), theme),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: _fontSizes.map((f) {
-                  final (label, size) = f;
-                  // Map the canonical English label → translation key
-                  // so the chips localize even though the raw constant
-                  // stays in English (used elsewhere as a stable id).
-                  final key = switch (label) {
-                    'Small' => 'font_size_small',
-                    'Medium' => 'font_size_medium',
-                    'Large' => 'font_size_large',
-                    'Extra Large' => 'font_size_extra_large',
-                    _ => label,
-                  };
-                  final localizedLabel = t(key);
-                  final isSelected =
-                      (currentFontSize - size).abs() < 1;
-                  return GestureDetector(
-                    onTap: () async {
-                      await storage.setArabicFontSize(size);
-                      ref.read(arabicFontSizeProvider.notifier).state = size;
-                      ref.read(firestoreServiceProvider)
-                          .saveUserProfile(arabicFontSize: size)
-                          .catchError((Object e) {
-                        SyncReporter.report('font-size preference', e,
-                            severity: SyncSeverity.quiet);
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppColors.primary
-                                .withValues(alpha: 0.08)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                                  .withValues(alpha: 0.3)
-                              : AppColors.warmBorder,
-                          width: isSelected ? 1.5 : 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        localizedLabel,
-                        style: TextStyle(
-                          color: isSelected
-                              ? AppColors.primary
-                              : theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+              const SizedBox(height: 8),
+              _FontSizeSlider(
+                current: currentFontSize,
+                fontSizes: _fontSizes,
+                onChanged: (size) async {
+                  await storage.setArabicFontSize(size);
+                  ref.read(arabicFontSizeProvider.notifier).state = size;
+                  ref
+                      .read(firestoreServiceProvider)
+                      .saveUserProfile(arabicFontSize: size)
+                      .catchError((Object e) {
+                    SyncReporter.report('font-size preference', e,
+                        severity: SyncSeverity.quiet);
+                  });
+                },
+                theme: theme,
+                t: t,
               ),
 
               const SizedBox(height: 28),
@@ -624,6 +616,12 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 28),
 
+              // === ABOUT GROUP ===
+              // Auxiliary surfaces: yearly summaries, feedback channel,
+              // destructive account actions, app credits. Everything
+              // the user is unlikely to touch on most visits.
+              _GroupHeader(t('group_about'), theme),
+
               // === YEARLY REVIEWS ===
               // Year-in-Ayat summaries accessible year-round. The
               // journal tab surfaces the banner only during the
@@ -685,32 +683,183 @@ class SettingsScreen extends ConsumerWidget {
 
               const SizedBox(height: 40),
 
-              // About
+              // About — footer with brand statement. Alphas bumped
+              // from 0.3 / 0.2 / 0.2 → 0.45 / 0.4 / 0.45 so the
+              // "Free for every Muslim. Forever." line is legible on
+              // bright phones and reads as an intentional sign-off
+              // rather than fine print.
               Center(
                 child: Column(
                   children: [
                     Text('Tadabbur', // brand name — not translated
                         style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.3),
+                                .withValues(alpha: 0.45),
                             fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
                     Text(t('app_built_on'),
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2))),
+                                .withValues(alpha: 0.4))),
                     const SizedBox(height: 2),
                     Text(t('app_free_forever'),
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.2),
-                            fontStyle: FontStyle.italic)),
+                                .withValues(alpha: 0.45),
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Bottom-sheet picker for the active reciter. Mirrors the Language
+  /// picker pattern so users learn one selection idiom for all
+  /// preference sections. Persists both the QF reciter id (so the QF
+  /// recitations API serves the right voice) and the CDN slug (used
+  /// by the Islamic Network fallback when QF returns no files).
+  void _showReciterPicker(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic storage,
+    List<_ReciterOption> reciters,
+    String currentReciterPath,
+  ) {
+    final theme = Theme.of(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      constraints: kAdaptiveSheetConstraints,
+      backgroundColor: theme.colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (ctx, controller) => Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  AppTranslations.get('section_reciter',
+                      ref.read(languageProvider)),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                itemCount: reciters.length,
+                itemBuilder: (_, i) {
+                  final r = reciters[i];
+                  final selected = r.cdnPath == currentReciterPath;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: GestureDetector(
+                      onTap: () async {
+                        await storage.setReciterPath(r.cdnPath);
+                        if (r.qfId != null) {
+                          await storage.setPreferredReciterId(r.qfId!);
+                        }
+                        ref.read(reciterPathProvider.notifier).state =
+                            r.cdnPath;
+                        ref
+                            .read(firestoreServiceProvider)
+                            .saveUserProfile(reciterPath: r.cdnPath)
+                            .catchError((Object e) {
+                          SyncReporter.report('reciter preference', e,
+                              severity: SyncSeverity.quiet);
+                        });
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.primary.withValues(alpha: 0.4)
+                                : AppColors.warmBorder
+                                    .withValues(alpha: 0.5),
+                            width: selected ? 1.5 : 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    r.name,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                      color: selected
+                                          ? AppColors.primary
+                                          : theme.colorScheme.onSurface,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  if (r.style != null && r.style!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        r.style!,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                          color: theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.4),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (selected)
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1223,6 +1372,196 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// Slider control for Arabic font size. Snaps to the four canonical
+/// sizes (Small → Extra Large) via `divisions: 3`. Visual tick marks +
+/// labels underneath communicate the discrete choices, while the
+/// slider gesture itself feels continuous to drag.
+class _FontSizeSlider extends StatelessWidget {
+  final double current;
+  final List<(String, double)> fontSizes;
+  final ValueChanged<double> onChanged;
+  final ThemeData theme;
+  final String Function(String) t;
+
+  const _FontSizeSlider({
+    required this.current,
+    required this.fontSizes,
+    required this.onChanged,
+    required this.theme,
+    required this.t,
+  });
+
+  String _localizedLabel(String label) {
+    final key = switch (label) {
+      'Small' => 'font_size_small',
+      'Medium' => 'font_size_medium',
+      'Large' => 'font_size_large',
+      'Extra Large' => 'font_size_extra_large',
+      _ => label,
+    };
+    return t(key);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final minSize = fontSizes.first.$2;
+    final maxSize = fontSizes.last.$2;
+    // Clamp to the discrete bucket; closest match by absolute diff.
+    int index = 0;
+    double bestDiff = double.infinity;
+    for (var i = 0; i < fontSizes.length; i++) {
+      final d = (fontSizes[i].$2 - current).abs();
+      if (d < bestDiff) {
+        bestDiff = d;
+        index = i;
+      }
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warmBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Live preview of the selected size in Arabic — drag the
+          // slider and watch the same Bismillah scale. The current
+          // size name renders next to the preview so middle positions
+          // (Medium / Large) are nameable, not just inferred.
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'بِسْمِ ٱللَّهِ',
+                  locale: const Locale('ar'),
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontFamily: 'AmiriQuran',
+                    fontSize: fontSizes[index].$2 * 0.6,
+                    color: AppColors.primary.withValues(alpha: 0.85),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _localizedLabel(fontSizes[index].$1),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: AppColors.primary.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor:
+                  AppColors.primary.withValues(alpha: 0.15),
+              thumbColor: AppColors.primary,
+              overlayColor: AppColors.primary.withValues(alpha: 0.12),
+              trackHeight: 3,
+              thumbShape:
+                  const RoundSliderThumbShape(enabledThumbRadius: 9),
+              tickMarkShape:
+                  const RoundSliderTickMarkShape(tickMarkRadius: 2.5),
+              activeTickMarkColor: Colors.white,
+              inactiveTickMarkColor:
+                  AppColors.primary.withValues(alpha: 0.4),
+              showValueIndicator: ShowValueIndicator.never,
+            ),
+            child: Slider(
+              value: index.toDouble(),
+              min: 0,
+              max: (fontSizes.length - 1).toDouble(),
+              divisions: fontSizes.length - 1,
+              onChanged: (v) {
+                final i = v.round();
+                if (i != index) {
+                  onChanged(fontSizes[i].$2);
+                }
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _localizedLabel(fontSizes.first.$1),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  _localizedLabel(fontSizes.last.$1),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Suppress unused-variable warning for min/maxSize even
+          // when not visually rendered (kept for clarity of intent).
+          if (false) Text('$minSize-$maxSize'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Top-level group header — one of four ("Account", "Reading",
+/// "Display", "About"). Bigger and bolder than [_SectionLabel] so the
+/// settings page reads as four visual blocks with section sub-rows
+/// inside each, rather than a flat list of 13 same-level sections.
+/// A short hairline divider sits underneath the label as a soft
+/// horizontal anchor.
+class _GroupHeader extends StatelessWidget {
+  final String text;
+  final ThemeData theme;
+  const _GroupHeader(this.text, this.theme);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            text,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+              fontWeight: FontWeight.w700,
+              fontSize: 17,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotificationTile extends StatelessWidget {
   final WidgetRef ref;
   final ThemeData theme;
@@ -1241,73 +1580,161 @@ class _NotificationTile extends StatelessWidget {
             .format(context)
         : 'Not set';
 
-    return GestureDetector(
-      onTap: () => _pickTime(context),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isEnabled
-              ? AppColors.primary.withValues(alpha: 0.04)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isEnabled
-                ? AppColors.primary.withValues(alpha: 0.15)
-                : AppColors.warmBorder,
-            width: isEnabled ? 1 : 0.5,
+    // OS-level permission state. When false AND we have a scheduled
+    // time, the alarm is armed internally but the OS will silently
+    // suppress the notification — surface a warning row so the user
+    // knows their reminder won't actually fire.
+    final osEnabled = ref
+        .watch(notificationsEnabledProvider)
+        .maybeWhen(data: (v) => v, orElse: () => true);
+    final showOsBlockedWarning = isEnabled && !osEnabled;
+
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => _pickTime(context),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isEnabled
+                  ? AppColors.primary.withValues(alpha: 0.04)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isEnabled
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : AppColors.warmBorder,
+                width: isEnabled ? 1 : 0.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isEnabled
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_off_outlined,
+                  color: isEnabled
+                      ? AppColors.primary
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  size: 22,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEnabled
+                            ? 'Daily reminder at $timeStr'
+                            : t('set_daily_reminder'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: isEnabled
+                              ? AppColors.primary
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        isEnabled
+                            ? '"Your ayah for today is waiting"'
+                            : t('set_daily_reminder_hint'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.35),
+                          fontStyle:
+                              isEnabled ? FontStyle.italic : FontStyle.normal,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  isEnabled ? t('change') : t('set_time'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: AppColors.primary.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        child: Row(
-          children: [
-            Icon(
-              isEnabled
-                  ? Icons.notifications_active_rounded
-                  : Icons.notifications_off_outlined,
-              color: isEnabled
-                  ? AppColors.primary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-              size: 22,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isEnabled
-                        ? 'Daily reminder at $timeStr'
-                        : t('set_daily_reminder'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: isEnabled
-                          ? AppColors.primary
-                          : theme.colorScheme.onSurface,
+        // OS-level "blocked" warning. The internal alarm is armed but
+        // the OS will drop the notification at fire time — explain
+        // that and offer a one-tap re-request. If the system prompt
+        // returns denied again, fall back to a snackbar pointing the
+        // user to OS Settings.
+        if (showOsBlockedWarning) ...[
+          const SizedBox(height: 8),
+          Material(
+            color: AppColors.makkiSurface,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () async {
+                final granted = await notifService.requestPermission();
+                // ignore: unused_result
+                ref.refresh(notificationsEnabledProvider);
+                if (!granted && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Notifications are blocked. Open phone Settings → '
+                        'Apps → Tadabbur → Notifications to enable.',
+                      ),
+                      duration: Duration(seconds: 6),
                     ),
-                  ),
-                  Text(
-                    isEnabled
-                        ? '"Your ayah for today is waiting"'
-                        : t('set_daily_reminder_hint'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.35),
-                      fontStyle: isEnabled ? FontStyle.italic : FontStyle.normal,
-                      fontSize: 12,
+                  );
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 18,
+                      color: AppColors.makkiText,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Notifications blocked in system settings',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.makkiText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Your reminder is scheduled but won\'t fire '
+                            'until you allow notifications.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.makkiText.withValues(alpha: 0.8),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: AppColors.makkiText.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
               ),
             ),
-            Text(
-              isEnabled ? t('change') : t('set_time'),
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: AppColors.primary.withValues(alpha: 0.5),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1543,17 +1970,10 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            t('section_account_title_case'),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
+        // The "Account" sub-label that used to sit above the Delete
+        // button was removed — it added a label level inside the
+        // About group without earning its weight. The red destructive
+        // styling on the button speaks for itself.
         GestureDetector(
           onTap: _deleting ? null : _confirmDelete,
           child: Container(
@@ -2082,15 +2502,10 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            AppTranslations.get('tafsir_scholar_hint', rawLang),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              fontSize: 12,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
+          // The instructional subtitle ("Shown when you tap 'Read
+          // more' on an ayah") was dropped — users discover the
+          // connection by using the app, and the subtitle was just
+          // chrome telling them how the app works internally.
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -2117,32 +2532,51 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
                         width: 1,
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          opt.shortName,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: opt.slug == current.slug
-                                ? AppColors.primary
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.75),
-                            fontWeight: opt.slug == current.slug
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            fontSize: 13.5,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              opt.shortName,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: opt.slug == current.slug
+                                    ? AppColors.primary
+                                    : theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.75),
+                                fontWeight: opt.slug == current.slug
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              opt.mufassir,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                                fontSize: 10.5,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 1),
-                        Text(
-                          opt.mufassir,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
-                            fontSize: 10.5,
-                            fontStyle: FontStyle.italic,
+                        // Checkmark on the selected chip — unifies the
+                        // selection cue across Reciter picker, Font
+                        // chooser, and Tafsir scholar so users learn one
+                        // "this one is active" pattern.
+                        if (opt.slug == current.slug) ...[
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.primary,
+                            size: 16,
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

@@ -21,7 +21,6 @@ import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/daily_ayah/widgets/ayah_skeleton.dart';
 import 'package:tadabbur/features/daily_ayah/widgets/share_card.dart';
-import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
 class DailyAyahScreen extends ConsumerStatefulWidget {
@@ -32,8 +31,32 @@ class DailyAyahScreen extends ConsumerStatefulWidget {
 }
 
 class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // When the ayah switches (user advanced to the next verse), snap
+    // the scroll back to the top. Otherwise the new verse loads at
+    // whatever scroll position the previous one was left at — usually
+    // the bottom of the page where the "I felt this" button lives —
+    // which buries the new verse below the fold.
+    ref.listen<String?>(
+      dailyAyahProvider.select((s) => s.ayah?.verseKey),
+      (previous, next) {
+        if (previous != null && next != null && previous != next) {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(0);
+          }
+        }
+      },
+    );
+
     final state = ref.watch(dailyAyahProvider);
     final progress = ref.watch(userProgressProvider);
     final profile = ref.watch(userProfileProvider);
@@ -45,6 +68,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     // but guarding here keeps the screen from throwing if a future
     // refactor lets the state drift into an intermediate shape.
     final ayah = state.ayah;
+    final isDay0 = progress.totalAyatCompleted == 0;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -52,8 +76,89 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             ? const AyahSkeleton()
             : state.loadingState == AyahLoadingState.error || ayah == null
                 ? _buildError(theme, state.errorMessage, ref)
-                : _buildContent(
-                    context, ref, state, ayah, progress, profile, theme),
+                : Stack(
+                    children: [
+                      _buildContent(context, ref, state, ayah, progress,
+                          profile, theme),
+                      // Always-visible identity bar on day-1+. On day 0
+                      // the welcome card teaches the ritual and the
+                      // in-flow surah pill carries identity, so the
+                      // sticky bar would compete; we suppress it there.
+                      if (!isDay0)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: _buildStickyIdentityBar(
+                              state, ayah, theme,
+                              theme.brightness == Brightness.dark),
+                        ),
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildStickyIdentityBar(
+    DailyAyahState state,
+    Ayah ayah,
+    ThemeData theme,
+    bool isDark,
+  ) {
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
+    return Container(
+      // Fully opaque so the hijri row + Today chip + bookmark scrolling
+      // behind don't ghost through and create a "double-layered" look.
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+            width: 1,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              '${_surahName(ayah.surahNumber)}  •  ${t('ayah')} ${ayah.ayahNumber}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (state.revelationType != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: state.isMakki
+                    ? AppColors.makkiSurface
+                    : AppColors.madaniSurface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                state.isMakki ? 'Makki' : 'Madani',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: state.isMakki
+                      ? AppColors.makkiText
+                      : AppColors.madaniText,
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -110,6 +215,13 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     final isDark = theme.brightness == Brightness.dark;
     String t(String key) => AppTranslations.get(key, lang);
 
+    // Day-0 = user has never completed an ayah. We strip optional
+    // depth content (theme hook, scholar reflection, Read more link)
+    // on day-0 so the primary green button is visible without scroll —
+    // the welcome card tells the user "tap the green button" and the
+    // button must actually be reachable above the fold.
+    final isDay0 = progress.totalAyatCompleted == 0;
+
     // Audio URL is resolved by the provider via the QF recitations endpoint,
     // with a verses.quran.com fallback when the recitations call fails.
     final liveAudioUrl = state.audioUrl;
@@ -137,10 +249,21 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     final hasYesterdayReflection = yesterdayEntry.isNotEmpty;
 
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          const SizedBox(height: 16),
+          // Top spacer doubles as room for the always-visible sticky
+          // identity bar on day-1+. Without the extra inset, the hijri
+          // row would render underneath the sticky and clip at top.
+          SizedBox(height: isDay0 ? 16 : 56),
+
+          // === NOTIFICATION PERMISSION BANNER ===
+          // Renders only when the OS reports notifications are off,
+          // giving users who skipped/denied the permission prompt a
+          // one-tap recovery path. Self-hides once permission is
+          // granted (provider re-evaluates).
+          const _NotificationPermissionBanner(),
 
           // === IDENTITY + HIJRI + DAY COUNTER + BOOKMARK ===
           Padding(
@@ -160,22 +283,28 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (progress.totalAyatCompleted > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${t('day_label')} ${progress.dayNumber}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
+                // "Today" framing — always present so new users see the
+                // daily-ritual context on first paint, even before
+                // they've completed an ayah. Once they have a streak,
+                // the day number rides along as " · Day N".
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    progress.totalAyatCompleted > 0
+                        ? '${t('today_label')}  •  ${t('day_label')} ${progress.dayNumber}'
+                        : t('today_label'),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.55),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
                     ),
                   ),
+                ),
                 const SizedBox(width: 8),
                 _BookmarkButton(
                   // Keying on verseKey forces a fresh Element when the
@@ -190,19 +319,18 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             ),
           ),
 
-          // === FIRST-TIME HINT — reduce confusion ===
+          // === DAY-0 INSTRUCTIONAL CARD — embedded teaching, no
+          // onboarding flow. Shown only on the very first session so
+          // newcomers (especially non-tech-savvy users) immediately
+          // understand the ritual without a tutorial they'd skip. Auto-
+          // disappears once they complete their first ayah.
           if (progress.totalAyatCompleted == 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(40, 8, 40, 8),
-              child: Text(
-                t('sit_moment'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                  fontStyle: FontStyle.italic,
-                  fontSize: 13,
-                ),
-              ).animate().fadeIn(duration: 1000.ms, delay: 500.ms),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: _DayZeroWelcomeCard(theme: theme, t: t)
+                  .animate()
+                  .fadeIn(duration: 700.ms, delay: 200.ms)
+                  .slideY(begin: -0.05, end: 0, duration: 700.ms),
             ),
 
           // === YESTERDAY'S CONTINUITY — "you reflected on..." ===
@@ -234,101 +362,108 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               ).animate().fadeIn(duration: 800.ms),
             ),
 
-          const SizedBox(height: 12),
+          // Spacer before the in-flow surah identity pill — only on
+          // day 0 where the pill renders below the welcome card. On
+          // day-1+ the always-visible sticky bar at the top is the
+          // identity and the in-flow pill would just duplicate it.
+          if (isDay0) const SizedBox(height: 12),
 
-          // === SURAH PILL with Juz ===
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.warmSurfaceDark : AppColors.warmSurface,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${_surahName(ayah.surahNumber).toUpperCase()}  •  ${t('ayah')} ${ayah.ayahNumber}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                if (ayah.juzNumber != null) ...[
+          // === SURAH IDENTITY PILL — name · ayah · juz · revelation type ===
+          // Rendered in-flow on day 0 only (paired with the welcome
+          // card). On day-1+, the sticky bar at the top of the screen
+          // provides the same identity always-visible.
+          if (isDay0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.warmSurfaceDark : AppColors.warmSurface,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    '  •  Juz ${ayah.juzNumber}',
+                    '${_surahName(ayah.surahNumber)}  •  ${t('ayah')} ${ayah.ayahNumber}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: (isDark ? AppColors.warmBrownDark : AppColors.warmBrown).withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0.5,
+                      color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ],
-            ),
-          ).animate().fadeIn(duration: 500.ms),
-
-          // === REVELATION TYPE + SAJDAH ===
-          if (state.revelationType != null || state.isSajdahVerse) ...[
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (state.revelationType != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: state.isMakki
-                          ? AppColors.makkiSurface
-                          : AppColors.madaniSurface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      state.isMakki ? 'Makki' : 'Madani',
+                  if (ayah.juzNumber != null) ...[
+                    Text(
+                      '  •  Juz ${ayah.juzNumber}',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: state.isMakki
-                            ? AppColors.makkiText
-                            : AppColors.madaniText,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                        color: (isDark ? AppColors.warmBrownDark : AppColors.warmBrown).withValues(alpha: 0.6),
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.2,
+                        fontSize: 12,
                       ),
                     ),
-                  ),
-                if (state.isSajdahVerse) ...[
-                  if (state.revelationType != null) const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.sajdahSurface,
-                      borderRadius: BorderRadius.circular(12),
+                  ],
+                  if (state.revelationType != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: state.isMakki
+                            ? AppColors.makkiSurface
+                            : AppColors.madaniSurface,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        state.isMakki ? 'Makki' : 'Madani',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: state.isMakki
+                              ? AppColors.makkiText
+                              : AppColors.madaniText,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SajdahGlyph(
-                          size: 11,
-                          color: AppColors.sajdahText,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Sajdah',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.sajdahText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ],
+                  ],
+                ],
+              ),
+            ).animate().fadeIn(duration: 500.ms),
+
+          // === SAJDAH (kept separate — it's a verse-level marker, not identity) ===
+          if (state.isSajdahVerse) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.sajdahSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SajdahGlyph(
+                    size: 11,
+                    color: AppColors.sajdahText,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Sajdah',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.sajdahText,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ],
-              ],
+              ),
             ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
           ],
 
           // === THEMATIC HOOK — creates instant curiosity ===
-          if (ayahTheme != null) ...[
+          // Hidden on day 0 to keep the screen short enough that the
+          // primary green button is visible without scrolling.
+          if (ayahTheme != null && !isDay0) ...[
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -411,39 +546,45 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
 
           const SizedBox(height: 20),
 
-          // === TRANSLATION ===
+          // === TRANSLATION — the access point for most users, given
+          // full body weight + high contrast. Italic / heavy quote marks
+          // removed: translation should speak at a normal voice, not
+          // whisper from behind decoration.
           if (ayah.translationText != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Text(
-                '"${ayah.translationText!}"',
+                ayah.translationText!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontStyle: FontStyle.italic,
-                  height: 1.6,
-                  fontSize: 15,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                  height: 1.55,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ).animate().fadeIn(duration: 800.ms, delay: 400.ms),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 14),
 
-          // === LISTEN — stronger behavioral cue ===
-          Column(
-            children: [
-              Text(
-                t('start_listening'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.45),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _AudioButton(audioUrl: liveAudioUrl, ref: ref),
-            ],
-          ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
+          // === LISTEN — slim outlined button pre-completion. After
+          // the user has marked the ayah complete, this collapses into
+          // a small icon-only row (with Read more + Share) so the
+          // completion celebration below is the visual center, not a
+          // menu of next actions.
+          if (state.todayCompleted)
+            _PostCompletionIconRow(
+              audioUrl: liveAudioUrl,
+              ayah: ayah,
+              dayNumber: progress.dayNumber,
+              lang: lang,
+              onTafsir: () =>
+                  _showTafsir(context, ref, ayah.verseKey, lang),
+            ).animate().fadeIn(duration: 500.ms, delay: 500.ms)
+          else
+            _AudioButton(audioUrl: liveAudioUrl, ref: ref)
+                .animate()
+                .fadeIn(duration: 500.ms, delay: 500.ms),
 
           // === SALAH CONNECTION ===
           if (isSalahMotivated && ayah.surahNumber == 1)
@@ -460,26 +601,30 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               ),
             ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
 
-          // === SHORT MEANING — editorial if available, otherwise API tafsir summary ===
-          if (editorial != null) ...[
+          // === CURATED INSIGHT — only when we have an editorial layer
+          // with a reflective one-liner. Raw QF tafsir summaries are
+          // chain-of-narrator content (isnad) and read as scholarly
+          // footnotes — they don't belong on the daily landing screen.
+          // The full tafsir is one tap away behind "Read more" below.
+          // Suppressed on day 0 so the screen is short enough for the
+          // primary green button to land above the fold.
+          if (!isDay0 &&
+              editorial != null &&
+              editorial.scholarReflection.trim().isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Text(
-                _shortMeaning(editorial.historicalContext),
+                _shortMeaning(editorial.scholarReflection),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                  height: 1.7,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  height: 1.55,
                   fontSize: 13,
                 ),
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
-            // Attribution line: makes the curated editorial layer
-            // visibly grounded in classical tafsir, so a careful reader
-            // can see we're drawing on a named scholar — not paraphrasing
-            // anonymously. Hidden when scholarName is empty.
             if (editorial.scholarName.trim().isNotEmpty) ...[
               const SizedBox(height: 4),
               Padding(
@@ -496,48 +641,37 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               ).animate().fadeIn(duration: 500.ms, delay: 750.ms),
             ],
             const SizedBox(height: 8),
-          ] else if (state.tafsirSummary != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Text(
-                state.tafsirSummary!,
-                textAlign: TextAlign.center,
-                textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                  height: 1.7,
-                  fontSize: 13,
-                ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
-            const SizedBox(height: 8),
           ],
 
           // === TAFSIR ON DEMAND — guide, not lecture ===
-          TextButton.icon(
-            onPressed: () => _showTafsir(context, ref, ayah.verseKey, lang),
-            icon: Icon(
-              Icons.auto_stories_outlined,
-              size: 15,
-              color: theme.colorScheme.primary.withValues(alpha: 0.4),
-            ),
-            label: Text(
-              t('read_more'),
-              style: TextStyle(
+          // Hidden on day 0 — depth content can be discovered after the
+          // user has completed their first reflection. The day-0 path
+          // is intentionally minimal: read → reflect → tap.
+          // Also hidden post-completion, since the icon row above
+          // already includes a Read-more entry point.
+          if (!isDay0 && !state.todayCompleted)
+            TextButton.icon(
+              onPressed: () => _showTafsir(context, ref, ayah.verseKey, lang),
+              icon: Icon(
+                Icons.auto_stories_outlined,
+                size: 15,
                 color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                fontSize: 12,
               ),
-            ),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ).animate().fadeIn(duration: 400.ms, delay: 700.ms),
+              label: Text(
+                t('read_more'),
+                style: TextStyle(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  fontSize: 12,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ).animate().fadeIn(duration: 400.ms, delay: 700.ms),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 14),
 
           // === REFLECTION CTA — the core product ===
           if (!state.todayCompleted)
@@ -559,61 +693,18 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               isSalahMotivated: isSalahMotivated,
               theme: theme,
             ),
-            // === SHARE AYAH ===
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: TextButton.icon(
-                onPressed: () => openShareCardSheet(
-                  context: context,
-                  ayah: ayah,
-                  dayNumber: progress.dayNumber,
-                  lang: lang,
-                ),
-                icon: Icon(Icons.share_outlined,
-                    size: 18,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5)),
-                label: Text(
-                  t('share_ayah'),
-                  style: TextStyle(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
+            // Share was here. Moved up into the icon row that appears
+            // right under the verse on completion — keeps all the
+            // re-engagement affordances together as light icons rather
+            // than scattered text buttons below the celebration.
 
-            // === EXPLORE BY FEELING (after completion) ===
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Divider(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: TextButton(
-                onPressed: () => _openFeelingMode(context),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  backgroundColor: AppColors.warmSurfaceLight,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Text(
-                  '🤲  ${t('explore_feeling')}',
-                  style: TextStyle(
-                    color: AppColors.warmBrown.withValues(alpha: 0.7),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
+            // "Need guidance for how you feel?" was here. Removed —
+            // it's a separate discovery feature (find-ayah-by-emotion)
+            // and stapling it to the completion screen as a 5th CTA
+            // turned the finish line into a "now what?" menu. The
+            // feelings entry point should live somewhere the user
+            // discovers it as its own mode, not appended to the daily
+            // ritual.
           ],
 
           // === BOTTOM SPACING ===
@@ -634,36 +725,32 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     return sentences.isNotEmpty ? sentences.first : trimmed;
   }
 
-  /// Show tafsir in a bottom sheet, loaded from the QDC API.
+  /// Push the full-screen tafsir route. Previously this opened a
+  /// modal bottom sheet at 60% height which (a) wasted 40% of the
+  /// viewport, (b) had no visible barrier, and (c) had no obvious
+  /// close affordance. A reading view should occupy the full screen
+  /// — every serious reading app does this (Apple Books, Kindle,
+  /// Notion). Back arrow in the AppBar handles dismissal.
   static void _showTafsir(
     BuildContext context,
     WidgetRef ref,
     String verseKey,
     String lang,
   ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      constraints: kAdaptiveSheetConstraints,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Center(
-        child: ConstrainedBox(
-          constraints: kAdaptiveSheetConstraints,
-          child: DraggableScrollableSheet(
-            initialChildSize: 0.6,
-            maxChildSize: 0.9,
-            minChildSize: 0.3,
-            expand: false,
-            builder: (ctx, scrollController) => _TafsirSheet(
-              verseKey: verseKey,
-              lang: lang,
-              scrollController: scrollController,
-            ),
-          ),
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => TafsirScreen(
+          verseKey: verseKey,
+          lang: lang,
         ),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+          ),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 280),
       ),
     );
   }
@@ -709,19 +796,11 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     return null;
   }
 
-  void _openFeelingMode(BuildContext context) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const FeelingsScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            FadeTransition(
-                opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                child: child),
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
-  }
+  // _openFeelingMode was here. Feelings/discovery mode is no longer
+  // launched from the daily ayah screen — it's a separate browsing
+  // feature that should live on its own entry point. The route still
+  // exists in feelings_screen.dart and can be wired from Journal or
+  // Settings when promoted there.
 
   void _openReflection(BuildContext context, DailyAyahState state, dynamic editorial) {
     Navigator.of(context).push(
@@ -767,15 +846,28 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
     final journal = ref.watch(journalProvider);
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
-    // Rotate between light prompts when no editorial content
+    // Day-0 = the user has never completed an ayah. We use this flag
+    // to (a) relabel the primary button to a more explicit verb and
+    // (b) pulse it so the first-time eye finds the destination.
+    final isDay0 = ref.watch(userProgressProvider).totalAyatCompleted == 0;
+    // Rotate between light *question* prompts when no editorial content.
+    // 'sit_moment' was removed from the rotation — it duplicated the
+    // primary button ("I felt this") and made the card read as two
+    // labels for one action.
     final lightPrompts = [
       t('what_stood_out'),
       t('what_stayed'),
-      t('sit_moment'),
     ];
     final fallbackPrompt =
         lightPrompts[widget.ayah.ayahNumber % lightPrompts.length];
-    final prompt = widget.editorial?.tier2Prompt ?? fallbackPrompt;
+    // Day-0 always uses the short fallback question. Editorial
+    // `tier2Prompt` is a deep contemplative paragraph (3-4 lines) and
+    // bloats the reflection card so the green button drops below the
+    // fold on the very screen meant to teach the user where to tap.
+    // Depth content unlocks from day 1.
+    final prompt = isDay0
+        ? fallbackPrompt
+        : (widget.editorial?.tier2Prompt ?? fallbackPrompt);
 
     // Show a previous reflection only:
     // - If there are 5+ written entries (meaningful history)
@@ -787,7 +879,13 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
             e.responseText!.isNotEmpty &&
             DateTime.now().difference(e.completedAt).inDays >= 3)
         .toList();
-    final showMemory = writtenEntries.length >= 3 &&
+    // Gated on !isDay0 too — if a returning user wipes local progress
+    // but their journal cloud-syncs back, we'd otherwise show "you
+    // reflected earlier…" on the very screen that's framed as a fresh
+    // start. The day-0 narrative ("you're new!") must not be broken by
+    // restored memory cards.
+    final showMemory = !isDay0 &&
+        writtenEntries.length >= 3 &&
         journal.length >= 5 &&
         (journal.length % 5 == 0); // Show every 5th ayah
     final previousEntry = showMemory
@@ -834,16 +932,15 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
           ).animate().fadeIn(duration: 600.ms, delay: 600.ms),
         ],
 
-        // === REFLECTION CTA ===
+        // === REFLECTION CTA — borderless so it reads as a continuation
+        // of the verse, not a separate "follow-up" surface. Keeps a
+        // whisper of green background to mark it as the destination.
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.03),
+            color: AppColors.primary.withValues(alpha: 0.025),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.08),
-            ),
           ),
           child: Column(
             children: [
@@ -857,24 +954,36 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 ),
               ),
               const SizedBox(height: 20),
-              // Primary — low friction acknowledgment
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _saving ? null : _acknowledge,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              // Primary action. Day-0 users get:
+              //   1. The clearer verb "Mark today complete" — "I felt
+              //      this" is evocative but vague to a first-timer.
+              //   2. A slow scale pulse drawing the eye here. After
+              //      first completion, the pulse stops (no anxiety
+              //      ambient motion for repeat users) and the label
+              //      reverts to "I felt this".
+              _PulsingPrimaryButton(
+                enabled: isDay0,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _saving ? null : _acknowledge,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
                     ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    t('i_felt_this'),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center,
+                    child: Text(
+                      isDay0 ? t('mark_today_complete') : t('i_felt_this'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
@@ -1028,38 +1137,45 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
             playerState?.processingState == ProcessingState.loading ||
             playerState?.processingState == ProcessingState.buffering;
 
+        final theme = Theme.of(context);
         return Semantics(
           button: true,
           label: isPlaying ? 'Pause Quran recitation' : 'Play Quran recitation',
-          child: FilledButton.icon(
+          child: OutlinedButton.icon(
             onPressed: () => _toggleAudio(audioService, isPlaying),
             icon: isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
+                ? SizedBox(
+                    width: 14,
+                    height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 1.5,
-                      color: Colors.white,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
                     ),
                   )
                 : Icon(
                     isPlaying
                         ? Icons.pause_rounded
                         : Icons.play_arrow_rounded,
-                    size: 20,
+                    size: 18,
                   ),
             label: Text(isPlaying
                 ? AppTranslations.get('pause', lang)
                 : AppTranslations.get('listen', lang)),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryDarkButton,
-              foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary.withValues(alpha: 0.8),
+              side: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                width: 1,
               ),
-              textStyle: const TextStyle(fontSize: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         );
@@ -1135,24 +1251,13 @@ class _CompletedState extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         children: [
-          const SizedBox(height: 8),
-
-          // Checkmark — slightly larger, more space
-          Icon(
-            Icons.check_rounded,
-            color: AppColors.primary.withValues(alpha: 0.4),
-            size: 36,
-          )
-              .animate()
-              .scale(
-                begin: const Offset(0, 0),
-                end: const Offset(1, 1),
-                duration: 500.ms,
-                curve: Curves.elasticOut,
-              )
-              .fadeIn(duration: 300.ms),
-
-          const SizedBox(height: 18),
+          // Checkmark was here. Removed — the golden stroke under the
+          // Arabic verse already marks "done", and "You showed up
+          // today. This counts." carries the celebration in copy.
+          // Adding a generic check icon styled like the other circular
+          // icon buttons above made it read as a disabled fourth
+          // button rather than a celebration mark.
+          const SizedBox(height: 12),
 
           // === SURAH COMPLETION MOMENT ===
           if (justCompletedSurah && completedSurahName != null) ...[
@@ -1221,12 +1326,14 @@ class _CompletedState extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 500.ms),
 
-          // Continuity hint
+          // Continuity hint — bumped from alpha 0.2 to 0.4 so the
+          // copy is legible on bright screens for older users. 0.2
+          // was borderline unreadable in daylight.
           const SizedBox(height: 12),
           Text(
             _t('continue_return', ref),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               fontSize: 12,
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
@@ -1295,27 +1402,37 @@ class _CompletedState extends ConsumerWidget {
                 ),
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 700.ms),
-          ] else ...[
-            // Regular continue
+          ],
+          // Regular advance: a tertiary text link, not a button.
+          // The full-prominence "Next ayah →" pill was demoting the
+          // daily-ritual thesis ("one verse a day. that's it."). A
+          // quiet text link satisfies users who want to read more in
+          // one session while keeping the visual hierarchy honest:
+          // checkmark + warm copy is the celebration, this is just
+          // an opt-in path, not the expected next step.
+          if (!justCompletedSurah) ...[
+            // The SizedBox(24) above already separates the celebration
+            // copy from the continue options. No extra spacer here —
+            // adding one stacked ~52px of empty space between "Continue,
+            // or return tomorrow." and the Next ayah link.
             TextButton(
               onPressed: () {
                 ref.read(dailyAyahProvider.notifier).loadNextAyah();
               },
               style: TextButton.styleFrom(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                  ),
-                ),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
+                // The translation value already includes the arrow
+                // glyph (e.g., "Next ayah →"), so don't append another.
                 _t('next_ayah', ref),
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.6),
-                  fontSize: 14,
+                  color: AppColors.primary.withValues(alpha: 0.45),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
@@ -1432,6 +1549,241 @@ class _CompletedState extends ConsumerWidget {
 /// scholar is picked once in Settings and persisted per language;
 /// the sheet itself is a single-focus reading surface — no pickers,
 /// no decisions to make every time "Read more" is tapped.
+// === TAFSIR SCREEN (full-screen route) ===
+//
+// Replaces the prior modal bottom sheet. Reading content needs the
+// whole viewport — a half-modal made the content feel like an
+// interruption rather than a destination. AppBar gives back +
+// title + actions slot; the body is a wide reading column with
+// classical typography metrics (16px / line-height 1.7).
+class TafsirScreen extends ConsumerStatefulWidget {
+  final String verseKey;
+  final String lang;
+
+  const TafsirScreen({
+    super.key,
+    required this.verseKey,
+    required this.lang,
+  });
+
+  @override
+  ConsumerState<TafsirScreen> createState() => _TafsirScreenState();
+}
+
+class _TafsirScreenState extends ConsumerState<TafsirScreen> {
+  String? _tafsirText;
+  String? _error;
+  bool _loading = true;
+  late TafsirOption _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    final storage = ref.read(localStorageProvider);
+    final normalizedLang = widget.lang == 'ar' ? 'ar' : 'en';
+    final preferredSlug = storage.getPreferredTafsirSlug(normalizedLang);
+    _selected = resolveTafsirFor(normalizedLang, preferredSlug);
+    _loadTafsir();
+  }
+
+  Future<void> _loadTafsir() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final quranApi = ref.read(quranApiProvider);
+      final text = await quranApi.getTafsir(_selected.slug, widget.verseKey);
+      if (mounted) {
+        setState(() {
+          // Strip HTML, collapse whitespace, and insert a space when a
+          // sentence-ending punctuation lands flush against the next
+          // sentence's capital letter (QDC payload sometimes loses the
+          // space). Same logic as the prior sheet.
+          _tafsirText = text
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .replaceAllMapped(
+                RegExp(r'([a-z."\x27\)])([A-Z])'),
+                (m) => '${m[1]} ${m[2]}',
+              )
+              .trim();
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surahName = surahNameFromKey(widget.verseKey);
+    final isRtl = widget.lang == 'ar';
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        surfaceTintColor: theme.scaffoldBackgroundColor,
+        iconTheme: IconThemeData(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _selected.shortNameForHeader(),
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              '$surahName  ·  ${widget.verseKey}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        titleSpacing: 4,
+      ),
+      body: SafeArea(
+        top: false,
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                  strokeWidth: 1.6,
+                ),
+              )
+            : _error != null
+                ? _buildError(theme)
+                : Center(
+                    child: ConstrainedBox(
+                      // Cap reading column at ~620px on tablets so long
+                      // lines don't fatigue the eye. Classical reading
+                      // metric (60-75 characters per line).
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Source attribution — small, italic, trust
+                            // signal. Tells the user who they're reading
+                            // before the words begin.
+                            Text(
+                              _selected.mufassir,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.5),
+                                fontStyle: FontStyle.italic,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Divider(
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.08),
+                              height: 1,
+                            ),
+                            const SizedBox(height: 20),
+                            // Tafsir body. Justify isn't supported well
+                            // in Flutter Arabic/English mix, so we leave
+                            // alignment as start. Generous line-height
+                            // for sustained reading.
+                            Text(
+                              _tafsirText ?? '',
+                              textDirection:
+                                  isRtl ? TextDirection.rtl : TextDirection.ltr,
+                              textAlign: TextAlign.start,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.86),
+                                height: 1.7,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildError(ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 36,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Could not load tafsir',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: _loadTafsir,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.4),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 22, vertical: 10),
+              ),
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Convenience extension: AppBar title uses a shortened form of the
+// `fullName` for cleaner chrome ("Tafsir Ibn Kathir" instead of
+// "Tafsir Ibn Kathir (Abridged)").
+extension _TafsirOptionDisplay on TafsirOption {
+  String shortNameForHeader() {
+    final name = fullName;
+    final paren = name.indexOf('(');
+    if (paren > 0) return name.substring(0, paren).trim();
+    return name;
+  }
+}
+
 class _TafsirSheet extends ConsumerStatefulWidget {
   final String verseKey;
   final String lang;
@@ -1832,6 +2184,355 @@ class _BookmarkButton extends ConsumerWidget {
         ),
       ),
       ),
+    );
+  }
+}
+
+// === POST-COMPLETION ICON ROW ===
+//
+// Replaces the inline Listen + Read more + Share entries with a single
+// row of icon-only buttons after the user has marked today's ayah
+// complete. The verse is already engaged with at this point — these
+// become quiet re-engagement affordances rather than primary CTAs.
+class _PostCompletionIconRow extends ConsumerWidget {
+  final String? audioUrl;
+  final Ayah ayah;
+  final int dayNumber;
+  final String lang;
+  final VoidCallback onTafsir;
+
+  const _PostCompletionIconRow({
+    required this.audioUrl,
+    required this.ayah,
+    required this.dayNumber,
+    required this.lang,
+    required this.onTafsir,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final audioService = ref.read(audioServiceProvider);
+    final iconColor = theme.colorScheme.primary.withValues(alpha: 0.55);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (audioUrl != null)
+          StreamBuilder<PlayerState>(
+            stream: audioService.playerStateStream,
+            builder: (context, snapshot) {
+              final isPlaying = snapshot.data?.playing ?? false;
+              return _CircleIconButton(
+                icon: isPlaying
+                    ? Icons.pause_rounded
+                    : Icons.play_arrow_rounded,
+                color: iconColor,
+                tooltip: isPlaying
+                    ? AppTranslations.get('pause', lang)
+                    : AppTranslations.get('listen', lang),
+                onTap: () async {
+                  if (isPlaying) {
+                    await audioService.pause();
+                  } else {
+                    try {
+                      await audioService.playAyah(audioUrl!);
+                    } catch (_) {}
+                  }
+                },
+              );
+            },
+          ),
+        const SizedBox(width: 18),
+        _CircleIconButton(
+          icon: Icons.auto_stories_outlined,
+          color: iconColor,
+          tooltip: AppTranslations.get('read_more', lang),
+          onTap: onTafsir,
+        ),
+        const SizedBox(width: 18),
+        _CircleIconButton(
+          icon: Icons.share_outlined,
+          color: iconColor,
+          tooltip: AppTranslations.get('share_ayah', lang),
+          onTap: () => openShareCardSheet(
+            context: context,
+            ayah: ayah,
+            dayNumber: dayNumber,
+            lang: lang,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _CircleIconButton({
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.35),
+                width: 1,
+              ),
+            ),
+            child: Icon(icon, size: 18, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// === NOTIFICATION PERMISSION BANNER ===
+//
+// Soft amber banner that appears on the home screen when the OS
+// reports notifications are off for this app. One tap re-prompts for
+// permission. If the user previously dismissed the system prompt with
+// "don't ask again", the re-prompt is a no-op — in that case we show
+// a snackbar pointing them to OS Settings (one screen-tap deeper, but
+// at least they know where to go). Hidden completely when permissions
+// are granted; non-blocking and doesn't compete with the verse.
+class _NotificationPermissionBanner extends ConsumerWidget {
+  const _NotificationPermissionBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(notificationsEnabledProvider);
+    return state.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (enabled) {
+        if (enabled) return const SizedBox.shrink();
+        final theme = Theme.of(context);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Material(
+            color: AppColors.makkiSurface,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () async {
+                final notif = ref.read(notificationServiceProvider);
+                final granted = await notif.requestPermission();
+                // Refresh state so the banner re-evaluates.
+                // ignore: unused_result
+                ref.refresh(notificationsEnabledProvider);
+                if (!granted && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Open phone Settings → Apps → Tadabbur → '
+                        'Notifications to enable.',
+                      ),
+                      duration: Duration(seconds: 5),
+                    ),
+                  );
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      size: 18,
+                      color: AppColors.makkiText,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Daily reminder is off — tap to enable',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.makkiText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: AppColors.makkiText.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// === PULSING PRIMARY BUTTON ===
+//
+// Wraps the day-0 primary CTA in a slow scale pulse (1.0 → 1.018) that
+// loops with reverse, giving the eye a soft "look here" cue without
+// the anxiety of a faster animation. Disabled (no pulse, plain pass-
+// through) once the user has completed their first ayah so it doesn't
+// become ambient motion for repeat users.
+class _PulsingPrimaryButton extends StatelessWidget {
+  final bool enabled;
+  final Widget child;
+  const _PulsingPrimaryButton({required this.enabled, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return child
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .scale(
+          begin: const Offset(1.0, 1.0),
+          end: const Offset(1.018, 1.018),
+          duration: 1400.ms,
+          curve: Curves.easeInOut,
+        );
+  }
+}
+
+// === DAY-0 WELCOME CARD ===
+//
+// Three numbered steps that teach the daily ritual in-flow. Shown only
+// on the user's very first session (progress.totalAyatCompleted == 0)
+// and disappears forever once they complete their first ayah. No
+// jargon, no emoji, no onboarding flow — designed so a 60-year-old
+// first-time user understands what to do without reading a manual,
+// and a 25-year-old skim-reader can parse it in two seconds.
+class _DayZeroWelcomeCard extends StatelessWidget {
+  final ThemeData theme;
+  final String Function(String) t;
+
+  const _DayZeroWelcomeCard({required this.theme, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark
+        ? AppColors.warmSurfaceDark
+        : AppColors.warmSurfaceLight;
+    final border = AppColors.warmBorder.withValues(alpha: 0.5);
+    final textColor =
+        (isDark ? AppColors.warmBrownDark : AppColors.warmBrown);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t('how_today_works'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Step(num: '1', text: t('step_read_verse'), color: textColor, theme: theme),
+          const SizedBox(height: 8),
+          _Step(num: '2', text: t('step_sit_with_it'), color: textColor, theme: theme),
+          const SizedBox(height: 8),
+          _Step(num: '3', text: t('step_tap_green'), color: textColor, theme: theme),
+          const SizedBox(height: 12),
+          Text(
+            t('closing_one_verse'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: textColor.withValues(alpha: 0.65),
+              fontSize: 12.5,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  final String num;
+  final String text;
+  final Color color;
+  final ThemeData theme;
+
+  const _Step({
+    required this.num,
+    required this.text,
+    required this.color,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            num,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: color.withValues(alpha: 0.9),
+                fontSize: 14,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
