@@ -9,6 +9,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:intl/date_symbol_data_local.dart' as date_locale;
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/router/app_router.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
@@ -25,6 +26,14 @@ const _kForegroundHydrateCooldown = Duration(seconds: 30);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize date-formatting locale data so DateFormat(pattern,
+  // langCode) produces localized weekday and month names. Without this
+  // call, every non-English `DateFormat('MMM d', 'ur').format(...)`
+  // throws or silently falls back to English. The default load is
+  // ~80kb gzipped; trivial relative to translating the journal
+  // calendar by hand for 20 locales.
+  await date_locale.initializeDateFormatting();
 
   // iPhone is locked to portrait via Info.plist (one orientation),
   // while iPad allows all four for Split View / Slide Over compliance

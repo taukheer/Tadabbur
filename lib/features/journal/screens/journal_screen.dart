@@ -1201,6 +1201,7 @@ void _openBookmarkDetail(
   final arabicFont = ref.read(arabicFontProvider);
   final arabicFontSize = ref.read(arabicFontSizeProvider);
   final useHijri = ref.read(useHijriDatesProvider);
+  final lang = ref.read(languageProvider);
 
   showModalBottomSheet(
     context: context,
@@ -1232,7 +1233,8 @@ void _openBookmarkDetail(
 
             // Date
             Text(
-              formatMediumDate(bookmark.bookmarkedAt, useHijri: useHijri),
+              formatMediumDate(bookmark.bookmarkedAt,
+                  useHijri: useHijri, lang: lang),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurface
                     .withValues(alpha: 0.35),
@@ -1328,22 +1330,27 @@ void _openBookmarkDetail(
 // ═══════════════════════════════════════════════════
 
 /// Short form of a date ("Apr 24" / "24 Dhū al-Qa'dah"), Hijri-aware.
-String formatShortDate(DateTime date, {required bool useHijri}) {
+/// [lang] is the user-selected app language code (en, ur, fr, …) so
+/// non-Hijri dates render in the user's language rather than the OS
+/// locale. Falls back to English month names if [lang] is null.
+String formatShortDate(DateTime date,
+    {required bool useHijri, String? lang}) {
   if (useHijri) {
     final h = HijriCalendar.fromDate(date);
     return '${h.hDay} ${h.longMonthName}';
   }
-  return DateFormat('MMM d').format(date);
+  return DateFormat.MMMd(lang).format(date);
 }
 
 /// Medium form ("April 24, 2026" / "24 Dhū al-Qa'dah 1447"),
 /// Hijri-aware.
-String formatMediumDate(DateTime date, {required bool useHijri}) {
+String formatMediumDate(DateTime date,
+    {required bool useHijri, String? lang}) {
   if (useHijri) {
     final h = HijriCalendar.fromDate(date);
     return '${h.hDay} ${h.longMonthName} ${h.hYear}';
   }
-  return DateFormat('MMMM d, yyyy').format(date);
+  return DateFormat.yMMMMd(lang).format(date);
 }
 
 /// Long form with weekday ("Friday, 24 April 2026" /
@@ -1432,7 +1439,7 @@ class JournalCard extends ConsumerWidget {
     if (diff == 0) return AppTranslations.get('today_label', lang);
     if (diff == 1) return AppTranslations.get('yesterday_label', lang);
     if (diff < 7) return '$diff ${AppTranslations.get('days_ago', lang)}';
-    return formatShortDate(date, useHijri: useHijri);
+    return formatShortDate(date, useHijri: useHijri, lang: lang);
   }
 
   @override

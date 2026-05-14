@@ -21,6 +21,7 @@ import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
 import 'package:tadabbur/features/daily_ayah/widgets/ayah_skeleton.dart';
 import 'package:tadabbur/features/daily_ayah/widgets/share_card.dart';
+import 'package:tadabbur/features/feelings/screens/feelings_screen.dart';
 import 'package:tadabbur/features/reflection/screens/reflection_screen.dart';
 
 class DailyAyahScreen extends ConsumerStatefulWidget {
@@ -707,6 +708,39 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             // ritual.
           ],
 
+          // === EXPLORE BY FEELING — discovery entry ===
+          // Quiet text link visible day 1+ only. Placed at the very
+          // bottom of the page so it doesn't compete with today's
+          // verse + reflection, but stays discoverable for users who
+          // want to browse the Quran emotionally outside the daily
+          // ritual. Suppressed on day 0 to keep the welcome path
+          // minimal and focused on first completion.
+          if (!isDay0) ...[
+            const SizedBox(height: 28),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => _openFeelingMode(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                ),
+                icon: Icon(
+                  Icons.favorite_border_rounded,
+                  size: 14,
+                  color: AppColors.warmBrown.withValues(alpha: 0.6),
+                ),
+                label: Text(
+                  t('explore_feeling'),
+                  style: TextStyle(
+                    color: AppColors.warmBrown.withValues(alpha: 0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+
           // === BOTTOM SPACING ===
           const SizedBox(height: 40),
         ],
@@ -796,11 +830,24 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     return null;
   }
 
-  // _openFeelingMode was here. Feelings/discovery mode is no longer
-  // launched from the daily ayah screen — it's a separate browsing
-  // feature that should live on its own entry point. The route still
-  // exists in feelings_screen.dart and can be wired from Journal or
-  // Settings when promoted there.
+  /// Browse ayat by feeling — a separate discovery mode (not part of
+  /// the daily ritual). Entry point lives at the bottom of the Today
+  /// screen for day-1+ users so it's reachable without competing with
+  /// the day's verse + reflection above.
+  void _openFeelingMode(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const FeelingsScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+            FadeTransition(
+                opacity:
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                child: child),
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
+  }
 
   void _openReflection(BuildContext context, DailyAyahState state, dynamic editorial) {
     Navigator.of(context).push(
@@ -2330,6 +2377,8 @@ class _NotificationPermissionBanner extends ConsumerWidget {
       data: (enabled) {
         if (enabled) return const SizedBox.shrink();
         final theme = Theme.of(context);
+        final lang = ref.watch(languageProvider);
+        String t(String key) => AppTranslations.get(key, lang);
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Material(
@@ -2345,12 +2394,9 @@ class _NotificationPermissionBanner extends ConsumerWidget {
                 ref.refresh(notificationsEnabledProvider);
                 if (!granted && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Open phone Settings → Apps → Tadabbur → '
-                        'Notifications to enable.',
-                      ),
-                      duration: Duration(seconds: 5),
+                    SnackBar(
+                      content: Text(t('notif_blocked_open_settings')),
+                      duration: const Duration(seconds: 5),
                     ),
                   );
                 }
@@ -2368,7 +2414,7 @@ class _NotificationPermissionBanner extends ConsumerWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Daily reminder is off — tap to enable',
+                        t('notif_banner_tap_to_enable'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.makkiText,
                           fontSize: 13,

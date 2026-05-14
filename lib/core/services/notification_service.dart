@@ -184,10 +184,10 @@ class NotificationService {
   /// 18.x), we re-arm every app launch and every time the user's
   /// progress changes so the notification body stays fresh.
   ///
-  /// When [forceReplace] is true the pending daily alarm is cancelled
-  /// and re-scheduled even if one already exists — use this after a
-  /// state change (e.g. user completed today's ayah) so tomorrow's
-  /// reminder reflects the new count and next ayah.
+  /// When [forceReplace] is true any pending daily alarms are cancelled
+  /// and re-scheduled — use this after a state change (e.g. user
+  /// completed today's ayah) so future reminders reflect the new count
+  /// and next ayah.
   Future<void> ensureDailyScheduled({bool forceReplace = false}) async {
     await init();
     final scheduled = getScheduledTime();
@@ -198,7 +198,9 @@ class NotificationService {
     if (!forceReplace) {
       try {
         final pending = await _plugin.pendingNotificationRequests();
-        final hasDaily = pending.any((p) => p.id == 0);
+        // Check the first horizon slot. If it's present we assume the
+        // full multi-day batch is intact and skip re-arming.
+        final hasDaily = pending.any((p) => p.id == _dailyIdBase);
         if (hasDaily) {
           return;
         }
@@ -208,20 +210,48 @@ class NotificationService {
         );
       }
     } else {
-      try {
-        await _plugin.cancel(0);
-      } catch (_) {}
+      await _cancelDailyBatch();
     }
 
     await _armDaily(scheduled.hour, scheduled.minute, silent: true);
   }
 
-  /// Core scheduling primitive. Computes the next fire time and the
-  /// message for the user's current progress state, then hands it off
-  /// to the OS via `alarmClock` mode (the only mode Samsung reliably
-  /// honours while backgrounded).
+  /// Notification ID range for the daily reminder batch. We schedule
+  /// [_dailyHorizonDays] alarms upfront (one per day) using IDs
+  /// [_dailyIdBase] .. [_dailyIdBase] + [_dailyHorizonDays] - 1.
+  ///
+  /// Why pre-schedule: the OS one-shot alarm fires once and is then
+  /// gone. If we relied solely on app-launch re-arming, a user who
+  /// ignored Day 1's notification would receive nothing on Day 2+
+  /// until they opened the app — silently dropping the daily cadence.
+  /// Pre-scheduling 14 days of alarms (well under iOS's 64-pending
+  /// cap) lets users miss up to two weeks without the reminder going
+  /// dark. Each alarm carries the same body because Option B
+  /// (user-paced progression) keeps `currentVerseKey` pinned until the
+  /// user explicitly completes the verse — every "next" notification
+  /// should point at the same unread verse, not auto-advance.
+  static const int _dailyIdBase = 100;
+  static const int _dailyHorizonDays = 14;
+
+  Future<void> _cancelDailyBatch() async {
+    for (var i = 0; i < _dailyHorizonDays; i++) {
+      try {
+        await _plugin.cancel(_dailyIdBase + i);
+      } catch (_) {}
+    }
+    // Also cancel the legacy single-alarm id (0) from earlier builds
+    // so migrating users don't end up with a stale duplicate.
+    try {
+      await _plugin.cancel(0);
+    } catch (_) {}
+  }
+
+  /// Core scheduling primitive. Schedules [_dailyHorizonDays] daily
+  /// alarms upfront, each at the user's chosen (hour, minute). All
+  /// share the same body because Option B doesn't auto-advance the
+  /// verse — re-arming happens when the user completes today's ayah,
+  /// which cancels the batch and re-queues with the new verseKey.
   Future<void> _armDaily(int hour, int minute, {bool silent = false}) async {
-    final scheduledTime = _nextInstanceOfTime(hour, minute);
     final progress = _storage.getProgress();
     final totalAyat = progress?.totalAyatCompleted ?? 0;
     final nextVerseKey = progress?.currentVerseKey ?? '1:1';
@@ -229,22 +259,27 @@ class NotificationService {
 
     if (!silent) {
       debugPrint(
-        '[NotificationService] Arming daily at $scheduledTime '
-        '(local tz: ${tz.local.name}) for $nextVerseKey',
+        '[NotificationService] Arming $_dailyHorizonDays-day batch '
+        'starting at $hour:$minute (local tz: ${tz.local.name}) '
+        'for $nextVerseKey',
       );
     }
 
     try {
-      await _plugin.zonedSchedule(
-        0,
-        msg.title,
-        msg.body,
-        scheduledTime,
-        _notifDetails(body: msg.body, bigText: msg.bigText),
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      final firstFire = _nextInstanceOfTime(hour, minute);
+      for (var i = 0; i < _dailyHorizonDays; i++) {
+        final fireTime = firstFire.add(Duration(days: i));
+        await _plugin.zonedSchedule(
+          _dailyIdBase + i,
+          msg.title,
+          msg.body,
+          fireTime,
+          _notifDetails(body: msg.body, bigText: msg.bigText),
+          androidScheduleMode: AndroidScheduleMode.alarmClock,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
       lastScheduleError = null;
     } catch (e, st) {
       lastScheduleError = e.toString();

@@ -113,19 +113,29 @@ Play Console doesn't have explicit keyword fields anymore (search uses the full 
 ## Contact details
 
 - **Email:** thetadabburapp@gmail.com
-- **Website:** https://github.com/taukheer/Tadabbur (or a future tadabbur.app domain)
+- **Website:** https://tadabbur-jet.vercel.app
 - **Phone:** *leave blank — not required for Play Console*
 
 ---
 
 ## Privacy Policy URL
 
-Required for Play Console. Two options:
+`https://tadabbur-jet.vercel.app/privacy`
 
-1. **Quick path:** GitHub Pages serves the existing `PRIVACY_POLICY.md` automatically once you enable Pages. URL would be `https://taukheer.github.io/Tadabbur/PRIVACY_POLICY.html`.
-2. **Tomorrow path:** add a custom domain (`tadabbur.app/privacy`).
+(Served by the Tadabbur landing site on Vercel. Updates ship with the
+site repo. Previous URLs — `tadabbur-beige.vercel.app/privacy` and
+`taukheer.github.io/Tadabbur/PRIVACY_POLICY.html` — return 404 and
+must NOT be used in Play Console / App Store Connect.)
 
-For the first submission, GitHub Pages is fine. Set it up via *Repo → Settings → Pages → Branch: main, root*.
+---
+
+## Account Deletion URL
+
+`https://tadabbur-jet.vercel.app/delete-account`
+
+(Required by Play Console's Data Safety declaration whenever the app
+supports account creation. Page explains how to delete the account
+in-app and offers an email-fallback for account removal.)
 
 ---
 

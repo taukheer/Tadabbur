@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+// Hide TextDirection — package:intl ships its own enum that shadows
+// the dart:ui TextDirection that TextPainter and friends expect. With
+// the hide, `TextDirection.ltr` resolves to the Flutter one again.
+import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:tadabbur/core/constants/surahs.dart';
 import 'package:tadabbur/core/constants/translations.dart';
@@ -64,7 +68,6 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
     final journal = ref.watch(journalProvider);
     final progress = ref.watch(userProgressProvider);
     final theme = Theme.of(context);
-    final lang = ref.watch(languageProvider);
 
     // Count reflections per calendar day (local time) so we can map
     // the counts to heatmap intensity levels. Using a Map<DateTime,int>
@@ -259,7 +262,7 @@ class _DetailLine extends ConsumerWidget {
     final theme = Theme.of(context);
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
-    final label = _formatDate(date);
+    final label = _formatDate(date, lang);
     final right = count == 0
         ? t('heatmap_no_entry')
         : count == 1
@@ -275,12 +278,9 @@ class _DetailLine extends ConsumerWidget {
     );
   }
 
-  static String _formatDate(DateTime date) {
-    const months = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[date.month]} ${date.day}, ${date.year}';
+  static String _formatDate(DateTime date, String lang) {
+    // "MMM d, y" → "May 14, 2026" in en, "14 mai 2026" in fr, etc.
+    return DateFormat.yMMMd(lang).format(date);
   }
 }
 
@@ -290,7 +290,7 @@ class _DetailLine extends ConsumerWidget {
 /// Filled cells use the same color ramp as the heatmap so the
 /// visualizations feel continuous when a user crosses the tier
 /// boundary into the full grid.
-class _WeekStrip extends StatelessWidget {
+class _WeekStrip extends ConsumerWidget {
   final DateTime today;
   final Map<DateTime, int> dayCounts;
   final void Function(DateTime date, int count, {required bool isFuture})
@@ -303,10 +303,19 @@ class _WeekStrip extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(languageProvider);
     final offset = today.weekday - 1; // Monday = 0
     final weekStart = today.subtract(Duration(days: offset));
-    const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    // Narrow weekday labels for the active locale (M/T/W in en,
+    // ا/ث/ر in ar, 月/火/水 in ja, etc). Anchored on a known Monday so
+    // the index → weekday math is portable.
+    final mondayBase = DateTime(2024, 1, 1);
+    final dayLabels = List<String>.generate(
+      7,
+      (i) => DateFormat.EEEEE(lang)
+          .format(mondayBase.add(Duration(days: i))),
+    );
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -416,7 +425,7 @@ class _WeekStripCell extends StatelessWidget {
 /// absolute x offset rather than competing with column widths. This
 /// prevents the "Dec → De/c" wrapping that happens when a 3-letter
 /// label is clamped to a single cell width.
-class _Grid extends StatelessWidget {
+class _Grid extends ConsumerWidget {
   final _HeatmapLayout layout;
   final DateTime today;
   final Map<DateTime, int> dayCounts;
@@ -431,7 +440,8 @@ class _Grid extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(languageProvider);
     final rightmostWeekStart = _weekStart(today);
     final weeks = layout.weeks;
     final columnWidth = layout.columnWidth;
@@ -477,7 +487,7 @@ class _Grid extends StatelessWidget {
       if (weekStart.month != lastMonth) {
         final columnIndexFromLeft = (weeks - 1 - w);
         final x = columnIndexFromLeft * columnWidth;
-        final label = _monthAbbr(weekStart.month);
+        final label = _monthAbbrLocalized(weekStart, lang);
         final labelWidth = measureLabel(label);
         // Only place a label if its left edge clears the previous
         // label's trailing edge plus the gutter. Driven by measured
@@ -524,7 +534,7 @@ class _Grid extends StatelessWidget {
     // Weekday labels (Mon / Wed / Fri) only on grids wide enough to
     // benefit — a 4-week tier-1 view is too compact for them to help.
     final weekdayColumn = layout.showWeekdayLabels
-        ? _buildWeekdayColumn(layout)
+        ? _buildWeekdayColumn(layout, lang)
         : null;
 
     final gridContent = SizedBox(
@@ -577,8 +587,20 @@ class _Grid extends StatelessWidget {
     );
   }
 
-  Widget _buildWeekdayColumn(_HeatmapLayout layout) {
-    const weekdayLabels = ['Mon', 'Wed', 'Fri'];
+  Widget _buildWeekdayColumn(_HeatmapLayout layout, String lang) {
+    // Locale-aware short weekday names. Anchored on a known Monday
+    // (2024-01-01) so the index → weekday math is portable across
+    // calendars. DateFormat.E returns the short name (Mon / lun. /
+    // 月) for the active locale. `lang` is plumbed in from `build`
+    // because methods on ConsumerWidget can't access `ref` directly.
+    final monday = DateTime(2024, 1, 1);
+    String wkShort(int dayIndex) =>
+        DateFormat.E(lang).format(monday.add(Duration(days: dayIndex)));
+    final weekdayLabels = [
+      wkShort(0), // Mon
+      wkShort(2), // Wed
+      wkShort(4), // Fri
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -610,13 +632,13 @@ class _Grid extends StatelessWidget {
     return local.subtract(Duration(days: offset));
   }
 
-  static String _monthAbbr(int m) {
-    const labels = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return labels[m];
-  }
+}
+
+/// Locale-aware short month label (e.g. "May" / "May" / "mei" / "май"
+/// / "5月"). Returns the abbreviated form (DateFormat.MMM) which
+/// matches the visual density of the heatmap column-header.
+String _monthAbbrLocalized(DateTime date, String lang) {
+  return DateFormat.MMM(lang).format(date);
 }
 
 /// Finds the earliest calendar day the user has activity on. Used to

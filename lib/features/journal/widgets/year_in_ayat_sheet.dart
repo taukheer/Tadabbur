@@ -280,6 +280,7 @@ class YearInAyatSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final useHijri = ref.watch(useHijriDatesProvider);
+    final lang = ref.watch(languageProvider);
     final s = stats;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 48),
@@ -499,7 +500,7 @@ class YearInAyatSheet extends ConsumerWidget {
             const SizedBox(height: 6),
             Text(
               '${surahNameFromKey(s.deepest!.verseKey)} ${s.deepest!.verseKey} · '
-              '${formatShortDate(s.deepest!.completedAt, useHijri: useHijri)}',
+              '${formatShortDate(s.deepest!.completedAt, useHijri: useHijri, lang: lang)}',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 fontSize: 11,

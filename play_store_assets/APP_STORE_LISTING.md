@@ -196,9 +196,10 @@ We use Firebase for crash reporting (Crashlytics) and product analytics (Analyti
 
 ## URLs
 
-- **Marketing URL:** https://github.com/taukheer/Tadabbur *(or future tadabbur.app)*
-- **Support URL:** https://github.com/taukheer/Tadabbur/issues *(GitHub Issues works as a support page for v1)*
-- **Privacy Policy URL:** *(same as Play Store — GitHub Pages serving PRIVACY_POLICY.md)*
+- **Marketing URL:** https://tadabbur-jet.vercel.app
+- **Support URL:** https://tadabbur-jet.vercel.app *(landing page has support contact)*
+- **Privacy Policy URL:** https://tadabbur-jet.vercel.app/privacy
+- **Account Deletion URL:** https://tadabbur-jet.vercel.app/delete-account *(Apple also asks for this if the app supports account creation)*
 
 ---
 

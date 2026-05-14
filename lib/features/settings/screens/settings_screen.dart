@@ -249,7 +249,10 @@ class SettingsScreen extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              'Ayah $currentAyah  ·  ${progress.totalAyatCompleted} ayat completed',
+                              t('settings_ayah_completed')
+                                  .replaceAll('{ayah}', '$currentAyah')
+                                  .replaceAll('{n}',
+                                      '${progress.totalAyatCompleted}'),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: AppColors.primary
                                     .withValues(alpha: 0.5),
@@ -894,9 +897,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Translation Language',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+              child: Text(
+                AppTranslations.get('translation_language', currentLang),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
             Expanded(
               child: ListView.builder(
@@ -964,6 +969,7 @@ class SettingsScreen extends ConsumerWidget {
   void _showSurahPicker(
       BuildContext context, WidgetRef ref, dynamic progress) {
     final theme = Theme.of(context);
+    final lang = ref.read(languageProvider);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -989,9 +995,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text('Jump to Surah',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+              child: Text(
+                AppTranslations.get('jump_to_surah', lang),
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
             Expanded(
               child: ListView.builder(
@@ -1155,9 +1163,12 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
     } catch (e) {
       setState(() => _sending = false);
       if (mounted) {
+        final lang = widget.ref.read(languageProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not send feedback. Please try again.'),
+          SnackBar(
+            content: Text(
+              AppTranslations.get('feedback_send_failed', lang),
+            ),
           ),
         );
       }
@@ -1173,6 +1184,8 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final lang = widget.ref.read(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
 
     if (_sent) {
       return Padding(
@@ -1194,13 +1207,13 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             Icon(Icons.check_circle_rounded,
                 color: AppColors.primary, size: 56),
             const SizedBox(height: 20),
-            Text('JazakAllahu Khairan',
+            Text(t('feedback_thanks_title'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 )),
             const SizedBox(height: 8),
-            Text('Your feedback helps us improve.',
+            Text(t('feedback_thanks_subtitle'),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                 )),
@@ -1230,12 +1243,12 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
           const SizedBox(height: 20),
 
           // Title
-          Text('Send Feedback',
+          Text(t('send_feedback'),
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               )),
           const SizedBox(height: 4),
-          Text('We read every message.',
+          Text(t('feedback_we_read'),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               )),
@@ -1346,7 +1359,8 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                       child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('Send', style: TextStyle(fontSize: 15)),
+                  : Text(t('feedback_send_btn'),
+                      style: const TextStyle(fontSize: 15)),
             ),
           ),
           const SizedBox(height: 8),
@@ -1626,7 +1640,8 @@ class _NotificationTile extends StatelessWidget {
                     children: [
                       Text(
                         isEnabled
-                            ? 'Daily reminder at $timeStr'
+                            ? t('settings_daily_reminder_at')
+                                .replaceAll('{time}', timeStr)
                             : t('set_daily_reminder'),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
@@ -1637,7 +1652,7 @@ class _NotificationTile extends StatelessWidget {
                       ),
                       Text(
                         isEnabled
-                            ? '"Your ayah for today is waiting"'
+                            ? t('settings_ayah_waiting')
                             : t('set_daily_reminder_hint'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurface
@@ -1678,12 +1693,9 @@ class _NotificationTile extends StatelessWidget {
                 ref.refresh(notificationsEnabledProvider);
                 if (!granted && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Notifications are blocked. Open phone Settings → '
-                        'Apps → Tadabbur → Notifications to enable.',
-                      ),
-                      duration: Duration(seconds: 6),
+                    SnackBar(
+                      content: Text(t('notif_blocked_snack')),
+                      duration: const Duration(seconds: 6),
                     ),
                   );
                 }
@@ -1704,7 +1716,7 @@ class _NotificationTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Notifications blocked in system settings',
+                            t('notif_blocked_title'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppColors.makkiText,
                               fontSize: 13,
@@ -1713,8 +1725,7 @@ class _NotificationTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Your reminder is scheduled but won\'t fire '
-                            'until you allow notifications.',
+                            t('notif_blocked_subtitle'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppColors.makkiText.withValues(alpha: 0.8),
                               fontSize: 12,
@@ -2117,9 +2128,12 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
     } catch (e) {
       if (mounted) {
         setState(() => _deleting = false);
+        final lang = ref.read(languageProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not delete account: $e'),
+            content: Text(
+              '${AppTranslations.get('delete_account_failed', lang)}: $e',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -2283,13 +2297,14 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
     // Capture the messenger up front so we don't need to re-read
     // `context` across the async gap (see use_build_context_synchronously).
     final messenger = ScaffoldMessenger.of(context);
+    final lang = ref.read(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sign out of quran.com?'),
+        title: Text(t('signout_confirm_title')),
         content: Text(
-          'Your local reflections and bookmarks stay on this device. '
-          'Sign back in any time to resume syncing with quran.com.',
+          t('signout_confirm_body'),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
             height: 1.5,
@@ -2298,14 +2313,14 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.error,
             ),
-            child: const Text('Sign out'),
+            child: Text(t('signout_btn')),
           ),
         ],
       ),
@@ -2327,9 +2342,9 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
 
     if (!mounted) return;
     messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Signed out of quran.com.'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text(t('signout_success')),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -2394,7 +2409,7 @@ class _YearlyReviewsTile extends ConsumerWidget {
   }
 }
 
-class _YearRow extends StatelessWidget {
+class _YearRow extends ConsumerWidget {
   final int year;
   final int count;
   final VoidCallback onTap;
@@ -2408,7 +2423,9 @@ class _YearRow extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(languageProvider);
+    String t(String key) => AppTranslations.get(key, lang);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2435,7 +2452,8 @@ class _YearRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '$year in ayat',
+                      t('year_in_ayat_label')
+                          .replaceAll('{year}', '$year'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: theme.colorScheme.onSurface,
@@ -2443,7 +2461,11 @@ class _YearRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${hijriYearLabel(year)} · ${count == 1 ? "1 reflection" : "$count reflections"}',
+                      (count == 1
+                              ? t('year_review_subtitle_one')
+                              : t('year_review_subtitle_other')
+                                  .replaceAll('{n}', '$count'))
+                          .replaceAll('{hijri}', hijriYearLabel(year)),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.55),
