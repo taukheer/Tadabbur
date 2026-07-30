@@ -168,6 +168,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   '(len=${storage.authToken?.length ?? 0})',
                 );
 
+                // Stamp the Quran.com email + name onto this device's
+                // anonymous Firebase account. Without it the Auth
+                // console shows "(anonymous)" with no identifier for
+                // every user, however they signed in. Fire-and-forget:
+                // it's admin visibility, not something the user waits
+                // on, and it retries on the next launch if it fails.
+                unawaited(ref.read(qfIdentityLinkProvider).linkIfNeeded());
+
                 // Two-way sync: pull existing bookmarks and notes the
                 // user already has on quran.com into local state so
                 // they see their prior reading history in the app.

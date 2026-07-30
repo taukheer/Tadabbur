@@ -23,6 +23,14 @@ abstract final class AppConstants {
   static const String qfApiBaseUrl = 'https://api.qurancdn.com/api/qdc';
   static const String qfAuthUrl = 'https://oauth.quran.com';
 
+  // Note: an `oidc.quran-foundation` provider is registered in the
+  // Firebase project but is NOT used. OIDC sign-in requires upgrading
+  // to Identity Platform, which this project isn't on, so the runtime
+  // rejects it with `operation-not-allowed`. The QF identity is carried
+  // by a custom token instead (see QfIdentityLinkService), which also
+  // fixes email-stranding across reinstalls. The config is left in
+  // place, inert, in case the project is upgraded later.
+
   /// Default translation resource ID (Saheeh International).
   static const int defaultTranslationId = 20;
 
@@ -51,6 +59,32 @@ abstract final class AppConstants {
 
   /// Streak milestones that trigger a celebration animation.
   static const List<int> streakMilestones = [7, 30, 100, 365, 1000];
+
+  // ---------------------------------------------------------------------------
+  // Review prompt
+  // ---------------------------------------------------------------------------
+
+  /// Distinct days the user must have practised on before we ask for a
+  /// review. Counted as calendar days with at least one reflection —
+  /// not days since install — so the ask only reaches people who have
+  /// actually formed the habit and have something to rate.
+  static const int ratePromptMinActiveDays = 3;
+
+  /// How long a "Not now" defers the ask.
+  static const Duration ratePromptSnooze = Duration(days: 30);
+
+  /// Total times the user may be asked before we retire the prompt.
+  /// Two dismissals is a clear answer; a third ask would be nagging.
+  static const int ratePromptMaxAsks = 2;
+
+  /// Numeric App Store ID, from
+  /// `apps.apple.com/us/app/tadabbur-one-ayah-a-day/id6766132608`.
+  ///
+  /// Only needed for the fallback path — when StoreKit declines to show
+  /// the in-app sheet we deep-link to the listing instead, and iOS
+  /// requires the ID to build that URL. Android derives its Play Store
+  /// URL from the package name and ignores this.
+  static const String appStoreId = '6766132608';
 
   // ---------------------------------------------------------------------------
   // Caching

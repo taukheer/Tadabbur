@@ -298,23 +298,29 @@ class UserApiService {
   ///
   /// [verseKey] is in `surah:ayah` format (e.g. `2:255`). Parsed into
   /// the `{key, verseNumber}` pair QF expects.
-  Future<void> addBookmark(String verseKey) async {
-    if (!_canCallUserApi) return;
+  ///
+  /// Returns the id QF assigned to the new bookmark, or null if the
+  /// call was skipped, failed, or the response carried no id. The
+  /// caller must persist it: DELETE `/v1/bookmarks/{id}` is the only
+  /// way to remove a bookmark, so a dropped id means the bookmark can
+  /// never be deleted and will keep re-hydrating into local state.
+  Future<int?> addBookmark(String verseKey) async {
+    if (!_canCallUserApi) return null;
     debugPrint('[UserApi] POST /v1/bookmarks — addBookmark($verseKey)');
     final parts = verseKey.split(':');
     if (parts.length != 2) {
       debugPrint('[UserApi] invalid verseKey: $verseKey');
-      return;
+      return null;
     }
     final surah = int.tryParse(parts[0]);
     final ayah = int.tryParse(parts[1]);
     if (surah == null || ayah == null) {
       debugPrint('[UserApi] could not parse verseKey: $verseKey');
-      return;
+      return null;
     }
 
     try {
-      await _dio.post<Map<String, dynamic>>(
+      final response = await _dio.post<Map<String, dynamic>>(
         '/v1/bookmarks',
         data: {
           'key': surah,
@@ -323,12 +329,39 @@ class UserApiService {
           'mushaf': _mushafId,
         },
       );
+      final id = _extractBookmarkId(response.data);
+      debugPrint('[UserApi] POST /v1/bookmarks → id=$id');
+      return id;
     } on DioException catch (e) {
       debugPrint(
         '[UserApi] POST /v1/bookmarks failed: ${e.response?.statusCode} '
         '${e.response?.data}',
       );
+      return null;
     }
+  }
+
+  /// Pull the new bookmark's id out of a POST response. QF wraps the
+  /// created record inconsistently across endpoints, so probe the bare
+  /// body and the common `data`/`bookmark` envelopes.
+  static int? _extractBookmarkId(Map<String, dynamic>? body) {
+    if (body == null) return null;
+    final direct = _asInt(body['id']);
+    if (direct != null) return direct;
+    for (final key in const ['data', 'bookmark', 'result']) {
+      final nested = body[key];
+      if (nested is Map) {
+        final id = _asInt(nested['id']);
+        if (id != null) return id;
+      }
+    }
+    return null;
+  }
+
+  static int? _asInt(dynamic v) {
+    if (v is int) return v;
+    if (v is String) return int.tryParse(v);
+    return null;
   }
 
   /// Fetches all of the user's bookmarks, walking the QF cursor until

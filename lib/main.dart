@@ -24,6 +24,54 @@ import 'package:tadabbur/firebase_options.dart';
 /// flipping between Tadabbur and a browser while debugging).
 const _kForegroundHydrateCooldown = Duration(seconds: 30);
 
+/// Guarantee the app has a usable Firebase session.
+///
+/// Signing in anonymously when `currentUser == null` isn't enough on its
+/// own: FirebaseAuth caches the user locally, so an account deleted
+/// server-side (from the console, by an admin script, or by Identity
+/// Platform's anonymous-user cleanup) leaves a stale non-null
+/// `currentUser` behind. The app then looks signed in while every
+/// Firestore write is rejected and every callable returns
+/// `unauthenticated` — permanently, because the null check never fires
+/// again to mint a replacement.
+///
+/// Forcing a token refresh is what surfaces that state. If the server
+/// disowns the cached user we drop it and sign in fresh.
+Future<void> _ensureAnonymousSession() async {
+  final auth = FirebaseAuth.instance;
+  try {
+    final current = auth.currentUser;
+    if (current != null) {
+      try {
+        await current.getIdToken(true);
+        return; // Session is genuinely valid.
+      } on FirebaseAuthException catch (e) {
+        const dead = {
+          'user-not-found',
+          'user-token-expired',
+          'user-disabled',
+          'invalid-user-token',
+        };
+        if (!dead.contains(e.code)) {
+          // Offline or a transient failure — keep the cached session
+          // rather than throwing away a perfectly good account.
+          debugPrint('[FirebaseAuth] token refresh deferred (${e.code})');
+          return;
+        }
+        debugPrint('[FirebaseAuth] cached user is dead (${e.code}) — resetting');
+        await auth.signOut();
+      }
+    }
+
+    final cred = await auth.signInAnonymously();
+    debugPrint('[FirebaseAuth] anonymous sign-in: ${cred.user?.uid}');
+  } catch (e) {
+    // Non-fatal: the app stays usable offline and local storage remains
+    // the source of truth. Retried on the next launch.
+    debugPrint('[FirebaseAuth] session setup failed: $e');
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -81,13 +129,7 @@ void main() async {
     // Fire-and-forget: if this fails (network, Auth disabled in
     // console), the app stays usable — Firestore writes just keep
     // their current silent-failure behavior.
-    if (FirebaseAuth.instance.currentUser == null) {
-      FirebaseAuth.instance.signInAnonymously().then((cred) {
-        debugPrint('[FirebaseAuth] anonymous sign-in: ${cred.user?.uid}');
-      }).catchError((Object e) {
-        debugPrint('[FirebaseAuth] anonymous sign-in failed: $e');
-      });
-    }
+    unawaited(_ensureAnonymousSession());
   }
 
   final localStorage = LocalStorageService();
@@ -230,12 +272,16 @@ class _TadabburAppState extends ConsumerState<TadabburApp>
       return;
     }
 
-    // For guests, migrate their local userId to the Firebase UID if
-    // it's still the pre-fix hardcoded 'guest' string. Without this
-    // the Firestore write would still target /users/guest (collision)
-    // for installs that upgraded from before the user-tracking pass.
-    if (storage.authType == AuthType.guest &&
-        (storage.userId == null || storage.userId == 'guest')) {
+    // Keep the local userId pinned to the live Firebase UID.
+    //
+    // Firestore's rules require `request.auth.uid == docId`, so a
+    // stored id that has drifted from the current session — the legacy
+    // hardcoded 'guest' string, or a UID whose account was deleted
+    // server-side and replaced by _ensureAnonymousSession — makes every
+    // write target a document the rules reject, silently and forever.
+    // Realigning costs nothing when they already match.
+    if (storage.userId != authUid) {
+      debugPrint('[BootSync] realigning userId ${storage.userId}→$authUid');
       await storage.setUserId(authUid);
     }
 
@@ -244,6 +290,11 @@ class _TadabburAppState extends ConsumerState<TadabburApp>
 
     final firestore = ref.read(firestoreServiceProvider);
     firestore.setUser(uid);
+
+    // Retry the Firebase identity link for anyone whose sign-in
+    // predates it, or whose call failed on a flaky network. No-ops once
+    // linked, and for every auth type other than Quran Foundation.
+    unawaited(ref.read(qfIdentityLinkProvider).linkIfNeeded());
 
     final profile = storage.getProfile();
     final authUser = ref.read(authUserProvider);

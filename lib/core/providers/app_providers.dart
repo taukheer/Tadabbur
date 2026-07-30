@@ -3,6 +3,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/qf_user_profile.dart';
@@ -18,6 +19,7 @@ import 'package:tadabbur/core/models/user_profile.dart';
 import 'package:tadabbur/core/models/user_progress.dart';
 import 'package:tadabbur/core/services/auth_service.dart';
 import 'package:tadabbur/core/services/qf_auth_service.dart';
+import 'package:tadabbur/core/services/qf_identity_link_service.dart';
 import 'package:tadabbur/core/services/firestore_service.dart';
 import 'package:tadabbur/core/services/notification_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
@@ -154,6 +156,15 @@ final authServiceProvider = Provider<AuthService>((ref) {
 
 final qfAuthServiceProvider = Provider<QFAuthService>((ref) {
   return QFAuthService(ref.watch(localStorageProvider));
+});
+
+/// Upgrades the anonymous Firebase session to one keyed on the QF
+/// identity, so one human maps to one Firebase account across installs.
+final qfIdentityLinkProvider = Provider<QfIdentityLinkService>((ref) {
+  return QfIdentityLinkService(
+    ref.watch(localStorageProvider),
+    ref.watch(firestoreServiceProvider),
+  );
 });
 
 final authUserProvider = StateProvider<AuthUser?>((ref) => null);
@@ -574,7 +585,13 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     state = [bookmark, ...state];
     await _storage.saveBookmarks(state);
 
-    _userApi.addBookmark(verseKey).catchError((Object e) {
+    // Fire-and-forget so the icon flips instantly, but keep the id QF
+    // hands back — without it `remove` can't issue the DELETE and the
+    // bookmark resurrects on the next hydrate.
+    _userApi
+        .addBookmark(verseKey)
+        .then((qfId) => _rememberQfId(verseKey, qfId))
+        .catchError((Object e) {
       SyncReporter.report('bookmark · quran.com', e,
           severity: SyncSeverity.quiet);
     });
@@ -595,6 +612,40 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     });
   }
 
+  /// Store the id QF assigned to a bookmark we just created, so a later
+  /// [remove] can delete it server-side. No-op if the user already
+  /// un-bookmarked the verse while the POST was in flight.
+  Future<void> _rememberQfId(String verseKey, int? qfId) async {
+    if (qfId == null) return;
+    final idx = state.indexWhere((b) => b.verseKey == verseKey);
+    if (idx < 0) return;
+    if (state[idx].qfBookmarkId == qfId) return;
+
+    final updated = [...state];
+    updated[idx] = updated[idx].copyWith(qfBookmarkId: qfId);
+    state = updated;
+    await _storage.saveBookmarks(state);
+  }
+
+  /// Look up a bookmark's QF id by verse key.
+  ///
+  /// Needed for bookmarks that never captured one — either created
+  /// before the id was persisted, or removed while the POST that would
+  /// have supplied it was still in flight. Without this the DELETE is
+  /// skipped and [hydrateFromQF] pulls the bookmark straight back in on
+  /// the next foreground, so the verse reads as permanently bookmarked.
+  Future<int?> _resolveQfId(String verseKey) async {
+    try {
+      final remote = await _userApi.getBookmarks();
+      for (final raw in remote) {
+        if (_parseVerseKey(raw) == verseKey) return _parseInt(raw['id']);
+      }
+    } catch (e) {
+      debugPrint('[BookmarkNotifier] resolve QF id for $verseKey failed: $e');
+    }
+    return null;
+  }
+
   Future<void> remove(String verseKey) async {
     final idx = state.indexWhere((b) => b.verseKey == verseKey);
     final bookmark = idx >= 0 ? state[idx] : null;
@@ -608,13 +659,19 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
       },
     );
 
-    final qfBookmarkId = bookmark?.qfBookmarkId;
-    if (qfBookmarkId != null) {
-      _userApi.removeBookmark(qfBookmarkId).catchError((Object e) {
-        SyncReporter.report('bookmark · quran.com', e,
-            severity: SyncSeverity.quiet);
-      });
+    // Resolve the id when we don't have one, otherwise the QF-side
+    // bookmark survives and re-hydrates on the next foreground.
+    Future<void> deleteOnQf() async {
+      final qfBookmarkId =
+          bookmark?.qfBookmarkId ?? await _resolveQfId(verseKey);
+      if (qfBookmarkId == null) return;
+      await _userApi.removeBookmark(qfBookmarkId);
     }
+
+    unawaited(deleteOnQf().catchError((Object e) {
+      SyncReporter.report('bookmark · quran.com', e,
+          severity: SyncSeverity.quiet);
+    }));
 
     FirebaseAnalytics.instance.logEvent(
       name: 'bookmark_removed',
@@ -622,6 +679,89 @@ class BookmarkNotifier extends StateNotifier<List<Bookmark>> {
     ).catchError((Object e) {
       SyncReporter.report('analytics', e, severity: SyncSeverity.quiet);
     });
+  }
+}
+
+// --- Review prompt ---
+
+/// Whether the "has Tadabbur helped you reflect?" card should render.
+///
+/// The rule lives here rather than inline in the daily screen so it is
+/// testable and so the widget can stay dumb: it renders when this says
+/// so, and calls back when the user answers.
+///
+/// State is read once when the notifier is first constructed. That is
+/// deliberate — the prompt appears inside the post-completion state, and
+/// re-evaluating on every journal change would let the card pop into
+/// view mid-session the moment a hydrate landed.
+final ratePromptProvider =
+    StateNotifierProvider<RatePromptNotifier, bool>((ref) {
+  return RatePromptNotifier(
+    ref.watch(localStorageProvider),
+    ref.read(journalProvider),
+  );
+});
+
+class RatePromptNotifier extends StateNotifier<bool> {
+  final LocalStorageService _storage;
+
+  RatePromptNotifier(this._storage, List<JournalEntry> entries)
+      : super(_isEligible(_storage, entries));
+
+  /// Distinct calendar days on which the user recorded a reflection.
+  /// Matches how the heatmap and Year in Ayat count "active days" —
+  /// two reflections in one sitting is one day of practice, not two.
+  ///
+  /// Derived from the journal rather than a counter we start keeping
+  /// today, so users who were already three days deep when this
+  /// shipped are eligible immediately instead of restarting at zero.
+  static int activeDayCount(List<JournalEntry> entries) {
+    return entries
+        .map((e) => DateTime(
+              e.completedAt.year,
+              e.completedAt.month,
+              e.completedAt.day,
+            ))
+        .toSet()
+        .length;
+  }
+
+  static bool _isEligible(
+    LocalStorageService storage,
+    List<JournalEntry> entries,
+  ) {
+    // Already rated — retired for good.
+    if (storage.rateReviewDone) return false;
+
+    // Asked and dismissed enough times. Two "not now"s is an answer.
+    if (storage.ratePromptAskCount >= AppConstants.ratePromptMaxAsks) {
+      return false;
+    }
+
+    // Still inside the snooze window from a previous dismissal.
+    final snoozedAt = storage.ratePromptSnoozedAt;
+    if (snoozedAt != null &&
+        DateTime.now().difference(snoozedAt) <
+            AppConstants.ratePromptSnooze) {
+      return false;
+    }
+
+    return activeDayCount(entries) >= AppConstants.ratePromptMinActiveDays;
+  }
+
+  /// The user accepted the ask. Hide the card and never show it again.
+  /// Persisted before the store sheet is triggered so a crash or a
+  /// force-quit inside StoreKit can't resurrect the prompt.
+  Future<void> markRated() async {
+    state = false;
+    await _storage.setRateReviewDone();
+  }
+
+  /// The user tapped "Not now". Hide the card for this session and
+  /// defer the next ask by [AppConstants.ratePromptSnooze].
+  Future<void> snooze() async {
+    state = false;
+    await _storage.snoozeRatePrompt();
   }
 }
 
@@ -833,13 +973,12 @@ class JournalNotifier extends StateNotifier<List<JournalEntry>> {
 
     _syncReflectionToQF(entry, shareToQuranReflect: shareToQuranReflect);
 
-    // Auto-bookmark on QF when user wrote a reflection (Tier 2/3)
-    if (entry.tier != ReflectionTier.acknowledge && entry.responseText != null) {
-      _userApi.addBookmark(entry.verseKey).catchError((Object e) {
-        SyncReporter.report('bookmark · quran.com', e,
-            severity: SyncSeverity.quiet);
-      });
-    }
+    // Deliberately no auto-bookmark here. Reflecting on an ayah used to
+    // bookmark it on QF, but the daily ritual *is* reflecting — so every
+    // verse the user passed through accumulated a bookmark, hydrated
+    // back in on the next foreground, and the bookmark icon read as
+    // permanently on. The bookmark now means only what the user chose to
+    // save; /v1/notes remains the record of what they reflected on.
   }
 
   /// Save reflection to QF as a personal note (and optionally mirror

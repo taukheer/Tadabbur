@@ -196,6 +196,12 @@ class QFAuthService {
         // settings screen and any other auth-aware UI show the right
         // state.
         await _storage.setAuthType(AuthType.quranFoundation);
+        // Keep the id_token: the linkQfIdentity Cloud Function needs it
+        // to verify the identity server-side before stamping the email
+        // and name onto the Firebase account. Persisted rather than
+        // passed inline so a failed link can be retried on a later
+        // launch instead of being lost.
+        await _storage.setQfIdToken(idToken);
         // Clear the code verifier and OAuth state — no longer needed
         await _storage.setCodeVerifier(null);
         await _storage.setOAuthState(null);

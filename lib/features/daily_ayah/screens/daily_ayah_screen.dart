@@ -7,7 +7,9 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/ayah.dart';
+import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/layout/breakpoints.dart';
+import 'package:tadabbur/core/services/sync_reporter.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/widgets/golden_stroke.dart';
@@ -1385,8 +1387,10 @@ class _CompletedState extends ConsumerWidget {
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
 
-          // === RATE PROMPT — Day 5-7, emotional framing ===
-          if (dayNumber >= 5 && dayNumber <= 7)
+          // === RATE PROMPT — 3+ days of practice, emotional framing ===
+          // Eligibility (active days, snooze, already-rated) lives in
+          // ratePromptProvider; the widget renders only when it says so.
+          if (ref.watch(ratePromptProvider))
             _RatePrompt(ref: ref)
                 .animate().fadeIn(duration: 500.ms, delay: 700.ms),
 
@@ -2052,29 +2056,47 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
   }
 }
 
-/// Gentle rate prompt — shows on Day 5-7, dismissible, emotional framing.
-class _RatePrompt extends StatefulWidget {
+/// Gentle rate prompt — surfaced once the user has practised on three
+/// or more distinct days, dismissible, emotional framing.
+///
+/// This is a soft pre-prompt, not the store sheet itself. Only a "yes"
+/// escalates to the OS review flow, so users who wouldn't rate the app
+/// never spend one of the platform's limited prompt quotas (StoreKit
+/// allows three per year and silently swallows the rest).
+///
+/// Visibility and persistence live in [ratePromptProvider]; this widget
+/// only renders and reports the answer.
+class _RatePrompt extends StatelessWidget {
   final WidgetRef ref;
   const _RatePrompt({required this.ref});
 
-  @override
-  State<_RatePrompt> createState() => _RatePromptState();
-}
+  String _t(String key) =>
+      AppTranslations.get(key, ref.read(languageProvider));
 
-class _RatePromptState extends State<_RatePrompt> {
-  bool _dismissed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Check if already shown
-    // For simplicity, we show it on Day 5-7 every time until they tap
+  /// Escalate to the platform review flow. Falls back to the store
+  /// listing when the in-app sheet isn't available (no Play Store on
+  /// the device, or StoreKit has already spent its quota this year) so
+  /// a user who said yes still lands somewhere they can leave a star.
+  Future<void> _requestReview() async {
+    final reviewer = InAppReview.instance;
+    try {
+      if (await reviewer.isAvailable()) {
+        await reviewer.requestReview();
+      } else {
+        // iOS needs the numeric App Store ID to build the listing URL;
+        // Android ignores it and derives the Play Store URL from the
+        // package name.
+        await reviewer.openStoreListing(appStoreId: AppConstants.appStoreId);
+      }
+    } catch (e) {
+      // Never let a store-kit failure surface to the user — they've
+      // already given us the goodwill signal, which is what mattered.
+      SyncReporter.report('review', e, severity: SyncSeverity.quiet);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
-
     final theme = Theme.of(context);
 
     return Padding(
@@ -2091,7 +2113,7 @@ class _RatePromptState extends State<_RatePrompt> {
         child: Column(
           children: [
             Text(
-              'Has Tadabbur helped you reflect?',
+              _t('rate_question'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
@@ -2103,9 +2125,10 @@ class _RatePromptState extends State<_RatePrompt> {
               children: [
                 Expanded(
                   child: TextButton(
-                    onPressed: () => setState(() => _dismissed = true),
+                    onPressed: () =>
+                        ref.read(ratePromptProvider.notifier).snooze(),
                     child: Text(
-                      'Not now',
+                      _t('rate_not_now'),
                       style: TextStyle(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
                         fontSize: 13,
@@ -2117,11 +2140,11 @@ class _RatePromptState extends State<_RatePrompt> {
                 Expanded(
                   child: FilledButton(
                     onPressed: () async {
-                      setState(() => _dismissed = true);
-                      final reviewer = InAppReview.instance;
-                      if (await reviewer.isAvailable()) {
-                        await reviewer.requestReview();
-                      }
+                      // Persist "done" first — if StoreKit crashes or
+                      // the user force-quits inside the sheet, the
+                      // prompt must not come back.
+                      await ref.read(ratePromptProvider.notifier).markRated();
+                      await _requestReview();
                     },
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -2129,7 +2152,8 @@ class _RatePromptState extends State<_RatePrompt> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text('Yes, rate it', style: TextStyle(fontSize: 13)),
+                    child: Text(_t('rate_yes'),
+                        style: const TextStyle(fontSize: 13)),
                   ),
                 ),
               ],

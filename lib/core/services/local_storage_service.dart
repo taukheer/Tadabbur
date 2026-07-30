@@ -26,6 +26,7 @@ class LocalStorageService {
   // Secure storage keys (encrypted on device)
   static const _secureKeyAuthToken = 'auth_token';
   static const _secureKeyRefreshToken = 'refresh_token';
+  static const _secureKeyQfIdToken = 'qf_id_token';
   static const _secureKeyCodeVerifier = 'pkce_code_verifier';
   static const _secureKeyOAuthState = 'oauth_state';
 
@@ -84,6 +85,24 @@ class LocalStorageService {
       await _secureStorage.delete(key: _secureKeyRefreshToken);
     } else {
       await _secureStorage.write(key: _secureKeyRefreshToken, value: token);
+    }
+  }
+
+  /// The OIDC id_token from the last QF sign-in.
+  ///
+  /// Kept so [linkQfIdentity] can be retried on a later launch when the
+  /// first attempt failed (offline, function cold-start timeout). It is
+  /// a credential, so it lives in secure storage alongside the access
+  /// and refresh tokens and is cleared on sign-out.
+  Future<String?> getQfIdToken() async {
+    return _secureStorage.read(key: _secureKeyQfIdToken);
+  }
+
+  Future<void> setQfIdToken(String? token) async {
+    if (token == null) {
+      await _secureStorage.delete(key: _secureKeyQfIdToken);
+    } else {
+      await _secureStorage.write(key: _secureKeyQfIdToken, value: token);
     }
   }
 
@@ -166,6 +185,7 @@ class LocalStorageService {
   Future<void> clearAuth() async {
     await setAuthToken(null);
     await setRefreshToken(null);
+    await setQfIdToken(null);
     await setCodeVerifier(null);
     await setOAuthState(null);
     await _prefs.remove(_keyUserId);
@@ -232,6 +252,64 @@ class LocalStorageService {
 
   Future<void> setDeferredSignInShown() =>
       _prefs.setBool(_keyDeferredSignInShown, true);
+
+  static const _keyQfLinkedUid = 'qf_linked_firebase_uid';
+
+  /// The Firebase UID that already carries the Quran.com identity.
+  ///
+  /// Stores the UID rather than a bare "done" flag on purpose: if the
+  /// Firebase account is replaced — deleted server-side, then re-minted
+  /// by `_ensureAnonymousSession` — a boolean would still read true and
+  /// the fresh account would never get linked. Comparing UIDs makes the
+  /// check self-correcting.
+  String? get qfLinkedUid => _prefs.getString(_keyQfLinkedUid);
+
+  Future<void> setQfLinkedUid(String? uid) async {
+    if (uid == null) {
+      await _prefs.remove(_keyQfLinkedUid);
+    } else {
+      await _prefs.setString(_keyQfLinkedUid, uid);
+    }
+  }
+
+  static const _keyRateReviewDone = 'rate_review_done';
+  static const _keyRatePromptSnoozedAt = 'rate_prompt_snoozed_at';
+  static const _keyRatePromptAskCount = 'rate_prompt_ask_count';
+
+  /// Whether the user has already accepted the review ask. Once true
+  /// the prompt is retired permanently — asking someone to rate an app
+  /// they already rated is the fastest way to make them stop trusting
+  /// the prompt.
+  ///
+  /// Note this records that the user *accepted the ask*, not that a
+  /// star actually landed on the store. Neither StoreKit nor the Play
+  /// In-App Review API reports back whether a rating was submitted (by
+  /// design — the flow is deliberately opaque to the app), so accepting
+  /// is the only signal available. Treating it as "done" errs toward
+  /// asking too little, which is the correct direction to err.
+  bool get rateReviewDone => _prefs.getBool(_keyRateReviewDone) ?? false;
+
+  Future<void> setRateReviewDone() =>
+      _prefs.setBool(_keyRateReviewDone, true);
+
+  /// When the user last tapped "Not now", and how many times they have
+  /// been asked. Together these drive the snooze: a dismissal means
+  /// "not yet", not "never", but a second dismissal means "never" and
+  /// we stop for good.
+  DateTime? get ratePromptSnoozedAt {
+    final raw = _prefs.getString(_keyRatePromptSnoozedAt);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  int get ratePromptAskCount => _prefs.getInt(_keyRatePromptAskCount) ?? 0;
+
+  Future<void> snoozeRatePrompt() async {
+    await _prefs.setString(
+      _keyRatePromptSnoozedAt,
+      DateTime.now().toIso8601String(),
+    );
+    await _prefs.setInt(_keyRatePromptAskCount, ratePromptAskCount + 1);
+  }
 
   static const _keyQfProfile = 'qf_user_profile';
 
