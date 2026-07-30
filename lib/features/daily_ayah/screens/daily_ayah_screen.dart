@@ -775,11 +775,11 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
   ) {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => TafsirScreen(
+        pageBuilder: (_, _, _) => TafsirScreen(
           verseKey: verseKey,
           lang: lang,
         ),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
           opacity: CurvedAnimation(
             parent: animation,
             curve: Curves.easeOut,
@@ -2397,7 +2397,7 @@ class _NotificationPermissionBanner extends ConsumerWidget {
     final state = ref.watch(notificationsEnabledProvider);
     return state.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
       data: (enabled) {
         if (enabled) return const SizedBox.shrink();
         final theme = Theme.of(context);

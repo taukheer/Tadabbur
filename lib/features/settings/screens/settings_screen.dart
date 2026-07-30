@@ -1418,8 +1418,6 @@ class _FontSizeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minSize = fontSizes.first.$2;
-    final maxSize = fontSizes.last.$2;
     // Clamp to the discrete bucket; closest match by absolute diff.
     int index = 0;
     double bestDiff = double.infinity;
@@ -1527,9 +1525,6 @@ class _FontSizeSlider extends StatelessWidget {
               ],
             ),
           ),
-          // Suppress unused-variable warning for min/maxSize even
-          // when not visually rendered (kept for clarity of intent).
-          if (false) Text('$minSize-$maxSize'),
         ],
       ),
     );
@@ -1895,62 +1890,6 @@ class _AccountTile extends StatelessWidget {
                         .withValues(alpha: 0.35))),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ReciterTile extends StatelessWidget {
-  final String name;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final ThemeData theme;
-
-  const _ReciterTile({
-    required this.name,
-    required this.isSelected,
-    required this.onTap,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.06)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.25)
-                : AppColors.warmBorder.withValues(alpha: 0.5),
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(name,
-                  style: TextStyle(
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? AppColors.primary
-                        : theme.colorScheme.onSurface,
-                    fontSize: 14,
-                  )),
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.primary, size: 20),
-          ],
-        ),
       ),
     );
   }
