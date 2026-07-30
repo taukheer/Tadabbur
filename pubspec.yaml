@@ -1,7 +1,7 @@
 name: tadabbur
 description: "One Ayah. Every Day. For Life. Your spiritual autobiography through the Quran."
 publish_to: 'none'
-version: 1.10.1+74
+version: 1.10.2+75
 repository: https://github.com/taukheer/Tadabbur
 homepage: https://github.com/taukheer/Tadabbur
 

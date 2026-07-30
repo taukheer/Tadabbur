@@ -5,6 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+# Quran Foundation OAuth credentials reach Dart via
+# String.fromEnvironment, which resolves --dart-define values at COMPILE
+# time. Exporting them as shell env vars alone does nothing: the build
+# silently falls back to defaultValue: '' and ships a binary whose
+# sign-in is dead on arrival. Every build step below therefore passes
+# them through --dart-define explicitly, mirroring scripts/build-aab.sh
+# and scripts/build-ipa.sh. The values stay in `env:` so they never
+# appear on a command line in this file.
+
+env:
+  FLUTTER_VERSION: '3.41.1'
+
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
@@ -14,7 +26,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
 
       - run: flutter pub get
 
@@ -37,11 +50,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.41.1'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
 
       - run: flutter pub get
 
-      - run: flutter build appbundle --release
+      - name: Build release AAB
+        run: |
+          flutter build appbundle --release \
+            --dart-define=QF_CLIENT_ID="$QF_CLIENT_ID" \
+            --dart-define=QF_CLIENT_SECRET="$QF_CLIENT_SECRET" \
+            --dart-define=QF_AUTH_ENDPOINT="$QF_AUTH_ENDPOINT"
         env:
           QF_CLIENT_ID: ${{ secrets.QF_CLIENT_ID }}
           QF_CLIENT_SECRET: ${{ secrets.QF_CLIENT_SECRET }}
@@ -51,3 +70,39 @@ jobs:
         with:
           name: android-release
           path: build/app/outputs/bundle/release/app-release.aab
+
+  build-ios:
+    # macOS runners bill at 10x the Linux rate on private repos. This
+    # repository is public, so Actions minutes are free — worth
+    # remembering if it is ever made private.
+    runs-on: macos-latest
+    needs: analyze-and-test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      # Built unsigned on purpose. Producing an installable .ipa needs
+      # the Apple distribution certificate, a provisioning profile, and
+      # an App Store Connect API key in repository secrets; none are
+      # configured. This job proves the iOS target still compiles rather
+      # than pretending to produce something shippable. Release builds
+      # continue to go through scripts/build-ipa.sh on a Mac until
+      # signing is wired up.
+      - name: Build iOS (unsigned)
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=QF_CLIENT_ID="$QF_CLIENT_ID" \
+            --dart-define=QF_CLIENT_SECRET="$QF_CLIENT_SECRET" \
+            --dart-define=QF_AUTH_ENDPOINT="$QF_AUTH_ENDPOINT"
+        env:
+          QF_CLIENT_ID: ${{ secrets.QF_CLIENT_ID }}
+          QF_CLIENT_SECRET: ${{ secrets.QF_CLIENT_SECRET }}
+          QF_AUTH_ENDPOINT: ${{ secrets.QF_AUTH_ENDPOINT }}
