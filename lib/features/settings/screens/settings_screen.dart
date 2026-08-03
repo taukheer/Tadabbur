@@ -10,6 +10,7 @@ import 'package:tadabbur/core/models/tafsir_option.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/local_storage_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
+import 'package:tadabbur/core/models/daily_portion.dart';
 import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:tadabbur/core/theme/arabic_fonts.dart';
 import 'package:tadabbur/features/daily_ayah/providers/daily_ayah_provider.dart';
@@ -217,6 +218,17 @@ class SettingsScreen extends ConsumerWidget {
               // reminder lives here too because it's a reading-cadence
               // setting, not an OS-level toggle.
               _GroupHeader(t('group_reading'), theme),
+
+              // === DAILY PORTION ===
+              // Sits above "current position" because it defines what
+              // a day *is* — the position below is then read in those
+              // units. Defaults to one ayah; nobody is moved onto a
+              // page-a-day schedule by an update.
+              _SectionLabel(t('section_daily_portion'), theme),
+              const SizedBox(height: 10),
+              _DailyPortionPicker(ref: ref, theme: theme, t: t),
+
+              const SizedBox(height: 28),
 
               _SectionLabel(t('section_current_position'), theme),
               const SizedBox(height: 10),
@@ -1787,6 +1799,116 @@ class _TextSizePicker extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Chooses how much of the Quran forms one day's reading.
+///
+/// Laid out as stacked rows rather than a segmented strip because
+/// each option needs a line of explanation — "a page" means something
+/// precise (a Madani mushaf page, 5–30 verses depending where you
+/// are) and picking it blind would surprise people.
+class _DailyPortionPicker extends StatelessWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+  final String Function(String) t;
+
+  const _DailyPortionPicker({
+    required this.ref,
+    required this.theme,
+    required this.t,
+  });
+
+  static const _icons = {
+    DailyPortion.ayah: Icons.short_text_rounded,
+    DailyPortion.halfPage: Icons.horizontal_split_rounded,
+    DailyPortion.page: Icons.menu_book_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final current = ref.watch(dailyPortionProvider);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.cardSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.warmBorderInk, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          for (final mode in DailyPortion.values) ...[
+            if (mode != DailyPortion.values.first)
+              Divider(
+                height: 1,
+                indent: 52,
+                color: theme.warmBorderInk.withValues(alpha: 0.6),
+              ),
+            InkWell(
+              onTap: () async {
+                ref.read(dailyPortionProvider.notifier).state = mode;
+                await ref.read(localStorageProvider).setDailyPortion(mode.id);
+                // Today's reading has to be recomputed — the portion
+                // changed under it, and the screen would otherwise keep
+                // showing yesterday's shape until the next cold start.
+                await ref.read(dailyAyahProvider.notifier).loadDailyAyah();
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      _icons[mode],
+                      size: 20,
+                      color: current == mode
+                          ? theme.brandInk
+                          : theme.inkAt(0.4),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t(mode.labelKey),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: current == mode
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              fontSize: 15,
+                              color: current == mode
+                                  ? theme.brandInk
+                                  : theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            t('${mode.labelKey}_sub'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.inkAt(0.5),
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (current == mode) ...[
+                      const SizedBox(width: 10),
+                      Icon(Icons.check_circle_rounded,
+                          color: theme.brandInk, size: 20),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

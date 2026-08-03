@@ -380,9 +380,34 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
         promptText = widget.editorial?.tier3Question;
       }
 
+      // The reflection screen is reached from a day that may cover a
+      // half-page or a full page. Without this the entry records one
+      // verse and — worse — progress advances by one verse, so the
+      // reader gets the same page again tomorrow shifted by one ayah.
+      final verses = ref.read(dailyAyahProvider).versesToday;
+      final verseKeys = verses.isEmpty
+          ? <String>[widget.ayah.verseKey]
+          : <String>[for (final v in verses) v.verseKey];
+
       final entry = JournalEntry(
         id: const Uuid().v4(),
         verseKey: widget.ayah.verseKey,
+        verseKeyEnd: verseKeys.length > 1 ? verseKeys.last : null,
+        verseCount: verseKeys.length,
+        portionId: ref.read(dailyPortionProvider).id,
+        // Only stored for passages: in ayah mode arabicText already is
+        // the whole day, and copying it here would double the journal
+        // for the default mode.
+        verses: verseKeys.length > 1
+            ? [
+                for (final v in verses)
+                  JournalVerse(
+                    verseKey: v.verseKey,
+                    arabicText: v.textUthmani,
+                    translationText: v.translationText ?? '',
+                  ),
+              ]
+            : const [],
         arabicText: widget.ayah.textUthmani,
         translationText: widget.ayah.translationText ?? '',
         tier: tier,
@@ -406,7 +431,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
           );
       await ref
           .read(userProgressProvider.notifier)
-          .completeAyah(widget.ayah.verseKey);
+          .completePortion(verseKeys);
       ref.read(dailyAyahProvider.notifier).markCompleted();
 
       setState(() {

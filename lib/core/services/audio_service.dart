@@ -189,6 +189,57 @@ class AudioService {
     }
   }
 
+  /// Plays a run of ayat back to back, in order.
+  ///
+  /// Half-page and page modes need the whole portion to recite without
+  /// the reader tapping between verses — stopping after the first ayah
+  /// is the single most jarring thing recitation can do. Each verse is
+  /// a separate file on the CDN, so this is a gapless playlist rather
+  /// than one stream.
+  ///
+  /// A single-URL list is equivalent to [playAyah].
+  Future<void> playSequence(
+    List<String> audioUrls, {
+    Duration loadTimeout = const Duration(seconds: 45),
+  }) async {
+    if (audioUrls.isEmpty) return;
+    if (audioUrls.length == 1) return playAyah(audioUrls.first);
+
+    _suspendCompletion = true;
+    try {
+      _resetLoop();
+      await _player.stop();
+      await _player
+          .setAudioSource(
+            ConcatenatingAudioSource(
+              children: [
+                for (final url in audioUrls) AudioSource.uri(Uri.parse(url)),
+              ],
+            ),
+          )
+          .timeout(
+            loadTimeout,
+            onTimeout: () => throw AudioServiceException(
+              message: 'Audio load timed out after ${loadTimeout.inSeconds}s',
+            ),
+          );
+      _player.play();
+    } on AudioServiceException {
+      rethrow;
+    } on PlayerException catch (e) {
+      throw AudioServiceException(
+        message: 'Failed to play audio: ${e.message}',
+        code: e.code,
+      );
+    } on PlayerInterruptedException {
+      // Superseded by another load — expected when switching verses.
+    } catch (e) {
+      throw AudioServiceException(message: 'Unexpected audio error: $e');
+    } finally {
+      _suspendCompletion = false;
+    }
+  }
+
   /// Plays an ayah and repeats it [count] times total.
   ///
   /// Used by the memorization loop mode. A count of 1 plays once with

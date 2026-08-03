@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
+import 'package:tadabbur/core/models/daily_portion.dart';
 import 'package:tadabbur/core/models/qf_user_profile.dart';
 import 'package:tadabbur/core/services/api_client.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
@@ -219,6 +220,11 @@ final languageProvider = StateProvider<String>((ref) {
   return ref.watch(localStorageProvider).language;
 });
 
+/// How much of the Quran forms one day's reading.
+final dailyPortionProvider = StateProvider<DailyPortion>((ref) {
+  return DailyPortion.fromId(ref.watch(localStorageProvider).dailyPortion);
+});
+
 /// App-wide text size multiplier — see `LocalStorageService.textScale`.
 final textScaleProvider = StateProvider<double>((ref) {
   return ref.watch(localStorageProvider).textScale;
@@ -288,7 +294,21 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
               ),
         );
 
-  Future<void> completeAyah(String verseKey) async {
+  /// Marks a single verse complete. Retained for callers that still
+  /// think in single ayat; delegates to [completePortion].
+  Future<void> completeAyah(String verseKey) =>
+      completePortion([verseKey]);
+
+  /// Marks a day's reading complete, however many verses it held.
+  ///
+  /// A day is one streak tick regardless of portion size — that is the
+  /// point of the setting: someone reading a page a day and someone
+  /// reading an ayah a day are both keeping the same daily promise.
+  /// Only [totalAyatCompleted] reflects the volume, so the lifetime
+  /// count stays an honest tally of verses read.
+  Future<void> completePortion(List<String> verseKeys) async {
+    if (verseKeys.isEmpty) return;
+    final verseKey = verseKeys.first;
     final now = DateTime.now();
     final lastCompleted = state.lastCompletedAt;
 
@@ -310,13 +330,16 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
       }
     }
 
-    final nextVerse = _getNextVerseKey(verseKey);
+    // Advance past the *last* verse of the portion, not the first —
+    // otherwise a page-a-day reader would re-read the same page
+    // shifted by one verse every morning.
+    final nextVerse = _getNextVerseKey(verseKeys.last);
     state = state.copyWith(
       currentVerseKey: nextVerse,
       currentStreak: newStreak,
       longestStreak:
           newStreak > state.longestStreak ? newStreak : state.longestStreak,
-      totalAyatCompleted: state.totalAyatCompleted + 1,
+      totalAyatCompleted: state.totalAyatCompleted + verseKeys.length,
       totalReflections: state.totalReflections + 1,
       lastCompletedAt: now,
       // Set startedAt on first completion
@@ -329,6 +352,7 @@ class UserProgressNotifier extends StateNotifier<UserProgress> {
       name: 'ayah_completed',
       parameters: {
         'verse_key': verseKey,
+        'verse_count': verseKeys.length,
         'streak': newStreak,
         'total_ayat': state.totalAyatCompleted,
       },

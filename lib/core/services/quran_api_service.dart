@@ -84,6 +84,48 @@ class QuranApiService {
     }
   }
 
+  /// Fetches every verse on a Madani mushaf page (1–604), in order.
+  ///
+  /// Backs the half-page and page reading modes. `per_page=all` matters:
+  /// the default page size would silently truncate the denser pages in
+  /// the short surahs, which run to 30 verses.
+  ///
+  /// A page is *not* bounded by a surah — page 604 spans Al-Ikhlas,
+  /// Al-Falaq and An-Nas — so callers must not assume a single chapter.
+  ///
+  /// QDC response shape: `{"verses": [...]}`
+  Future<List<Ayah>> getVersesByPage(
+    int pageNumber, {
+    String? translationId,
+  }) async {
+    final resolvedTranslationId = translationId ?? '20';
+    return _cached('page:$pageNumber:$resolvedTranslationId', () async {
+      try {
+        final response = await _client.get<Map<String, dynamic>>(
+          '/verses/by_page/$pageNumber',
+          queryParameters: <String, dynamic>{
+            'translations': resolvedTranslationId,
+            'fields': 'text_uthmani,text_simple,chapter_id,verse_number,'
+                'juz_number,hizb_number,page_number',
+            'language': 'en',
+            'per_page': 'all',
+          },
+        );
+
+        final data = response.data;
+        if (data == null || data['verses'] == null) return <Ayah>[];
+
+        return (data['verses'] as List<dynamic>)
+            .map((json) => _parseVerseJson(json as Map<String, dynamic>))
+            .toList();
+      } on ApiException {
+        rethrow;
+      } catch (e) {
+        throw ApiException(message: 'Failed to fetch page $pageNumber: $e');
+      }
+    });
+  }
+
   /// Fetches a single verse by its key (e.g. "2:255").
   ///
   /// QDC response shape: `{"verse": {...}}`

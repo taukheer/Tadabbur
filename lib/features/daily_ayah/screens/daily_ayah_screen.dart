@@ -7,6 +7,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:uuid/uuid.dart';
 import 'package:tadabbur/core/models/ayah.dart';
+import 'package:tadabbur/core/models/daily_portion.dart';
 import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/layout/breakpoints.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
@@ -215,6 +216,13 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
+    final portion = ref.watch(dailyPortionProvider);
+    // Longest verse in today's reading — one ayah, or the whole page.
+    final longestVerseLength = state.versesToday.fold<int>(
+      0,
+      (longest, v) =>
+          v.textUthmani.length > longest ? v.textUthmani.length : longest,
+    );
     String t(String key) => AppTranslations.get(key, lang);
 
     // Day-0 = user has never completed an ayah. We strip optional
@@ -329,7 +337,8 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
           if (progress.totalAyatCompleted == 0)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-              child: _DayZeroWelcomeCard(theme: theme, t: t)
+              child: _DayZeroWelcomeCard(
+                  theme: theme, t: t, portion: portion)
                   .animate()
                   .fadeIn(duration: 700.ms, delay: 200.ms)
                   .slideY(begin: -0.05, end: 0, duration: 700.ms),
@@ -498,11 +507,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               textDirection: TextDirection.rtl,
               style: ArabicFonts.getStyle(
                 arabicFontId,
-                fontSize: ayah.textUthmani.length > 100
-                    ? arabicFontSize * 0.65
-                    : ayah.textUthmani.length > 50
-                        ? arabicFontSize * 0.8
-                        : arabicFontSize,
+                fontSize: arabicSizeForBlock(longestVerseLength, arabicFontSize),
               ).copyWith(color: theme.colorScheme.onSurface),
             ),
           )
@@ -566,6 +571,21 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 ),
               ),
             ).animate().fadeIn(duration: 800.ms, delay: 400.ms),
+
+          // === REST OF TODAY'S PORTION (half-page / page modes) ===
+          // The anchor verse above keeps the full treatment — audio,
+          // editorial, tafsir, word-by-word — because that content
+          // only exists for a curated set of verses. The remainder of
+          // the page is presented as reading: Arabic and translation,
+          // in mushaf order, with the verse number in the margin.
+          if (state.isPassage)
+            _PassageVerses(
+              verses: state.passage.skip(1).toList(),
+              arabicFontId: arabicFontId,
+              arabicFontSize:
+                  arabicSizeForBlock(longestVerseLength, arabicFontSize),
+              theme: theme,
+            ),
 
           const SizedBox(height: 14),
 
@@ -1068,9 +1088,35 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
   Future<void> _acknowledge() async {
     setState(() => _saving = true);
     try {
+      // In half-page and page modes the day covers a run of verses.
+      // The journal keeps one entry for the day — the anchor's text
+      // stands for the passage and the range is recorded alongside,
+      // so a page-a-day reader gets a readable diary rather than ten
+      // rows every morning.
+      final verses = ref.read(dailyAyahProvider).versesToday;
+      final verseKeys = verses.isEmpty
+          ? <String>[widget.ayah.verseKey]
+          : <String>[for (final v in verses) v.verseKey];
+
       final entry = JournalEntry(
         id: const Uuid().v4(),
         verseKey: widget.ayah.verseKey,
+        verseKeyEnd: verseKeys.length > 1 ? verseKeys.last : null,
+        verseCount: verseKeys.length,
+        portionId: ref.read(dailyPortionProvider).id,
+        // Only stored for passages: in ayah mode arabicText already is
+        // the whole day, and copying it here would double the journal
+        // for the default mode.
+        verses: verseKeys.length > 1
+            ? [
+                for (final v in verses)
+                  JournalVerse(
+                    verseKey: v.verseKey,
+                    arabicText: v.textUthmani,
+                    translationText: v.translationText ?? '',
+                  ),
+              ]
+            : const [],
         arabicText: widget.ayah.textUthmani,
         translationText: widget.ayah.translationText ?? '',
         tier: ReflectionTier.acknowledge,
@@ -1088,7 +1134,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
       await ref.read(journalProvider.notifier).addEntry(entry);
       await ref
           .read(userProgressProvider.notifier)
-          .completeAyah(widget.ayah.verseKey as String);
+          .completePortion(verseKeys);
       ref.read(dailyAyahProvider.notifier).markCompleted();
     } catch (e) {
       if (mounted) {
@@ -1103,6 +1149,106 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
 // === WORD BY WORD — collapsible ===
 
 // === TRUNCATED SCHOLAR TEXT — 2-3 sentences with "Read more" ===
+
+/// Arabic point size for a block of verses.
+///
+/// Long verses are stepped down so they don't overflow the screen. In
+/// a passage the step is chosen from the *longest* verse and applied
+/// to all of them, including the anchor — otherwise consecutive ayat
+/// of a single page render at different sizes, which reads as a bug
+/// rather than as emphasis.
+double arabicSizeForBlock(int longestLength, double base) {
+  if (longestLength > 100) return base * 0.65;
+  if (longestLength > 50) return base * 0.8;
+  return base;
+}
+
+/// The verses after the anchor in a half-page or page portion.
+///
+/// Deliberately plainer than the anchor block: no animation cascade,
+/// no per-verse actions. A page can run to thirty verses in the short
+/// surahs, and thirty animated cards would turn a reading screen into
+/// a slot machine. Each verse gets its number, the Arabic, and the
+/// translation, separated by a hairline.
+class _PassageVerses extends StatelessWidget {
+  final List<Ayah> verses;
+  final String arabicFontId;
+
+  /// Already stepped for the longest verse in the portion — see
+  /// [arabicSizeForBlock]. Applied verbatim so every verse on the page
+  /// matches the anchor.
+  final double arabicFontSize;
+  final ThemeData theme;
+
+  const _PassageVerses({
+    required this.verses,
+    required this.arabicFontId,
+    required this.arabicFontSize,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (verses.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        for (final verse in verses) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 22, bottom: 4),
+            child: Divider(
+              color: theme.warmBorderInk.withValues(alpha: 0.5),
+              indent: 90,
+              endIndent: 90,
+              height: 1,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 10, 28, 0),
+            child: Column(
+              children: [
+                Text(
+                  '${verse.ayahNumber}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.warmInkAt(0.6),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  verse.textUthmani,
+                  locale: const Locale('ar'),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                  style: ArabicFonts.getStyle(
+                    arabicFontId,
+                    fontSize: arabicFontSize,
+                  ).copyWith(color: theme.colorScheme.onSurface),
+                ),
+                if (verse.translationText != null) ...[
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      verse.translationText!,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.inkAt(0.78),
+                        height: 1.5,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 class _TruncatedScholarText extends StatefulWidget {
   final String text;
@@ -1176,6 +1322,11 @@ class _AudioButton extends ConsumerStatefulWidget {
 }
 
 class _AudioButtonState extends ConsumerState<_AudioButton> {
+  /// Set while the passage's audio URLs are being resolved. Resolution
+  /// is a network round-trip per verse, so without this the button
+  /// looks dead for a second or two on a long page.
+  bool _resolving = false;
+
   @override
   Widget build(BuildContext context) {
     if (widget.audioUrl == null) return const SizedBox.shrink();
@@ -1188,7 +1339,7 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
       builder: (context, snapshot) {
         final playerState = snapshot.data;
         final isPlaying = playerState?.playing ?? false;
-        final isLoading =
+        final isLoading = _resolving ||
             playerState?.processingState == ProcessingState.loading ||
             playerState?.processingState == ProcessingState.buffering;
 
@@ -1243,8 +1394,22 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
       await audioService.pause();
     } else {
       try {
+        // In half-page / page mode Listen recites the whole portion,
+        // not just the anchor. Resolving happens here rather than at
+        // load so the cost falls only on people who press play.
+        if (ref.read(dailyAyahProvider).isPassage) {
+          setState(() => _resolving = true);
+          final urls =
+              await ref.read(dailyAyahProvider.notifier).resolvePassageAudio();
+          if (!mounted) return;
+          setState(() => _resolving = false);
+          if (urls.isEmpty) return;
+          await audioService.playSequence(urls);
+          return;
+        }
         await audioService.playAyah(widget.audioUrl!);
       } catch (e) {
+        if (mounted && _resolving) setState(() => _resolving = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Audio failed: $e')),
@@ -2502,7 +2667,17 @@ class _DayZeroWelcomeCard extends StatelessWidget {
   final ThemeData theme;
   final String Function(String) t;
 
-  const _DayZeroWelcomeCard({required this.theme, required this.t});
+  /// The reader's chosen daily portion. The card teaches the ritual,
+  /// so it has to describe the ritual they actually configured — a
+  /// page-a-day user being told "one verse a day" on their first
+  /// screen is the app contradicting itself.
+  final DailyPortion portion;
+
+  const _DayZeroWelcomeCard({
+    required this.theme,
+    required this.t,
+    required this.portion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2531,14 +2706,26 @@ class _DayZeroWelcomeCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _Step(num: '1', text: t('step_read_verse'), color: textColor, theme: theme),
+          _Step(
+              num: '1',
+              // "Read the verse below" is wrong once a day is a page.
+              text: t(portion.isPassage
+                  ? 'step_read_passage'
+                  : 'step_read_verse'),
+              color: textColor,
+              theme: theme),
           const SizedBox(height: 8),
           _Step(num: '2', text: t('step_sit_with_it'), color: textColor, theme: theme),
           const SizedBox(height: 8),
           _Step(num: '3', text: t('step_tap_green'), color: textColor, theme: theme),
           const SizedBox(height: 12),
           Text(
-            t('closing_one_verse'),
+            // The app's promise, stated in the units the reader chose.
+            t(switch (portion) {
+              DailyPortion.page => 'closing_one_page',
+              DailyPortion.halfPage => 'closing_half_page',
+              DailyPortion.ayah => 'closing_one_verse',
+            }),
             style: theme.textTheme.bodySmall?.copyWith(
               color: textColor.withValues(alpha: 0.65),
               fontSize: 12.5,

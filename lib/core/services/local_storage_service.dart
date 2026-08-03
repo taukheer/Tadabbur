@@ -247,6 +247,17 @@ class LocalStorageService {
   Future<void> setThemeMode(String mode) =>
       _prefs.setString(_keyThemeMode, mode);
 
+  static const _keyDailyPortion = 'daily_portion';
+
+  /// How much of the Quran forms one day's reading — see
+  /// [DailyPortion]. Defaults to a single ayah: that is the app's
+  /// thesis, and existing users must not silently find themselves on
+  /// a page-a-day schedule after an update.
+  String get dailyPortion => _prefs.getString(_keyDailyPortion) ?? 'ayah';
+
+  Future<void> setDailyPortion(String id) =>
+      _prefs.setString(_keyDailyPortion, id);
+
   static const _keyTextScale = 'ui_text_scale';
 
   /// App-wide text size multiplier, 1.0 = the designed size.

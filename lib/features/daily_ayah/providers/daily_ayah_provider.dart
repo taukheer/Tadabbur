@@ -6,10 +6,13 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/languages.dart';
 import 'package:tadabbur/core/models/ayah.dart';
+import 'package:tadabbur/core/models/daily_portion.dart';
 import 'package:tadabbur/core/models/word.dart';
 import 'package:tadabbur/core/models/editorial_content.dart';
 import 'package:tadabbur/core/providers/app_providers.dart';
 import 'package:tadabbur/core/services/audio_service.dart';
+import 'package:tadabbur/core/services/local_storage_service.dart';
+import 'package:tadabbur/core/services/quran_api_service.dart';
 import 'package:tadabbur/core/services/home_widget_service.dart';
 import 'package:tadabbur/core/services/sync_reporter.dart';
 
@@ -29,6 +32,15 @@ class DailyAyahState {
   final String? revelationType;
   final String? tafsirSummary;
   final bool isFromCache;
+
+  /// The rest of today's reading when the portion is a half-page or a
+  /// page. Empty in ayah mode — [ayah] is then the whole day.
+  ///
+  /// [ayah] stays the *anchor*: the verse that carries the editorial,
+  /// tafsir, word-by-word and audio treatment. Everything downstream
+  /// that was written against a single ayah keeps working, and the
+  /// passage is additive rather than a rewrite of the screen.
+  final List<Ayah> passage;
 
   /// The 15 sajdah (prostration) verses in the Quran (Shafi'i/Hanbali count;
   /// Hanafi school omits 22:77).
@@ -64,7 +76,14 @@ class DailyAyahState {
     this.revelationType,
     this.tafsirSummary,
     this.isFromCache = false,
+    this.passage = const [],
   });
+
+  /// Every verse due today, anchor included, in mushaf order.
+  List<Ayah> get versesToday => passage.isNotEmpty ? passage : [?ayah];
+
+  /// True when today's reading spans more than one verse.
+  bool get isPassage => passage.length > 1;
 
   DailyAyahState copyWith({
     AyahLoadingState? loadingState,
@@ -79,6 +98,7 @@ class DailyAyahState {
     bool? todayCompleted,
     String? revelationType,
     String? tafsirSummary,
+    List<Ayah>? passage,
     bool? isFromCache,
   }) {
     return DailyAyahState(
@@ -94,6 +114,7 @@ class DailyAyahState {
       todayCompleted: todayCompleted ?? this.todayCompleted,
       revelationType: revelationType ?? this.revelationType,
       tafsirSummary: tafsirSummary ?? this.tafsirSummary,
+      passage: passage ?? this.passage,
       isFromCache: isFromCache ?? this.isFromCache,
     );
   }
@@ -221,6 +242,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       final editorialService = _ref.read(editorialServiceProvider);
 
       final surahNum = int.tryParse(verseKey.split(':').first) ?? 1;
+      final portionMode = _ref.read(dailyPortionProvider);
       final reciterId = storage.preferredReciterId;
 
       // The verse itself is required — if it fails, fall back to cache.
@@ -269,6 +291,17 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       );
 
       final ayah = await ayahFuture;
+
+      // Resolve the rest of today's reading. Deliberately *after* the
+      // anchor verse resolves: the page number comes off the anchor,
+      // and a failure here must degrade to a normal single-ayah day
+      // rather than blocking the screen.
+      final passage = await _guard<List<Ayah>>(
+        'passage',
+        () => _loadPassage(quranApi, ayah, portionMode, storage),
+        fallback: const <Ayah>[],
+      );
+
       final words = await wordsFuture;
       final editorial = await editorialFuture;
       final surah = await surahFuture;
@@ -291,6 +324,7 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
       state = state.copyWith(
         loadingState: AyahLoadingState.loaded,
         ayah: ayah,
+        passage: passage,
         words: words,
         editorial: editorial,
         audioUrl: audioUrl,
@@ -498,6 +532,90 @@ class DailyAyahNotifier extends StateNotifier<DailyAyahState> {
   }
 
   bool _skipTodayCheck = false;
+
+  /// Audio URLs for every verse due today, in order.
+  ///
+  /// Resolved on demand rather than at load time: a page in the short
+  /// surahs runs to thirty verses, and thirty audio lookups on every
+  /// screen paint would be a visible cost paid by everyone, including
+  /// the ayah-a-day majority who never press play. The anchor's URL is
+  /// already known from load, so it is reused rather than re-fetched.
+  ///
+  /// Verses whose audio can't be resolved are skipped rather than
+  /// aborting the run — a gap is better than silence.
+  Future<List<String>> resolvePassageAudio() async {
+    final verses = state.versesToday;
+    if (verses.length < 2) {
+      final single = state.audioUrl;
+      return single == null ? const [] : [single];
+    }
+
+    final quranApi = _ref.read(quranApiProvider);
+    final storage = _ref.read(localStorageProvider);
+    final reciterId = storage.preferredReciterId;
+    final reciterPath = storage.reciterPath;
+
+    final urls = <String>[];
+    for (var i = 0; i < verses.length; i++) {
+      final anchorUrl = i == 0 ? state.audioUrl : null;
+      if (anchorUrl != null) {
+        urls.add(anchorUrl);
+        continue;
+      }
+      try {
+        urls.add(await _resolveAudioUrl(
+          quranApi,
+          reciterId,
+          verses[i].verseKey,
+          reciterPath,
+        ));
+      } catch (e) {
+        SyncReporter.report(
+          'audio · ${verses[i].verseKey}',
+          e,
+          severity: SyncSeverity.quiet,
+        );
+      }
+    }
+    return urls;
+  }
+
+  /// Resolves the verses due today for [mode].
+  ///
+  /// Returns an empty list for ayah mode (and whenever the portion
+  /// collapses to just the anchor), which the state treats as "the
+  /// anchor is the whole day" — so no caller has to special-case it.
+  Future<List<Ayah>> _loadPassage(
+    QuranApiService api,
+    Ayah anchor,
+    DailyPortion mode,
+    LocalStorageService storage,
+  ) async {
+    if (!mode.isPassage) return const [];
+
+    final page = anchor.pageNumber;
+    // The mushaf page is only known if the API returned page_number.
+    // Without it there is no page to read, so fall back to one ayah.
+    if (page == null) return const [];
+
+    final pageVerses = await api.getVersesByPage(
+      page,
+      translationId:
+          AppLanguages.getByCode(storage.language).translationId.toString(),
+    );
+    if (pageVerses.length < 2) return const [];
+
+    final verses = mode == DailyPortion.page
+        ? pageVerses
+        : Portion.halfOfPage(pageVerses, anchor.verseKey);
+
+    // Start the day where the reader actually is. Someone who switches
+    // to page mode mid-page shouldn't be sent back to re-read verses
+    // they finished yesterday.
+    final startIndex = verses.indexWhere((v) => v.verseKey == anchor.verseKey);
+    final fromAnchor = startIndex > 0 ? verses.sublist(startIndex) : verses;
+    return fromAnchor.length < 2 ? const [] : fromAnchor;
+  }
 
   /// Load the next ayah (user chose to continue)
   Future<void> loadNextAyah() async {

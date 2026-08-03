@@ -698,12 +698,18 @@ class _EntryDetailSheet extends ConsumerWidget {
     // exact verse, newest first. The current entry is excluded so we
     // don't mirror it in the "before" strip.
     final priors = allEntries
-        .where((e) => e.verseKey == entry.verseKey && e.id != entry.id)
+        .where((e) =>
+            e.verseKey == entry.verseKey &&
+            e.verseCount == entry.verseCount &&
+            e.id != entry.id)
         .toList()
       ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
 
     final surahNum = int.tryParse(entry.verseKey.split(':').first) ?? 0;
-    final ayahNum = entry.verseKey.split(':').last;
+    // For a passage this is the span ("1–10"), not a single number.
+    final ayahNum = entry.isPassage
+        ? entry.rangeLabel.split(':').sublist(1).join(':')
+        : entry.verseKey.split(':').last;
     final surahName = (surahNum > 0 && surahNum <= 114)
         ? kSurahNames[surahNum]
         : 'Surah $surahNum';
@@ -772,38 +778,64 @@ class _EntryDetailSheet extends ConsumerWidget {
 
           const SizedBox(height: 36),
 
-          // ── Arabic ayah — breathing space, same weight as daily screen ──
-          Text(
-            entry.arabicText,
-            locale: const Locale('ar'),
-            textDirection: TextDirection.rtl,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
-              fontSize: arabicFontSize * 0.88,
-              color: theme.colorScheme.onSurface,
-              height: 2.1,
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          // ── Translation ──
-          // Suppressed when the entry's stored translation is in a
-          // language different from the user's current app language —
-          // an Arabic-mode user shouldn't see Tamil text on entries
-          // they wrote while in Tamil mode.
-          if (_translationVisible(entry, lang))
+          // ── The reading itself ──
+          // Whatever the day actually covered: one ayah, or every verse
+          // of the half-page or page. The text was copied into the
+          // entry at write time, so this renders offline and stays
+          // correct even if the reader later changes reading mode,
+          // translation or position.
+          for (final (i, verse) in entry.allVerses.indexed) ...[
+            if (i > 0) ...[
+              const SizedBox(height: 22),
+              Divider(
+                color: theme.warmBorderInk.withValues(alpha: 0.5),
+                indent: 70,
+                endIndent: 70,
+                height: 1,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${verse.ayahNumber}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.warmInkAt(0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Text(
-              '"${_cleanTranslation(entry.translationText)}"',
+              verse.arabicText,
+              locale: const Locale('ar'),
+              textDirection: TextDirection.rtl,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.inkAt(0.6),
-                fontStyle: FontStyle.italic,
-                height: 1.7,
-                fontSize: 15,
+              style: TextStyle(
+                fontFamily: arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
+                fontSize: arabicFontSize * 0.88,
+                color: theme.colorScheme.onSurface,
+                height: 2.1,
               ),
             ),
+            // Suppressed when the entry's stored translation is in a
+            // language different from the user's current app language —
+            // an Arabic-mode user shouldn't see Tamil text on entries
+            // they wrote while in Tamil mode.
+            if (verse.translationText.isNotEmpty &&
+                _translationVisible(entry, lang)) ...[
+              const SizedBox(height: 18),
+              Text(
+                '"${_cleanTranslation(verse.translationText)}"',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.inkAt(0.6),
+                  fontStyle: FontStyle.italic,
+                  height: 1.7,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ],
 
           const SizedBox(height: 28),
 
@@ -1597,6 +1629,20 @@ class _ReflectionBlock extends StatelessWidget {
 
 /// Ayah as supporting context below a reflection. Compact — one line
 /// of Arabic, one line of translation, and the reference pill.
+/// Short label for a passage entry: the reading mode when it was
+/// recorded, falling back to a plain verse count for entries written
+/// before the mode was captured.
+String _portionBadge(JournalEntry entry, String lang) {
+  final key = switch (entry.portionId) {
+    'page' => 'portion_page',
+    'half_page' => 'portion_half_page',
+    _ => null,
+  };
+  if (key != null) return AppTranslations.get(key, lang);
+  return AppTranslations.get('n_verses', lang)
+      .replaceAll('{n}', '${entry.verseCount}');
+}
+
 class _AyahContext extends ConsumerWidget {
   final JournalEntry entry;
 
@@ -1654,7 +1700,7 @@ class _AyahContext extends ConsumerWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            '${surahNameFromKey(entry.verseKey)} · ${entry.verseKey}',
+            '${surahNameFromKey(entry.verseKey)} · ${entry.rangeLabel}',
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.warmInk,
               fontSize: 10,
@@ -1662,6 +1708,30 @@ class _AyahContext extends ConsumerWidget {
             ),
           ),
         ),
+ 
+        // Reading-mode badge — the journal should say *what* the day
+        // was, not just where it started. A range like "1–10" tells you
+        // the size; this tells you the intention. Absent for single
+        // ayat, which is both the default and every legacy entry.
+        if (entry.isPassage) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: theme.brandInk.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _portionBadge(entry, lang),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.brandInkAt(0.6),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1722,7 +1792,7 @@ class _AyahHero extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            '${surahNameFromKey(entry.verseKey)}  ·  ${entry.verseKey}',
+            '${surahNameFromKey(entry.verseKey)}  ·  ${entry.rangeLabel}',
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.warmInk,
               fontSize: 11,
