@@ -112,10 +112,10 @@ class _ActivityHeatmapState extends ConsumerState<ActivityHeatmap> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
-        color: isDark ? theme.colorScheme.surface : Colors.white,
+        color: theme.cardSurface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.warmBorder.withValues(alpha: isDark ? 0.15 : 0.5),
+          color: theme.warmBorderInk.withValues(alpha: isDark ? 0.15 : 0.5),
           width: 0.5,
         ),
         boxShadow: [
@@ -206,7 +206,7 @@ class _StreakLine extends ConsumerWidget {
     return Text(
       _copyFor(currentStreak, longestStreak, lang),
       style: theme.textTheme.bodySmall?.copyWith(
-        color: AppColors.warmBrown.withValues(alpha: 0.6),
+        color: theme.warmInkAt(0.6),
         fontSize: 11,
         height: 1.4,
       ),
@@ -271,7 +271,7 @@ class _DetailLine extends ConsumerWidget {
     return Text(
       '$label · $right',
       style: theme.textTheme.bodySmall?.copyWith(
-        color: AppColors.primary.withValues(alpha: 0.7),
+        color: theme.brandInkAt(0.7),
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
@@ -357,20 +357,21 @@ class _WeekStripCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final dayDate = DateTime(date.year, date.month, date.day);
     final isFuture = dayDate.isAfter(today);
     final isToday = dayDate == today;
-    final bg = _colorForCount(count: count, isFuture: isFuture);
+    final bg = _colorForCount(count: count, isFuture: isFuture, theme: theme);
 
     // Text color: white on filled cells for legibility, muted warm
     // brown on empty/future cells.
     final Color textColor;
     if (isFuture) {
-      textColor = AppColors.warmBrown.withValues(alpha: 0.3);
+      textColor = theme.warmInkAt(0.3);
     } else if (count == 0) {
-      textColor = AppColors.warmBrown.withValues(alpha: 0.55);
+      textColor = theme.warmInkAt(0.55);
     } else {
-      textColor = Colors.white;
+      textColor = theme.onBrandInk;
     }
 
     return GestureDetector(
@@ -383,7 +384,7 @@ class _WeekStripCell extends StatelessWidget {
             dayLabel,
             style: TextStyle(
               fontSize: 10,
-              color: AppColors.warmBrown
+              color: theme.warmInk
                   .withValues(alpha: isToday ? 0.85 : 0.5),
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
               letterSpacing: 0.4,
@@ -441,6 +442,7 @@ class _Grid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final lang = ref.watch(languageProvider);
     final rightmostWeekStart = _weekStart(today);
     final weeks = layout.weeks;
@@ -449,7 +451,7 @@ class _Grid extends ConsumerWidget {
     // what the Text widget will actually paint.
     final textScaler = MediaQuery.textScalerOf(context);
     final labelStyle = TextStyle(
-      color: AppColors.warmBrown.withValues(alpha: 0.55),
+      color: theme.warmInkAt(0.55),
       fontSize: 9,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.3,
@@ -534,7 +536,7 @@ class _Grid extends ConsumerWidget {
     // Weekday labels (Mon / Wed / Fri) only on grids wide enough to
     // benefit — a 4-week tier-1 view is too compact for them to help.
     final weekdayColumn = layout.showWeekdayLabels
-        ? _buildWeekdayColumn(layout, lang)
+        ? _buildWeekdayColumn(layout, lang, theme)
         : null;
 
     final gridContent = SizedBox(
@@ -587,7 +589,7 @@ class _Grid extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeekdayColumn(_HeatmapLayout layout, String lang) {
+  Widget _buildWeekdayColumn(_HeatmapLayout layout, String lang, ThemeData theme) {
     // Locale-aware short weekday names. Anchored on a known Monday
     // (2024-01-01) so the index → weekday math is portable across
     // calendars. DateFormat.E returns the short name (Mon / lun. /
@@ -615,7 +617,7 @@ class _Grid extends ConsumerWidget {
                 ? Text(
                     weekdayLabels[i ~/ 2],
                     style: TextStyle(
-                      color: AppColors.warmBrown.withValues(alpha: 0.55),
+                      color: theme.warmInkAt(0.55),
                       fontSize: 9,
                       fontWeight: FontWeight.w500,
                     ),
@@ -736,7 +738,8 @@ class _Cell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _colorForCount(count: count, isFuture: isFuture);
+    final theme = Theme.of(context);
+    final bg = _colorForCount(count: count, isFuture: isFuture, theme: theme);
     // Border radius tracks cell size so chunky cells don't look
     // over-square and tiny cells don't look mushy.
     final radius = (size * 0.22).clamp(2.0, 4.5);
@@ -767,25 +770,29 @@ class _Cell extends StatelessWidget {
 /// Ramp follows the same four stops shown in the [_Legend] — so the
 /// visual intensity scale matches the legend (honest mapping, not
 /// decorative).
-Color _colorForCount({required int count, required bool isFuture}) {
+Color _colorForCount(
+    {required int count,
+    required bool isFuture,
+    required ThemeData theme}) {
   if (isFuture) {
-    return AppColors.warmBorder.withValues(alpha: 0.15);
+    return theme.warmBorderInk.withValues(alpha: 0.15);
   }
   if (count == 0) {
-    return AppColors.warmBorder.withValues(alpha: 0.3);
+    return theme.warmBorderInk.withValues(alpha: 0.3);
   }
   if (count == 1) {
-    return AppColors.primary.withValues(alpha: 0.35);
+    return theme.brandInk.withValues(alpha: 0.35);
   }
   if (count == 2) {
-    return AppColors.primary.withValues(alpha: 0.6);
+    return theme.brandInk.withValues(alpha: 0.6);
   }
-  return AppColors.primary.withValues(alpha: 0.88);
+  return theme.brandInk.withValues(alpha: 0.88);
 }
 
 class _Legend extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final lang = ref.watch(languageProvider);
     String t(String key) => AppTranslations.get(key, lang);
     return Row(
@@ -795,23 +802,23 @@ class _Legend extends ConsumerWidget {
           t('heatmap_less'),
           style: TextStyle(
             fontSize: 9,
-            color: AppColors.warmBrown.withValues(alpha: 0.55),
+            color: theme.warmInkAt(0.55),
           ),
         ),
         const SizedBox(width: 6),
-        _LegendCell(color: _colorForCount(count: 0, isFuture: false)),
+        _LegendCell(color: _colorForCount(count: 0, isFuture: false, theme: theme)),
         const SizedBox(width: 3),
-        _LegendCell(color: _colorForCount(count: 1, isFuture: false)),
+        _LegendCell(color: _colorForCount(count: 1, isFuture: false, theme: theme)),
         const SizedBox(width: 3),
-        _LegendCell(color: _colorForCount(count: 2, isFuture: false)),
+        _LegendCell(color: _colorForCount(count: 2, isFuture: false, theme: theme)),
         const SizedBox(width: 3),
-        _LegendCell(color: _colorForCount(count: 3, isFuture: false)),
+        _LegendCell(color: _colorForCount(count: 3, isFuture: false, theme: theme)),
         const SizedBox(width: 6),
         Text(
           t('heatmap_more'),
           style: TextStyle(
             fontSize: 9,
-            color: AppColors.warmBrown.withValues(alpha: 0.55),
+            color: theme.warmInkAt(0.55),
           ),
         ),
       ],
@@ -877,14 +884,14 @@ class _PositionLine extends ConsumerWidget {
         Icon(
           Icons.bookmark_outline_rounded,
           size: 13,
-          color: AppColors.primary.withValues(alpha: 0.6),
+          color: theme.brandInkAt(0.6),
         ),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             ref,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.primary.withValues(alpha: 0.8),
+              color: theme.brandInkAt(0.8),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -896,7 +903,7 @@ class _PositionLine extends ConsumerWidget {
           Text(
             right,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              color: theme.inkAt(0.45),
               fontSize: 11,
               fontStyle: FontStyle.italic,
             ),

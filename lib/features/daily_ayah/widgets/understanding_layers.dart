@@ -38,7 +38,7 @@ class UnderstandingLayers extends ConsumerWidget {
           content: editorial!.historicalContext,
           isRevealed: showContext,
           onTap: onToggleContext,
-          accentColor: AppColors.statIndigo,
+          accentColor: Theme.of(context).statInk,
         ),
         const SizedBox(height: 12),
 
@@ -51,7 +51,7 @@ class UnderstandingLayers extends ConsumerWidget {
           content: editorial!.scholarReflection,
           isRevealed: showScholar,
           onTap: onToggleScholar,
-          accentColor: AppColors.primary,
+          accentColor: Theme.of(context).brandInk,
         ),
       ],
     );
@@ -123,7 +123,7 @@ class _RevealableSection extends StatelessWidget {
                         Text(
                           subtitle!,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: accentColor.withValues(alpha: 0.6),
+                            color: accentColor,
                           ),
                         ),
                     ],
@@ -134,7 +134,7 @@ class _RevealableSection extends StatelessWidget {
                   duration: const Duration(milliseconds: 300),
                   child: Icon(
                     Icons.keyboard_arrow_down_rounded,
-                    color: accentColor.withValues(alpha: 0.5),
+                    color: accentColor,
                   ),
                 ),
               ],
@@ -144,7 +144,7 @@ class _RevealableSection extends StatelessWidget {
               Text(
                 content,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                  color: theme.inkAt(0.8),
                   height: 1.7,
                   fontSize: 15,
                 ),
@@ -154,7 +154,11 @@ class _RevealableSection extends StatelessWidget {
               Text(
                 tapToRevealLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: accentColor.withValues(alpha: 0.4),
+                  // "Tap to reveal" is the affordance for the whole
+                  // card — it was the faintest text on the screen at
+                  // 1.7:1. It stays visually quiet through italics and
+                  // size, not through near-invisibility.
+                  color: accentColor,
                   fontStyle: FontStyle.italic,
                 ),
               ),

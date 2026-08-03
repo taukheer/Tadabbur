@@ -56,7 +56,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
                   Icons.close_rounded,
                   size: 20,
                   color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      theme.inkAt(0.55),
                 ),
               ),
             ),
@@ -116,7 +116,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             child: Text(
               t('feeling_subtitle'),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                color: theme.inkAt(0.55),
                 fontStyle: FontStyle.italic,
                 height: 1.5,
               ),
@@ -134,14 +134,14 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
               index: i,
             ),
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(24),
+            Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                 child: SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                    color: AppColors.primary,
+                    color: theme.brandInk,
                     strokeWidth: 1.5,
                   ),
                 ),
@@ -177,7 +177,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             textAlign: TextAlign.center,
             textDirection: TextDirection.rtl,
             style: ArabicFonts.getStyle(arabicFontId, fontSize: arabicFontSize)
-                .copyWith(color: AppColors.textPrimaryLight),
+                .copyWith(color: theme.inkPrimary),
           ).animate().fadeIn(duration: 800.ms),
 
           const SizedBox(height: 20),
@@ -188,7 +188,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
               '"${_ayah!.translationText!}"',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 fontStyle: FontStyle.italic,
                 height: 1.6,
                 fontSize: 15,
@@ -208,7 +208,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             t(_selected!.contextKey),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.inkAt(0.4),
               fontStyle: FontStyle.italic,
               height: 1.5,
             ),
@@ -223,7 +223,8 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: theme.brandFill,
+                foregroundColor: theme.onBrandInk,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -240,7 +241,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
             child: Text(
               t('try_another'),
               style: TextStyle(
-                color: AppColors.primary.withValues(alpha: 0.5),
+                color: theme.brandInkAt(0.5),
                 fontSize: 13,
               ),
             ),
@@ -252,7 +253,7 @@ class _FeelingsScreenState extends ConsumerState<FeelingsScreen> {
           Text(
             t('make_dua'),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: AppColors.warmBrown.withValues(alpha: 0.5),
+              color: theme.warmInkAt(0.5),
               fontStyle: FontStyle.italic,
               fontSize: 12,
             ),
@@ -373,7 +374,7 @@ class _FeelingAudioButton extends ConsumerWidget {
               ? AppTranslations.get('pause', lang)
               : AppTranslations.get('listen', lang)),
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primaryDarkButton,
+            backgroundColor: Theme.of(context).primaryButtonFill,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             shape: RoundedRectangleBorder(
@@ -499,7 +500,14 @@ class _FeelingRow extends ConsumerWidget {
     final theme = Theme.of(context);
     final lang = ref.watch(languageProvider);
     final visual = _FeelingVisual.forId(feeling.id);
-    final accent = visual.accent;
+    // The accent palette is tuned for the cream background — every hue
+    // in it is deliberately desaturated and dark. Dropped straight onto
+    // the navy dark surface those accents disappear (the 3px bar and
+    // the glyph both read as near-black), so lift them toward white in
+    // dark mode rather than maintaining a second hand-picked palette.
+    final accent = isDark
+        ? Color.lerp(visual.accent, Colors.white, 0.45)!
+        : visual.accent;
     final baseSurface = isDark
         ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
         : Colors.white;
@@ -598,8 +606,7 @@ class _FeelingRow extends ConsumerWidget {
                             Text(
                               AppTranslations.get(visual.subtitleKey, lang),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
+                                color: theme.inkAt(0.5),
                                 fontStyle: FontStyle.italic,
                                 height: 1.4,
                               ),
@@ -614,8 +621,7 @@ class _FeelingRow extends ConsumerWidget {
                     child: Icon(
                       Icons.chevron_right_rounded,
                       size: 18,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.25),
+                      color: theme.inkAt(0.25),
                     ),
                   ),
                 ],
@@ -671,7 +677,7 @@ class _FeelingResultChip extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              color: theme.inkAt(0.75),
               fontWeight: FontWeight.w500,
               letterSpacing: 0.2,
             ),

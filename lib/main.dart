@@ -437,13 +437,35 @@ class _TadabburAppState extends ConsumerState<TadabburApp>
     final isNight = _band == SolarBand.night || _band == SolarBand.preDawn;
     final darkVariant = isNight ? AppTheme.midnightOled : AppTheme.dark;
 
+    // Appearance is a user choice, defaulting to light — see
+    // themeModeProvider. Following the OS was the old behaviour and
+    // is still available, but as an opt-in: too many users landed in
+    // dark mode without meaning to (scheduled/auto dark mode) and had
+    // no way back to the light design the app is built around.
+    final themeMode = ref.watch(themeModeProvider);
+    final textScale = ref.watch(textScaleProvider);
+
     return MaterialApp.router(
       title: 'Tadabbur',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: darkVariant,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
+      // The in-app text size *multiplies* the platform setting rather
+      // than replacing it: someone who has already turned their phone's
+      // fonts up shouldn't have that quietly undone by opening this
+      // app. Clamped so an extreme combination of the two can't break
+      // the layouts outright.
+      builder: (context, child) {
+        if (child == null) return const SizedBox.shrink();
+        final media = MediaQuery.of(context);
+        final combined = (media.textScaler.scale(1.0) * textScale).clamp(0.85, 2.0);
+        return MediaQuery(
+          data: media.copyWith(textScaler: TextScaler.linear(combined)),
+          child: child,
+        );
+      },
     );
   }
 }

@@ -130,7 +130,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             child: Text(
               '${_surahName(ayah.surahNumber)}  •  ${t('ayah')} ${ayah.ayahNumber}',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
+                color: theme.warmInk,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.2,
                 fontSize: 12,
@@ -179,14 +179,14 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             Text(headline,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                    color: theme.inkAt(0.7))),
             if (detail != null) ...[
               const SizedBox(height: 8),
               Text(detail,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
                       color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.45))),
+                          theme.inkAt(0.45))),
             ],
             const SizedBox(height: 16),
             TextButton(
@@ -215,7 +215,6 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
     final isSalahMotivated = profile?.isSalahMotivated ?? false;
     final arabicFontSize = ref.watch(arabicFontSizeProvider);
     final arabicFontId = ref.watch(arabicFontProvider);
-    final isDark = theme.brightness == Brightness.dark;
     String t(String key) => AppTranslations.get(key, lang);
 
     // Day-0 = user has never completed an ayah. We strip optional
@@ -279,7 +278,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 Text(
                   _hijriToday(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                    color: theme.inkAt(0.45),
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
@@ -293,7 +292,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                    color: theme.brandInk.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -301,7 +300,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                         ? '${t('today_label')}  •  ${t('day_label')} ${progress.dayNumber}'
                         : t('today_label'),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.55),
+                      color: theme.brandInkAt(0.55),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
@@ -344,7 +343,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 t('welcome_back'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  color: theme.inkAt(0.3),
                   fontStyle: FontStyle.italic,
                   fontSize: 12,
                 ),
@@ -359,7 +358,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 t('welcome_back'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  color: theme.brandInkAt(0.4),
                   fontStyle: FontStyle.italic,
                 ),
               ).animate().fadeIn(duration: 800.ms),
@@ -379,7 +378,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.warmSurfaceDark : AppColors.warmSurface,
+                color: theme.warmSurfaceInk,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -388,7 +387,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                   Text(
                     '${_surahName(ayah.surahNumber)}  •  ${t('ayah')} ${ayah.ayahNumber}',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: isDark ? AppColors.warmBrownDark : AppColors.warmBrown,
+                      color: theme.warmInk,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.2,
                       fontSize: 12,
@@ -398,7 +397,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                     Text(
                       '  •  Juz ${ayah.juzNumber}',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: (isDark ? AppColors.warmBrownDark : AppColors.warmBrown).withValues(alpha: 0.6),
+                        color: theme.warmInkAt(0.6),
                         fontWeight: FontWeight.w400,
                         letterSpacing: 0.2,
                         fontSize: 12,
@@ -474,7 +473,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 '${t('today_ayah_about')} $ayahTheme',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.45),
+                  color: theme.brandInkAt(0.45),
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
                 ),
@@ -538,7 +537,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 ref.watch(ayahTransliterationProvider),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  color: theme.inkAt(0.35),
                   fontStyle: FontStyle.italic,
                   fontSize: 13,
                   height: 1.6,
@@ -560,7 +559,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 ayah.translationText!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
+                  color: theme.inkAt(0.82),
                   height: 1.55,
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
@@ -597,7 +596,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 t('recite_every'),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  color: theme.brandInkAt(0.4),
                   fontStyle: FontStyle.italic,
                   fontSize: 12,
                 ),
@@ -622,7 +621,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 _shortMeaning(editorial.scholarReflection),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  color: theme.inkAt(0.55),
                   height: 1.55,
                   fontSize: 13,
                 ),
@@ -636,7 +635,7 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                   'Drawing on ${editorial.scholarName}',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.28),
+                    color: theme.inkAt(0.28),
                     fontStyle: FontStyle.italic,
                     fontSize: 11,
                   ),
@@ -658,12 +657,12 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
               icon: Icon(
                 Icons.auto_stories_outlined,
                 size: 15,
-                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                color: theme.brandInkAt(0.4),
               ),
               label: Text(
                 t('read_more'),
                 style: TextStyle(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                  color: theme.brandInkAt(0.4),
                   fontSize: 12,
                 ),
               ),
@@ -729,12 +728,12 @@ class _DailyAyahScreenState extends ConsumerState<DailyAyahScreen> {
                 icon: Icon(
                   Icons.favorite_border_rounded,
                   size: 14,
-                  color: AppColors.warmBrown.withValues(alpha: 0.6),
+                  color: theme.warmInkAt(0.6),
                 ),
                 label: Text(
                   t('explore_feeling'),
                   style: TextStyle(
-                    color: AppColors.warmBrown.withValues(alpha: 0.7),
+                    color: theme.warmInkAt(0.7),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -950,10 +949,10 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.warmSurfaceLight,
+              color: theme.warmSurfaceLightInk,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppColors.warmBorder.withValues(alpha: 0.4),
+                color: theme.warmBorderInk.withValues(alpha: 0.4),
               ),
             ),
             child: Column(
@@ -961,7 +960,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 Text(
                   t('earlier_paused'),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.warmBrown.withValues(alpha: 0.6),
+                    color: theme.warmInkAt(0.6),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -970,7 +969,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                   previousEntry.responseText!,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.inkAt(0.5),
                     height: 1.5,
                   ),
                   maxLines: 2,
@@ -988,7 +987,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.025),
+            color: theme.brandInk.withValues(alpha: 0.025),
             borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
@@ -997,7 +996,7 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 prompt,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textPrimaryLight.withValues(alpha: 0.7),
+                  color: theme.inkPrimary.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w500,
                   height: 1.5,
                 ),
@@ -1018,7 +1017,8 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                   child: FilledButton(
                     onPressed: _saving ? null : _acknowledge,
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: theme.brandFill,
+                      foregroundColor: theme.onBrandInk,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1046,7 +1046,13 @@ class _InlineReflectionState extends ConsumerState<_InlineReflection> {
                 child: Text(
                   t('write_one_line'),
                   style: TextStyle(
-                    color: AppColors.primary.withValues(alpha: 0.4),
+                    // Deliberately quiet, but not invisible: 40% of the
+                    // dark emerald reads fine on cream and disappears
+                    // entirely on the navy, so dark mode gets a higher
+                    // floor.
+                    color: theme.brandInk.withValues(
+                      alpha: theme.brightness == Brightness.dark ? 0.75 : 0.4,
+                    ),
                     fontSize: 13,
                   ),
                   textAlign: TextAlign.center,
@@ -1134,7 +1140,7 @@ class _TruncatedScholarTextState extends State<_TruncatedScholarText> {
         Text(
           _expanded ? '"${widget.text}"' : _shortText,
           style: widget.theme.textTheme.bodyMedium?.copyWith(
-            color: widget.theme.colorScheme.onSurface.withValues(alpha: 0.65),
+            color: widget.theme.inkAt(0.65),
             height: 1.7,
             fontStyle: FontStyle.italic,
           ),
@@ -1146,7 +1152,7 @@ class _TruncatedScholarTextState extends State<_TruncatedScholarText> {
             child: Text(
               'Read more',
               style: widget.theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.warmBrown.withValues(alpha: 0.6),
+                color: widget.theme.warmInkAt(0.6),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1198,7 +1204,7 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 1.5,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      color: theme.brandInkAt(0.7),
                     ),
                   )
                 : Icon(
@@ -1211,9 +1217,9 @@ class _AudioButtonState extends ConsumerState<_AudioButton> {
                 ? AppTranslations.get('pause', lang)
                 : AppTranslations.get('listen', lang)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: theme.colorScheme.primary.withValues(alpha: 0.8),
+              foregroundColor: theme.brandInkAt(0.8),
               side: BorderSide(
-                color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                color: theme.brandInkAt(0.25),
                 width: 1,
               ),
               padding:
@@ -1314,7 +1320,7 @@ class _CompletedState extends ConsumerWidget {
               '${_t("completed_surah", ref)} $completedSurahName',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium?.copyWith(
-                color: AppColors.primary,
+                color: theme.brandInk,
                 fontWeight: FontWeight.w600,
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
@@ -1322,7 +1328,7 @@ class _CompletedState extends ConsumerWidget {
             Text(
               '$totalAyat ${_t('ayat', ref)} · ${_t('day_label', ref)} $dayNumber',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
               ),
             ).animate().fadeIn(duration: 500.ms, delay: 300.ms),
           ] else ...[
@@ -1338,7 +1344,7 @@ class _CompletedState extends ConsumerWidget {
                 : _getIdentityMessage(dayNumber, ref),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.inkAt(0.4),
               fontStyle: FontStyle.italic,
               height: 1.4,
             ),
@@ -1361,14 +1367,14 @@ class _CompletedState extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.warmSurfaceLight,
+              color: theme.warmSurfaceLightInk,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               _t('keep_ayah', ref),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.warmBrown.withValues(alpha: 0.8),
+                color: theme.warmInkAt(0.8),
                 fontWeight: FontWeight.w500,
                 fontSize: 13,
               ),
@@ -1382,7 +1388,7 @@ class _CompletedState extends ConsumerWidget {
           Text(
             _t('continue_return', ref),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.inkAt(0.4),
               fontSize: 12,
             ),
           ).animate().fadeIn(duration: 500.ms, delay: 600.ms),
@@ -1400,17 +1406,17 @@ class _CompletedState extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
+                color: theme.brandInk.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: theme.brandInk.withValues(alpha: 0.1),
                 ),
               ),
               child: Text(
                 'You now understand every word of Al-Fatiha.\n\nYou will say it 17 times today in prayer. Listen for it.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.primary.withValues(alpha: 0.7),
+                  color: theme.brandInkAt(0.7),
                   height: 1.7,
                 ),
               ),
@@ -1429,7 +1435,7 @@ class _CompletedState extends ConsumerWidget {
                   ref.read(dailyAyahProvider.notifier).loadNextAyah();
                 },
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryDarkButton,
+                  backgroundColor: theme.primaryButtonFill,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1448,7 +1454,7 @@ class _CompletedState extends ConsumerWidget {
               child: Text(
                 _t('choose_different', ref),
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.5),
+                  color: theme.brandInkAt(0.5),
                   fontSize: 13,
                 ),
               ),
@@ -1481,7 +1487,7 @@ class _CompletedState extends ConsumerWidget {
                 // glyph (e.g., "Next ayah →"), so don't append another.
                 _t('next_ayah', ref),
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.45),
+                  color: theme.brandInkAt(0.45),
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
@@ -1536,7 +1542,7 @@ class _CompletedState extends ConsumerWidget {
                     leading: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: AppColors.warmSurface,
+                        color: theme.warmSurfaceInk,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
@@ -1686,7 +1692,7 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
         scrolledUnderElevation: 0.5,
         surfaceTintColor: theme.scaffoldBackgroundColor,
         iconTheme: IconThemeData(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+          color: theme.inkAt(0.75),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1704,7 +1710,7 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
             Text(
               '$surahName  ·  ${widget.verseKey}',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
               ),
@@ -1716,9 +1722,9 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
       body: SafeArea(
         top: false,
         child: _loading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(
-                  color: AppColors.primary,
+                  color: theme.brandInk,
                   strokeWidth: 1.6,
                 ),
               )
@@ -1741,8 +1747,7 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
                             Text(
                               _selected.mufassir,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
+                                color: theme.inkAt(0.5),
                                 fontStyle: FontStyle.italic,
                                 fontSize: 12,
                               ),
@@ -1764,8 +1769,7 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
                                   isRtl ? TextDirection.rtl : TextDirection.ltr,
                               textAlign: TextAlign.start,
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.86),
+                                color: theme.inkAt(0.86),
                                 height: 1.7,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
@@ -1790,23 +1794,23 @@ class _TafsirScreenState extends ConsumerState<TafsirScreen> {
             Icon(
               Icons.cloud_off_outlined,
               size: 36,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+              color: theme.inkAt(0.3),
             ),
             const SizedBox(height: 14),
             Text(
               'Could not load tafsir',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                color: theme.inkAt(0.7),
               ),
             ),
             const SizedBox(height: 14),
             OutlinedButton(
               onPressed: _loadTafsir,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
+                foregroundColor: theme.brandInk,
                 side: BorderSide(
-                  color: AppColors.primary.withValues(alpha: 0.4),
+                  color: theme.brandInkAt(0.4),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
@@ -1921,14 +1925,14 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
           // Title
           Row(
             children: [
-              const Icon(Icons.auto_stories_outlined,
-                  size: 20, color: AppColors.primary),
+              Icon(Icons.auto_stories_outlined,
+                  size: 20, color: theme.brandInk),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _selected.fullName,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppColors.primary,
+                    color: theme.brandInk,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -1938,7 +1942,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
               Text(
                 widget.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown,
+                  color: theme.warmInk,
                 ),
               ),
             ],
@@ -1951,7 +1955,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
             _selected.mufassir,
             textAlign: TextAlign.left,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.inkAt(0.5),
               fontStyle: FontStyle.italic,
               fontSize: 11,
             ),
@@ -1974,8 +1978,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
                         child: Text(
                           'Could not load tafsir',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.4),
+                            color: theme.inkAt(0.4),
                           ),
                         ),
                       )
@@ -1993,8 +1996,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
                                     ? TextDirection.rtl
                                     : TextDirection.ltr,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.7),
+                                  color: theme.inkAt(0.7),
                                   height: 1.8,
                                   fontSize: 14,
                                 ),
@@ -2008,7 +2010,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
                                     child: Text(
                                       widget.lang == 'ar' ? 'عرض التفسير الكامل' : 'View full tafsir',
                                       style: TextStyle(
-                                        color: AppColors.primary.withValues(alpha: 0.6),
+                                        color: theme.brandInkAt(0.6),
                                         fontSize: 13,
                                       ),
                                     ),
@@ -2025,8 +2027,7 @@ class _TafsirSheetState extends ConsumerState<_TafsirSheet> {
                                       ? TextDirection.rtl
                                       : TextDirection.ltr,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.6),
+                                    color: theme.inkAt(0.6),
                                     height: 1.8,
                                     fontSize: 13,
                                   ),
@@ -2104,10 +2105,10 @@ class _RatePrompt extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColors.warmSurfaceLight,
+          color: theme.warmSurfaceLightInk,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: AppColors.warmBorder.withValues(alpha: 0.5),
+            color: theme.warmBorderInk.withValues(alpha: 0.5),
           ),
         ),
         child: Column(
@@ -2117,7 +2118,7 @@ class _RatePrompt extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: AppColors.textPrimaryLight.withValues(alpha: 0.7),
+                color: theme.inkPrimary.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 14),
@@ -2130,7 +2131,7 @@ class _RatePrompt extends StatelessWidget {
                     child: Text(
                       _t('rate_not_now'),
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                        color: theme.inkAt(0.3),
                         fontSize: 13,
                       ),
                     ),
@@ -2147,7 +2148,8 @@ class _RatePrompt extends StatelessWidget {
                       await _requestReview();
                     },
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: theme.brandFill,
+                      foregroundColor: theme.onBrandInk,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -2220,14 +2222,14 @@ class _BookmarkButton extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: isBookmarked
-                ? AppColors.primary.withValues(alpha: 0.08)
+                ? theme.brandInk.withValues(alpha: 0.08)
                 : (isDark
                     ? Colors.white.withValues(alpha: 0.04)
                     : Colors.black.withValues(alpha: 0.03)),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isBookmarked
-                  ? AppColors.primary.withValues(alpha: 0.2)
+                  ? theme.brandInk.withValues(alpha: 0.2)
                   : Colors.transparent,
             ),
           ),
@@ -2248,8 +2250,8 @@ class _BookmarkButton extends ConsumerWidget {
               key: ValueKey('$verseKey-$isBookmarked'),
               size: 20,
               color: isBookmarked
-                  ? AppColors.primary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                  ? theme.brandInk
+                  : theme.inkAt(0.45),
             ),
           ),
         ),
@@ -2284,7 +2286,7 @@ class _PostCompletionIconRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final audioService = ref.read(audioServiceProvider);
-    final iconColor = theme.colorScheme.primary.withValues(alpha: 0.55);
+    final iconColor = theme.brandInkAt(0.55);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -2449,7 +2451,7 @@ class _NotificationPermissionBanner extends ConsumerWidget {
                     Icon(
                       Icons.chevron_right,
                       size: 18,
-                      color: AppColors.makkiText.withValues(alpha: 0.7),
+                      color: AppColors.makkiText,
                     ),
                   ],
                 ),
@@ -2504,13 +2506,9 @@ class _DayZeroWelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark
-        ? AppColors.warmSurfaceDark
-        : AppColors.warmSurfaceLight;
-    final border = AppColors.warmBorder.withValues(alpha: 0.5);
-    final textColor =
-        (isDark ? AppColors.warmBrownDark : AppColors.warmBrown);
+    final bg = theme.warmSurfaceLightInk;
+    final border = theme.warmBorderInk.withValues(alpha: 0.5);
+    final textColor = theme.warmInk;
 
     return Container(
       width: double.infinity,

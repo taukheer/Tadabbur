@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:tadabbur/core/constants/translations.dart';
@@ -142,7 +143,7 @@ class _AudioPlayerWidgetState extends ConsumerState<AudioPlayerWidget> {
                     const RoundSliderOverlayShape(overlayRadius: 14),
                 activeTrackColor: theme.colorScheme.primary,
                 inactiveTrackColor:
-                    theme.colorScheme.primary.withValues(alpha: 0.15),
+                    theme.brandInk.withValues(alpha: 0.15),
                 thumbColor: theme.colorScheme.primary,
               ),
               child: Slider(

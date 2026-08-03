@@ -62,8 +62,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: theme.colorScheme.surface,
       body: SafeArea(
         child: MaxWidthContainer(
         child: Column(
@@ -79,8 +80,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
                         color: i <= _currentPage
-                            ? AppColors.primary
-                            : AppColors.primary.withValues(alpha: 0.1),
+                            ? theme.brandInk
+                            : theme.brandInk.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -308,12 +309,12 @@ class _LanguagePage extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'تدبر',
             style: TextStyle(
               fontFamily: 'AmiriQuran',
               fontSize: 40,
-              color: AppColors.primary,
+              color: theme.brandInk,
             ),
           ).animate().fadeIn(duration: 600.ms),
           const SizedBox(height: 12),
@@ -321,7 +322,7 @@ class _LanguagePage extends StatelessWidget {
             AppTranslations.get('choose_language', 'en'),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
           const SizedBox(height: 20),
@@ -341,14 +342,14 @@ class _LanguagePage extends StatelessWidget {
                           horizontal: 18, vertical: 14),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.06)
-                            : Colors.white,
+                            ? theme.brandInk.withValues(alpha: 0.06)
+                            : theme.cardSurface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
-                              ? AppColors.primary
+                              ? theme.brandInk
                                   .withValues(alpha: 0.3)
-                              : AppColors.warmBorder
+                              : theme.warmBorderInk
                                   .withValues(alpha: 0.5),
                           width: isSelected ? 1.5 : 0.5,
                         ),
@@ -362,8 +363,8 @@ class _LanguagePage extends StatelessWidget {
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                               color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.textPrimaryLight,
+                                  ? theme.brandInk
+                                  : theme.inkPrimary,
                               fontSize: 16,
                             ),
                           ),
@@ -371,14 +372,13 @@ class _LanguagePage extends StatelessWidget {
                           Text(
                             lang.name,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.35),
+                              color: theme.inkAt(0.35),
                             ),
                           ),
                           const Spacer(),
                           if (isSelected)
-                            const Icon(Icons.check_circle_rounded,
-                                color: AppColors.primary, size: 20),
+                            Icon(Icons.check_circle_rounded,
+                                color: theme.brandInk, size: 20),
                         ],
                       ),
                     ),
@@ -413,12 +413,12 @@ class _WelcomePage extends StatelessWidget {
       child: Column(
         children: [
           const Spacer(flex: 3),
-          const Text(
+          Text(
             'تدبر',
             style: TextStyle(
               fontFamily: 'AmiriQuran',
               fontSize: 64,
-              color: AppColors.primary,
+              color: theme.brandInk,
               height: 1.4,
             ),
           )
@@ -434,7 +434,7 @@ class _WelcomePage extends StatelessWidget {
             t('tagline'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.primary.withValues(alpha: 0.5),
+              color: theme.brandInkAt(0.5),
               fontStyle: FontStyle.italic,
               fontSize: 14,
               letterSpacing: 0.3,
@@ -447,7 +447,7 @@ class _WelcomePage extends StatelessWidget {
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
               height: 1.5,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
             ),
           ).animate().fadeIn(duration: 800.ms, delay: 500.ms),
           const Spacer(flex: 2),
@@ -457,7 +457,7 @@ class _WelcomePage extends StatelessWidget {
             child: FilledButton(
               onPressed: onNext,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryDarkButton,
+                backgroundColor: theme.primaryButtonFill,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -581,7 +581,7 @@ class _MotivationPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
               height: 1.3,
             ),
           ).animate().fadeIn(duration: 600.ms),
@@ -617,7 +617,7 @@ class _MotivationPage extends StatelessWidget {
               child: FilledButton(
                 onPressed: onBegin,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primaryDarkButton,
+                  backgroundColor: theme.primaryButtonFill,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -681,7 +681,7 @@ class _StartingPointPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
               height: 1.3,
             ),
           ).animate().fadeIn(duration: 600.ms),
@@ -689,7 +689,7 @@ class _StartingPointPage extends StatelessWidget {
           Text(
             t('change_later'),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              color: theme.inkAt(0.35),
               fontStyle: FontStyle.italic,
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
@@ -725,7 +725,7 @@ class _StartingPointPage extends StatelessWidget {
               child: Text(
                 t('browse_surahs'),
                 style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.5),
+                  color: theme.brandInkAt(0.5),
                   fontSize: 13,
                 ),
               ),
@@ -738,7 +738,7 @@ class _StartingPointPage extends StatelessWidget {
             child: FilledButton(
               onPressed: onBegin,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryDarkButton,
+                backgroundColor: theme.primaryButtonFill,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -813,8 +813,8 @@ class _StartingPointPage extends StatelessWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : AppColors.warmSurface,
+                            ? theme.brandInk.withValues(alpha: 0.1)
+                            : theme.warmSurfaceInk,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
@@ -822,8 +822,8 @@ class _StartingPointPage extends StatelessWidget {
                           '$surahNum',
                           style: TextStyle(
                             color: isSelected
-                                ? AppColors.primary
-                                : AppColors.warmBrown,
+                                ? theme.brandInk
+                                : theme.warmInk,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
                           ),
@@ -836,13 +836,13 @@ class _StartingPointPage extends StatelessWidget {
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w400,
                         color: isSelected
-                            ? AppColors.primary
+                            ? theme.brandInk
                             : null,
                       ),
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check_circle_rounded,
-                            color: AppColors.primary, size: 20)
+                        ? Icon(Icons.check_circle_rounded,
+                            color: theme.brandInk, size: 20)
                         : null,
                     onTap: () {
                       onSelect('$surahNum:1');
@@ -885,7 +885,7 @@ class _QuestionPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
               height: 1.3,
             ),
           ).animate().fadeIn(duration: 600.ms),
@@ -895,7 +895,7 @@ class _QuestionPage extends StatelessWidget {
               subtitle!,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                color: theme.inkAt(0.35),
                 fontStyle: FontStyle.italic,
               ),
             ).animate().fadeIn(duration: 600.ms, delay: 200.ms),
@@ -951,13 +951,13 @@ class _Option extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.06)
-              : Colors.white,
+              ? theme.brandInk.withValues(alpha: 0.06)
+              : theme.cardSurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.3)
-                : AppColors.warmBorder.withValues(alpha: 0.6),
+                ? theme.brandInk.withValues(alpha: 0.3)
+                : theme.warmBorderInk.withValues(alpha: 0.6),
             width: isSelected ? 1.5 : 0.5,
           ),
           // Matches the subtle lift we gave the Feelings cards so the
@@ -986,8 +986,8 @@ class _Option extends StatelessWidget {
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.w400,
                       color: isSelected
-                          ? AppColors.primary
-                          : AppColors.textPrimaryLight,
+                          ? theme.brandInk
+                          : theme.inkPrimary,
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -995,8 +995,7 @@ class _Option extends StatelessWidget {
                     Text(
                       subtitle!,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.35),
+                        color: theme.inkAt(0.35),
                         fontSize: 12,
                       ),
                     ),
@@ -1007,7 +1006,7 @@ class _Option extends StatelessWidget {
             if (isSelected)
               Icon(
                 Icons.check_circle_rounded,
-                color: AppColors.primary.withValues(alpha: 0.6),
+                color: theme.brandInkAt(0.6),
                 size: 22,
               ),
           ],
@@ -1053,7 +1052,7 @@ class _SignInPage extends StatelessWidget {
           Icon(
             Icons.auto_stories_rounded,
             size: 44,
-            color: AppColors.primary.withValues(alpha: 0.5),
+            color: theme.brandInkAt(0.5),
           ).animate().fadeIn(duration: 600.ms),
 
           const SizedBox(height: 22),
@@ -1062,7 +1061,7 @@ class _SignInPage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 150.ms),
 
@@ -1071,7 +1070,7 @@ class _SignInPage extends StatelessWidget {
             t('sign_in_sync'),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+              color: theme.inkAt(0.55),
               height: 1.5,
             ),
           ).animate().fadeIn(duration: 600.ms, delay: 250.ms),
@@ -1080,7 +1079,7 @@ class _SignInPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.warmSurfaceLight,
+              color: theme.warmSurfaceLightInk,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
@@ -1112,7 +1111,7 @@ class _SignInPage extends StatelessWidget {
                     const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primaryDarkButton,
+                backgroundColor: theme.primaryButtonFill,
                 minimumSize: const Size.fromHeight(54),
                 padding: const EdgeInsets.symmetric(
                     vertical: 14, horizontal: 16),
@@ -1143,11 +1142,11 @@ class _SignInPage extends StatelessWidget {
                     fontSize: 15, fontWeight: FontWeight.w500),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimaryLight,
+                foregroundColor: theme.inkPrimary,
                 minimumSize: const Size.fromHeight(50),
                 padding: const EdgeInsets.symmetric(
                     vertical: 12, horizontal: 16),
-                side: const BorderSide(color: AppColors.warmBorder),
+                side: BorderSide(color: theme.warmBorderInk),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -1169,11 +1168,11 @@ class _SignInPage extends StatelessWidget {
                       fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimaryLight,
+                  foregroundColor: theme.inkPrimary,
                   minimumSize: const Size.fromHeight(50),
                   padding: const EdgeInsets.symmetric(
                       vertical: 12, horizontal: 16),
-                  side: const BorderSide(color: AppColors.warmBorder),
+                  side: BorderSide(color: theme.warmBorderInk),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -1194,7 +1193,7 @@ class _SignInPage extends StatelessWidget {
               t('guest_mode'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
                 fontSize: 13,
               ),
             ),
@@ -1215,15 +1214,16 @@ class _BenefitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.primary.withValues(alpha: 0.5)),
+        Icon(icon, size: 18, color: theme.brandInkAt(0.5)),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.warmBrown.withValues(alpha: 0.75),
+            style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.warmInkAt(0.75),
                   fontSize: 13,
                   height: 1.4,
                 ),

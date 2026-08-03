@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tadabbur/core/constants/translations.dart';
@@ -114,7 +115,7 @@ class AppShell extends ConsumerWidget {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.06),
+                    color: theme.brandInk.withValues(alpha: 0.06),
                     width: 0.5,
                   ),
                 ),
@@ -124,7 +125,7 @@ class AppShell extends ConsumerWidget {
                 onDestinationSelected: (i) => _navigateTo(context, i),
                 backgroundColor: theme.colorScheme.surface,
                 indicatorColor:
-                    theme.colorScheme.primary.withValues(alpha: 0.08),
+                    theme.brandInk.withValues(alpha: 0.08),
                 elevation: 0,
                 height: 60,
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -132,7 +133,7 @@ class AppShell extends ConsumerWidget {
                   NavigationDestination(
                     icon: Icon(Icons.auto_stories_outlined,
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            theme.inkAt(0.4),
                         semanticLabel: t('today')),
                     selectedIcon: Icon(Icons.auto_stories,
                         color: theme.colorScheme.primary,
@@ -143,7 +144,7 @@ class AppShell extends ConsumerWidget {
                   NavigationDestination(
                     icon: Icon(Icons.book_outlined,
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            theme.inkAt(0.4),
                         semanticLabel: t('journal')),
                     selectedIcon: Icon(Icons.book,
                         color: theme.colorScheme.primary,
@@ -154,7 +155,7 @@ class AppShell extends ConsumerWidget {
                   NavigationDestination(
                     icon: Icon(Icons.settings_outlined,
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            theme.inkAt(0.4),
                         semanticLabel: t('settings')),
                     selectedIcon: Icon(Icons.settings,
                         color: theme.colorScheme.primary,
@@ -193,28 +194,28 @@ class _AdaptiveNavigationRail extends StatelessWidget {
         selectedIndex: selectedIndex,
         onDestinationSelected: onDestinationSelected,
         backgroundColor: theme.colorScheme.surface,
-        indicatorColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+        indicatorColor: theme.brandInk.withValues(alpha: 0.08),
         labelType: NavigationRailLabelType.all,
         useIndicator: true,
         groupAlignment: -0.85,
         destinations: [
           NavigationRailDestination(
             icon: Icon(Icons.auto_stories_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                color: theme.inkAt(0.4)),
             selectedIcon: Icon(Icons.auto_stories,
                 color: theme.colorScheme.primary),
             label: Text(t('today')),
           ),
           NavigationRailDestination(
             icon: Icon(Icons.book_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                color: theme.inkAt(0.4)),
             selectedIcon:
                 Icon(Icons.book, color: theme.colorScheme.primary),
             label: Text(t('journal')),
           ),
           NavigationRailDestination(
             icon: Icon(Icons.settings_outlined,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                color: theme.inkAt(0.4)),
             selectedIcon:
                 Icon(Icons.settings, color: theme.colorScheme.primary),
             label: Text(t('settings')),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/models/ayah.dart';
@@ -21,7 +22,7 @@ class AyahDisplay extends StatelessWidget {
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          color: theme.brandInk.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -31,7 +32,7 @@ class AyahDisplay extends StatelessWidget {
           Text(
             '$surahNum:$ayahNum',
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              color: theme.brandInkAt(0.6),
               letterSpacing: 2,
               fontWeight: FontWeight.w500,
             ),
@@ -48,13 +49,13 @@ class AyahDisplay extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'AmiriQuran',
                 fontSize: 22,
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                color: theme.brandInkAt(0.5),
                 height: 2.0,
               ),
             ),
             const SizedBox(height: 16),
             Divider(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              color: theme.brandInk.withValues(alpha: 0.1),
               indent: 60,
               endIndent: 60,
             ),
@@ -85,7 +86,7 @@ class AyahDisplay extends StatelessWidget {
           // Translation
           if (ayah.translationText != null) ...[
             Divider(
-              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              color: theme.brandInk.withValues(alpha: 0.08),
               indent: 40,
               endIndent: 40,
             ),
@@ -94,7 +95,7 @@ class AyahDisplay extends StatelessWidget {
               ayah.translationText!,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                color: theme.inkAt(0.75),
                 height: 1.8,
                 fontSize: 16,
               ),

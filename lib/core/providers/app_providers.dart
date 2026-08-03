@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/constants/languages.dart';
@@ -216,6 +217,25 @@ final qfRecitersProvider = FutureProvider<List<Reciter>>((ref) async {
 
 final languageProvider = StateProvider<String>((ref) {
   return ref.watch(localStorageProvider).language;
+});
+
+/// App-wide text size multiplier — see `LocalStorageService.textScale`.
+final textScaleProvider = StateProvider<double>((ref) {
+  return ref.watch(localStorageProvider).textScale;
+});
+
+/// Appearance preference, as a [ThemeMode].
+///
+/// Defaults to [ThemeMode.light] (see
+/// `LocalStorageService.themeMode` for why). Writing to this provider
+/// changes the theme immediately; persist alongside it via
+/// `storage.setThemeMode` so the choice survives a relaunch.
+final themeModeProvider = StateProvider<ThemeMode>((ref) {
+  return switch (ref.watch(localStorageProvider).themeMode) {
+    'dark' => ThemeMode.dark,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.light,
+  };
 });
 
 final showTransliterationProvider = StateProvider<bool>((ref) {

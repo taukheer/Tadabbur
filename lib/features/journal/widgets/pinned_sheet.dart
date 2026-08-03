@@ -79,7 +79,7 @@ class PinnedSheet extends StatelessWidget {
                   Icon(
                     Icons.push_pin_rounded,
                     size: 16,
-                    color: AppColors.accentDark.withValues(alpha: 0.8),
+                    color: theme.accentInk,
                   ),
                   const SizedBox(width: 8),
                   Text(
@@ -95,7 +95,7 @@ class PinnedSheet extends StatelessWidget {
                         : '${entries.length}',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          theme.inkAt(0.5),
                     ),
                   ),
                 ],

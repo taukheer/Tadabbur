@@ -9,8 +9,13 @@ abstract final class AppTheme {
   // ---------------------------------------------------------------------------
   // Light theme
   // ---------------------------------------------------------------------------
-  static ThemeData get light {
-    final colorScheme = ColorScheme(
+  static ThemeData get light => _buildTheme(lightScheme);
+
+  /// The light color scheme on its own. Split out from [light] so it
+  /// can be inspected (and contrast-tested) without building the full
+  /// [ThemeData], which pulls in remotely-loaded fonts.
+  static ColorScheme get lightScheme {
+    return ColorScheme(
       brightness: Brightness.light,
       primary: AppColors.primary,
       onPrimary: Colors.white,
@@ -40,15 +45,16 @@ abstract final class AppTheme {
       inversePrimary: AppColors.primaryMuted,
       surfaceContainerHighest: AppColors.surfaceLightCard,
     );
-
-    return _buildTheme(colorScheme);
   }
 
   // ---------------------------------------------------------------------------
   // Dark theme
   // ---------------------------------------------------------------------------
-  static ThemeData get dark {
-    final colorScheme = ColorScheme(
+  static ThemeData get dark => _buildTheme(darkScheme);
+
+  /// The dark color scheme on its own — see [lightScheme].
+  static ColorScheme get darkScheme {
+    return ColorScheme(
       brightness: Brightness.dark,
       primary: AppColors.primaryMuted,
       onPrimary: AppColors.primaryDark,
@@ -78,8 +84,6 @@ abstract final class AppTheme {
       inversePrimary: AppColors.primary,
       surfaceContainerHighest: AppColors.surfaceDarkCard,
     );
-
-    return _buildTheme(colorScheme);
   }
 
   // ---------------------------------------------------------------------------
@@ -96,11 +100,13 @@ abstract final class AppTheme {
   // time_of_day_ribbon.bandForHour); this isn't a user toggle — it's
   // a prayer-time-aware design choice for the users who open the app
   // at fajr in a dark room.
-  static ThemeData get midnightOled {
-    final base = dark;
+  static ThemeData get midnightOled => _buildTheme(midnightScheme);
+
+  /// The midnight color scheme on its own — see [lightScheme].
+  static ColorScheme get midnightScheme {
     const black = Color(0xFF000000);
     const nearBlack = Color(0xFF0A0A0A);
-    final scheme = base.colorScheme.copyWith(
+    return darkScheme.copyWith(
       surface: black,
       onSurface: const Color(0xFFF0EDE7),
       surfaceContainerHighest: nearBlack,
@@ -109,7 +115,6 @@ abstract final class AppTheme {
       primary: AppColors.primaryMuted,
       inverseSurface: AppColors.surfaceLight,
     );
-    return _buildTheme(scheme);
   }
 
   // ---------------------------------------------------------------------------

@@ -48,7 +48,7 @@ class BookmarksScreen extends ConsumerWidget {
                       t('bookmarks'),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryLight,
+                        color: theme.inkPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -57,8 +57,7 @@ class BookmarksScreen extends ConsumerWidget {
                           ? t('saved_ayahs')
                           : '${bookmarks.length} ${bookmarks.length == 1 ? t('ayah_saved') : t('ayahs_saved')}',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.35),
+                        color: theme.inkAt(0.35),
                       ),
                     ),
                   ],
@@ -88,8 +87,7 @@ class BookmarksScreen extends ConsumerWidget {
                           t('no_bookmarks'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.3),
+                            color: theme.inkAt(0.3),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -179,7 +177,7 @@ void _openBookmarkDetail(
               DateFormat('MMMM d, yyyy').format(bookmark.bookmarkedAt),
               style: theme.textTheme.labelSmall?.copyWith(
                 color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                    theme.inkAt(0.35),
               ),
             ),
 
@@ -195,7 +193,7 @@ void _openBookmarkDetail(
                 fontFamily:
                     arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
                 fontSize: arabicFontSize * 0.85,
-                color: AppColors.textPrimaryLight,
+                color: theme.inkPrimary,
                 height: 2.2,
               ),
             ),
@@ -208,8 +206,7 @@ void _openBookmarkDetail(
                 '"${bookmark.translationText}"',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface
-                      .withValues(alpha: 0.5),
+                  color: theme.inkAt(0.5),
                   fontStyle: FontStyle.italic,
                   height: 1.6,
                 ),
@@ -222,13 +219,13 @@ void _openBookmarkDetail(
               padding: const EdgeInsets.symmetric(
                   horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.warmSurface,
+                color: theme.warmSurfaceInk,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 bookmark.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown,
+                  color: theme.warmInk,
                 ),
               ),
             ),
@@ -248,13 +245,13 @@ void _openBookmarkDetail(
                 icon: Icon(
                   Icons.bookmark_remove_rounded,
                   size: 18,
-                  color: theme.colorScheme.error.withValues(alpha: 0.6),
+                  color: theme.colorScheme.error,
                 ),
                 label: Text(
                   'Remove bookmark',
                   style: TextStyle(
                     color:
-                        theme.colorScheme.error.withValues(alpha: 0.6),
+                        theme.colorScheme.error,
                     fontSize: 13,
                   ),
                 ),
@@ -282,12 +279,12 @@ class _BookmarkCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.warmSurfaceDark : AppColors.warmSurfaceLight,
+        color: isDark ? AppColors.warmSurfaceDark : theme.warmSurfaceLightInk,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
               ? AppColors.warmBorderDark.withValues(alpha: 0.3)
-              : AppColors.warmBorder.withValues(alpha: 0.3),
+              : theme.warmBorderInk.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -301,14 +298,14 @@ class _BookmarkCard extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? AppColors.warmSurface.withValues(alpha: 0.3)
-                      : AppColors.warmSurface,
+                      ? theme.warmSurfaceInk.withValues(alpha: 0.3)
+                      : theme.warmSurfaceInk,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   bookmark.verseKey,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.warmBrown,
+                    color: theme.warmInk,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -317,14 +314,14 @@ class _BookmarkCard extends ConsumerWidget {
               Icon(
                 Icons.bookmark_rounded,
                 size: 16,
-                color: AppColors.primary.withValues(alpha: 0.5),
+                color: theme.brandInkAt(0.5),
               ),
               const SizedBox(width: 4),
               Text(
                 DateFormat('MMM d').format(bookmark.bookmarkedAt),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                      theme.inkAt(0.25),
                   fontSize: 10,
                 ),
               ),
@@ -346,7 +343,7 @@ class _BookmarkCard extends ConsumerWidget {
               fontSize: 20,
               color: isDark
                   ? AppColors.textPrimaryDark
-                  : AppColors.textPrimaryLight,
+                  : theme.inkPrimary,
               height: 2.0,
             ),
           ),
@@ -361,7 +358,7 @@ class _BookmarkCard extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
                 color:
-                    theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    theme.inkAt(0.4),
                 fontStyle: FontStyle.italic,
                 height: 1.5,
               ),

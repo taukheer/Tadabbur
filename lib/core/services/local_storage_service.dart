@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tadabbur/core/constants/app_constants.dart';
 import 'package:tadabbur/core/models/bookmark.dart';
 import 'package:tadabbur/core/models/journal_entry.dart';
 import 'package:tadabbur/core/models/user_profile.dart';
@@ -230,6 +231,35 @@ class LocalStorageService {
 
   Future<void> setUseHijriDates(bool value) =>
       _prefs.setBool(_keyUseHijriDates, value);
+
+  static const _keyThemeMode = AppConstants.prefKeyThemeMode;
+
+  /// Appearance preference: 'light', 'dark', or 'system'.
+  ///
+  /// Defaults to 'light' rather than 'system'. Tadabbur's visual
+  /// identity is the warm-parchment light design; users on a phone
+  /// with dark mode (or *scheduled* dark mode, which many have on
+  /// without realising) were being dropped into the dark theme with
+  /// no way out, and reported the app as unreadable. Following the
+  /// system is now an explicit opt-in via Settings → Appearance.
+  String get themeMode => _prefs.getString(_keyThemeMode) ?? 'light';
+
+  Future<void> setThemeMode(String mode) =>
+      _prefs.setString(_keyThemeMode, mode);
+
+  static const _keyTextScale = 'ui_text_scale';
+
+  /// App-wide text size multiplier, 1.0 = the designed size.
+  ///
+  /// The Arabic verse already had its own point-size slider, but every
+  /// other piece of text — translation, tafsir, journal, settings —
+  /// could only be enlarged by changing the whole phone's font size,
+  /// which most people never discover. This scales all of it, and
+  /// multiplies on top of whatever the OS is already asking for.
+  double get textScale => _prefs.getDouble(_keyTextScale) ?? 1.0;
+
+  Future<void> setTextScale(double scale) =>
+      _prefs.setDouble(_keyTextScale, scale);
 
   static const _keyPreferredTafsirPrefix = 'preferred_tafsir_';
 

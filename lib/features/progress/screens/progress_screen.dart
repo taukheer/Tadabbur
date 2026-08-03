@@ -45,7 +45,7 @@ class ProgressScreen extends ConsumerWidget {
                 'Progress is personal. No comparisons.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                      theme.inkAt(0.45),
                   fontStyle: FontStyle.italic,
                 ),
               ).animate().fadeIn(duration: 400.ms, delay: 100.ms),
@@ -69,7 +69,7 @@ class ProgressScreen extends ConsumerWidget {
                       icon: Icons.auto_stories_rounded,
                       value: '${progress.totalAyatCompleted}',
                       label: 'Ayat Completed',
-                      color: AppColors.primary,
+                      color: theme.brandInk,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -78,7 +78,7 @@ class ProgressScreen extends ConsumerWidget {
                       icon: Icons.edit_note_rounded,
                       value: '${progress.totalReflections}',
                       label: 'Reflections',
-                      color: AppColors.statIndigo,
+                      color: theme.statInk,
                     ),
                   ),
                 ],
@@ -172,7 +172,7 @@ class _StreakCard extends StatelessWidget {
           Text(
             'day streak',
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.streakOrange.withValues(alpha: 0.7),
+              color: theme.streakInk,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -216,7 +216,7 @@ class _MiniStat extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: AppColors.streakOrange.withValues(alpha: 0.5),
+            color: theme.streakInk,
           ),
         ),
         const SizedBox(height: 2),
@@ -301,7 +301,7 @@ class _PositionCard extends StatelessWidget {
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          color: theme.brandInk.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -310,7 +310,7 @@ class _PositionCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              color: theme.brandInk.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -326,7 +326,7 @@ class _PositionCard extends StatelessWidget {
                 Text(
                   'Current Position',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                    color: theme.brandInkAt(0.6),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -344,7 +344,7 @@ class _PositionCard extends StatelessWidget {
             currentVerseKey,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w800,
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              color: theme.brandInkAt(0.3),
             ),
           ),
         ],
@@ -410,7 +410,7 @@ class _ReflectionBreakdown extends StatelessWidget {
             label: 'Reflected',
             count: tier3,
             total: total,
-            color: AppColors.primary,
+            color: theme.brandInk,
             icon: Icons.edit_note_rounded,
           ),
         ],
@@ -448,7 +448,7 @@ class _TierRow extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              color: theme.inkAt(0.7),
             ),
           ),
         ),
@@ -501,13 +501,13 @@ class _QuranProgressBar extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.06),
-            AppColors.primary.withValues(alpha: 0.02),
+            theme.brandInk.withValues(alpha: 0.06),
+            theme.brandInk.withValues(alpha: 0.02),
           ],
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.1),
+          color: theme.brandInk.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -520,13 +520,13 @@ class _QuranProgressBar extends StatelessWidget {
                 'Quran Journey',
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  color: theme.brandInk,
                 ),
               ),
               Text(
                 '$totalAyat / $totalInQuran ayat',
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.primary.withValues(alpha: 0.6),
+                  color: theme.brandInkAt(0.6),
                 ),
               ),
             ],
@@ -537,8 +537,8 @@ class _QuranProgressBar extends StatelessWidget {
             child: LinearProgressIndicator(
               value: fraction,
               backgroundColor:
-                  AppColors.primary.withValues(alpha: 0.08),
-              color: AppColors.primary,
+                  theme.brandFill.withValues(alpha: 0.08),
+              color: theme.brandInk,
               minHeight: 10,
             ),
           ),
@@ -546,7 +546,7 @@ class _QuranProgressBar extends StatelessWidget {
           Text(
             '$percentage% — one ayah at a time',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.primary.withValues(alpha: 0.5),
+              color: theme.brandInkAt(0.5),
               fontStyle: FontStyle.italic,
             ),
           ),

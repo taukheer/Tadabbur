@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tadabbur/core/theme/app_colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tadabbur/core/constants/translations.dart';
@@ -32,7 +33,7 @@ class WordByWordWidget extends ConsumerWidget {
         color: theme.colorScheme.primaryContainer.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+          color: theme.brandInk.withValues(alpha: 0.08),
         ),
       ),
       child: Column(
@@ -43,7 +44,7 @@ class WordByWordWidget extends ConsumerWidget {
               Icon(
                 Icons.translate_rounded,
                 size: 18,
-                color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                color: theme.brandInkAt(0.7),
               ),
               const SizedBox(width: 8),
               Text(
@@ -126,7 +127,7 @@ class _WordCard extends StatelessWidget {
             Text(
               word.transliteration!,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
                 fontSize: 10,
                 fontStyle: FontStyle.italic,
               ),

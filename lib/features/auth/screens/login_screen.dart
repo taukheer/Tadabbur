@@ -59,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 'One Ayah. Every Day. For Life.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  color: theme.inkAt(0.5),
                   fontStyle: FontStyle.italic,
                 ),
               ).animate().fadeIn(duration: 800.ms, delay: 400.ms),
@@ -73,12 +73,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: FilledButton.icon(
                   onPressed: _isLoading ? null : _loginWithQuranFoundation,
                   icon: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: theme.onBrandInk,
                           ),
                         )
                       : const Icon(Icons.login_rounded),
@@ -92,7 +92,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: theme.brandFill,
+                    foregroundColor: theme.onBrandInk,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -115,7 +116,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: _continueAsGuest,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                      color: theme.brandInk.withValues(alpha: 0.2),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -125,8 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     'Continue as Guest',
                     style: TextStyle(
                       fontSize: 16,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.6),
+                      color: theme.inkAt(0.6),
                     ),
                   ),
                 ),
@@ -138,7 +138,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 'Sign in to sync across devices\nand save your journal securely',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                  color: theme.inkAt(0.35),
                   height: 1.5,
                 ),
               ).animate().fadeIn(duration: 500.ms, delay: 800.ms),

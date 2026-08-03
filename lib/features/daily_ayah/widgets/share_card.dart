@@ -85,7 +85,7 @@ Future<void> openShareCardSheet({
               Text(
                 t('share_card_preview'),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  color: theme.inkAt(0.4),
                 ),
               ),
               const SizedBox(height: 16),
@@ -136,8 +136,7 @@ Future<void> openShareCardSheet({
                       child: Text(
                         t('cancel'),
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
+                          color: theme.inkAt(0.6),
                         ),
                       ),
                     ),

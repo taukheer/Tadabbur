@@ -207,7 +207,7 @@ class YearInAyatBanner extends ConsumerWidget {
                         'YOUR YEAR IN AYAT · ${stats.year}',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color:
-                              AppColors.accentDark.withValues(alpha: 0.85),
+                              theme.accentInk,
                           letterSpacing: 1.4,
                           fontWeight: FontWeight.w700,
                           fontSize: 10.5,
@@ -226,8 +226,7 @@ class YearInAyatBanner extends ConsumerWidget {
                       Text(
                         'Tap to see your year with the Quran',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.55),
+                          color: theme.inkAt(0.55),
                           fontStyle: FontStyle.italic,
                           fontSize: 12,
                         ),
@@ -238,7 +237,7 @@ class YearInAyatBanner extends ConsumerWidget {
                 Icon(
                   Icons.chevron_right_rounded,
                   color:
-                      AppColors.accentDark.withValues(alpha: 0.6),
+                      theme.accentInk,
                 ),
               ],
             ),
@@ -316,7 +315,7 @@ class YearInAyatSheet extends ConsumerWidget {
                     Text(
                       '${s.year} · ${hijriYearLabel(s.year)}',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: AppColors.accentDark.withValues(alpha: 0.8),
+                        color: theme.accentInk,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 1.4,
                       ),
@@ -345,7 +344,7 @@ class YearInAyatSheet extends ConsumerWidget {
                   icon: Icon(
                     Icons.ios_share_rounded,
                     size: 20,
-                    color: AppColors.accentDark.withValues(alpha: 0.75),
+                    color: theme.accentInk,
                   ),
                 ),
             ],
@@ -401,7 +400,7 @@ class YearInAyatSheet extends ConsumerWidget {
             Text(
               'THE SURAH YOU KEPT RETURNING TO',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 letterSpacing: 1.4,
                 fontWeight: FontWeight.w600,
                 fontSize: 10.5,
@@ -419,7 +418,7 @@ class YearInAyatSheet extends ConsumerWidget {
             Text(
               '${s.topSurahCount} ${s.topSurahCount == 1 ? "reflection" : "reflections"} this year',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.inkAt(0.6),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -435,7 +434,7 @@ class YearInAyatSheet extends ConsumerWidget {
           Text(
             'HOW YOU ENGAGED',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.inkAt(0.5),
               letterSpacing: 1.4,
               fontWeight: FontWeight.w600,
               fontSize: 10.5,
@@ -446,19 +445,19 @@ class YearInAyatSheet extends ConsumerWidget {
               label: 'Acknowledged',
               count: s.tier1,
               icon: Icons.favorite_border_rounded,
-              color: AppColors.tier1),
+              color: theme.tierInk(1)),
           const SizedBox(height: 8),
           _TierRow(
               label: 'Responded',
               count: s.tier2,
               icon: Icons.chat_bubble_outline_rounded,
-              color: AppColors.tier2),
+              color: theme.tierInk(2)),
           const SizedBox(height: 8),
           _TierRow(
               label: 'Reflected',
               count: s.tier3,
               icon: Icons.auto_awesome_outlined,
-              color: AppColors.tier3),
+              color: theme.tierInk(3)),
 
           // ── Deepest reflection highlight ──
           if (s.deepest != null &&
@@ -472,7 +471,7 @@ class YearInAyatSheet extends ConsumerWidget {
             Text(
               'YOUR DEEPEST REFLECTION',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 letterSpacing: 1.4,
                 fontWeight: FontWeight.w600,
                 fontSize: 10.5,
@@ -492,7 +491,7 @@ class YearInAyatSheet extends ConsumerWidget {
               child: Text(
                 s.deepest!.responseText!,
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                  color: theme.inkAt(0.85),
                   height: 1.6,
                 ),
               ),
@@ -502,7 +501,7 @@ class YearInAyatSheet extends ConsumerWidget {
               '${surahNameFromKey(s.deepest!.verseKey)} ${s.deepest!.verseKey} · '
               '${formatShortDate(s.deepest!.completedAt, useHijri: useHijri, lang: lang)}',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 fontSize: 11,
               ),
             ),
@@ -514,7 +513,7 @@ class YearInAyatSheet extends ConsumerWidget {
               'May these be written in your scales.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.accentDark.withValues(alpha: 0.8),
+                color: theme.accentInk,
                 fontStyle: FontStyle.italic,
                 height: 1.5,
               ),
@@ -550,7 +549,7 @@ class _YearStat extends StatelessWidget {
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            color: theme.inkAt(0.6),
             height: 1.3,
           ),
         ),
@@ -583,7 +582,7 @@ class _TierRow extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              color: theme.inkAt(0.75),
             ),
           ),
         ),

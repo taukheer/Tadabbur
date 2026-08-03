@@ -87,7 +87,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                     tooltip: 'Close',
                     icon: Icon(
                       Icons.close,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                      color: theme.inkAt(0.3),
                     ),
                   ),
                 ),
@@ -103,10 +103,10 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   locale: const Locale('ar'),
                   textDirection: TextDirection.rtl,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'AmiriQuran',
                     fontSize: 22,
-                    color: AppColors.textPrimaryLight,
+                    color: theme.inkPrimary,
                     height: 2.0,
                   ),
                   maxLines: 3,
@@ -124,7 +124,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                     widget.ayah.translationText!,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      color: theme.inkAt(0.4),
                       fontStyle: FontStyle.italic,
                       height: 1.5,
                     ),
@@ -139,7 +139,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(80, 28, 80, 28),
                 child: Divider(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: theme.brandInk.withValues(alpha: 0.08),
                   thickness: 0.5,
                 ),
               ),
@@ -154,7 +154,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       _t('what_ayah_say'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                    color: theme.inkAt(0.75),
                     fontWeight: FontWeight.w500,
                     height: 1.6,
                     fontSize: 17,
@@ -181,7 +181,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   ],
                   style: theme.textTheme.bodyLarge?.copyWith(
                     height: 1.8,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                    color: theme.inkAt(0.8),
                   ),
                   decoration: InputDecoration(
                     hintText: _t('write_freely'),
@@ -189,23 +189,23 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
                     ),
                     filled: true,
-                    fillColor: AppColors.primary.withValues(alpha: 0.02),
+                    fillColor: theme.brandInk.withValues(alpha: 0.02),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.06),
+                        color: theme.brandInk.withValues(alpha: 0.06),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.06),
+                        color: theme.brandInk.withValues(alpha: 0.06),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: theme.brandInk.withValues(alpha: 0.15),
                       ),
                     ),
                     contentPadding: const EdgeInsets.all(20),
@@ -252,20 +252,21 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       child: FilledButton(
                         onPressed: _isSaving ? null : () => _save(withText: true),
                         style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: theme.brandFill,
+                          foregroundColor: theme.onBrandInk,
                           disabledBackgroundColor:
-                              AppColors.primary.withValues(alpha: 0.4),
+                              theme.brandFill.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: Colors.white,
+                                  color: theme.onBrandInk,
                                 ),
                               )
                             : Text(
@@ -290,14 +291,14 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: AppColors.primary.withValues(alpha: 0.1),
+                              color: theme.brandInk.withValues(alpha: 0.1),
                             ),
                           ),
                         ),
                         child: Text(
                           _t('this_spoke'),
                           style: TextStyle(
-                            color: AppColors.primary.withValues(alpha: 0.5),
+                            color: theme.brandInkAt(0.5),
                             fontSize: 14,
                           ),
                         ),
@@ -334,7 +335,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                 : 'A little more? Or tap "This spoke to me" below',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.primary,
+          backgroundColor: Theme.of(context).brandInk,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           action: text.isEmpty
               ? null
@@ -441,7 +442,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
 
                 Icon(
                   Icons.check_rounded,
-                  color: AppColors.primary.withValues(alpha: 0.3),
+                  color: theme.brandInkAt(0.3),
                   size: 48,
                 )
                     .animate()
@@ -459,7 +460,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   _t('sat_with_ayat').replaceAll('{n}', '${progress.totalAyatCompleted}'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.inkAt(0.5),
                     height: 1.5,
                   ),
                 ).animate().fadeIn(duration: 800.ms, delay: 400.ms),
@@ -470,7 +471,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   _t('next_ready'),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: theme.inkAt(0.3),
                   ),
                 ).animate().fadeIn(duration: 800.ms, delay: 600.ms),
 
@@ -482,13 +483,13 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                       Icon(
                         Icons.public_rounded,
                         size: 14,
-                        color: AppColors.primary.withValues(alpha: 0.5),
+                        color: theme.brandInkAt(0.5),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Shared to Quran Reflect',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.primary.withValues(alpha: 0.6),
+                          color: theme.brandInkAt(0.6),
                           fontSize: 11,
                         ),
                       ),
@@ -503,7 +504,7 @@ class _ReflectionScreenState extends ConsumerState<ReflectionScreen> {
                   child: Text(
                     _t('return_btn'),
                     style: TextStyle(
-                      color: AppColors.primary.withValues(alpha: 0.5),
+                      color: theme.brandInkAt(0.5),
                     ),
                   ),
                 ).animate().fadeIn(duration: 600.ms, delay: 1000.ms),
@@ -541,7 +542,7 @@ class _ShareToQuranReflectTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: value
-              ? theme.colorScheme.primary.withValues(alpha: 0.06)
+              ? theme.brandInk.withValues(alpha: 0.06)
               : theme.colorScheme.surfaceContainerHighest
                   .withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
@@ -559,7 +560,7 @@ class _ShareToQuranReflectTile extends StatelessWidget {
               size: 18,
               color: value
                   ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.45),
+                  : theme.inkAt(0.45),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -580,7 +581,7 @@ class _ShareToQuranReflectTile extends StatelessWidget {
                         : 'Keep private to your journal',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color:
-                          theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                          theme.inkAt(0.55),
                     ),
                   ),
                 ],

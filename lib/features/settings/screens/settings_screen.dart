@@ -226,11 +226,11 @@ class SettingsScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.04),
+                    color: theme.brandInk.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color:
-                          AppColors.primary.withValues(alpha: 0.1),
+                          theme.brandInk.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Row(
@@ -244,7 +244,7 @@ class SettingsScreen extends ConsumerWidget {
                                   ? kSurahNames[currentSurah]
                                   : 'Surah $currentSurah',
                               style: theme.textTheme.titleSmall?.copyWith(
-                                color: AppColors.primary,
+                                color: theme.brandInk,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -254,8 +254,7 @@ class SettingsScreen extends ConsumerWidget {
                                   .replaceAll('{n}',
                                       '${progress.totalAyatCompleted}'),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.5),
+                                color: theme.brandInkAt(0.5),
                               ),
                             ),
                           ],
@@ -264,15 +263,13 @@ class SettingsScreen extends ConsumerWidget {
                       Text(
                         t('change'),
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: AppColors.primary
-                              .withValues(alpha: 0.5),
+                          color: theme.brandInkAt(0.5),
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded,
                           size: 18,
-                          color: AppColors.primary
-                              .withValues(alpha: 0.3)),
+                          color: theme.brandInkAt(0.3)),
                     ],
                   ),
                 ),
@@ -289,10 +286,10 @@ class SettingsScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardSurface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppColors.warmBorder,
+                      color: theme.warmBorderInk,
                       width: 0.5,
                     ),
                   ),
@@ -316,8 +313,7 @@ class SettingsScreen extends ConsumerWidget {
                                       ref.watch(languageProvider))
                                   .name,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.4),
+                                color: theme.inkAt(0.4),
                                 fontSize: 12,
                               ),
                             ),
@@ -326,14 +322,12 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       Text(t('change'),
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: AppColors.primary
-                                .withValues(alpha: 0.5),
+                            color: theme.brandInkAt(0.5),
                           )),
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right_rounded,
                           size: 18,
-                          color: AppColors.primary
-                              .withValues(alpha: 0.3)),
+                          color: theme.brandInkAt(0.3)),
                     ],
                   ),
                 ),
@@ -362,10 +356,10 @@ class SettingsScreen extends ConsumerWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardSurface,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                          color: AppColors.warmBorder, width: 0.5),
+                          color: theme.warmBorderInk, width: 0.5),
                     ),
                     child: Row(
                       children: [
@@ -385,13 +379,11 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         Text(t('change'),
                             style: theme.textTheme.labelMedium?.copyWith(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.5))),
+                                color: theme.brandInkAt(0.5))),
                         const SizedBox(width: 4),
                         Icon(Icons.chevron_right_rounded,
                             size: 18,
-                            color: AppColors.primary
-                                .withValues(alpha: 0.3)),
+                            color: theme.brandInkAt(0.3)),
                       ],
                     ),
                   ),
@@ -421,10 +413,10 @@ class SettingsScreen extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.cardSurface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.warmBorder, width: 0.5),
+                    color: theme.warmBorderInk, width: 0.5),
                 ),
                 child: Row(
                   children: [
@@ -437,15 +429,14 @@ class SettingsScreen extends ConsumerWidget {
                                   ?.copyWith(fontWeight: FontWeight.w500)),
                           Text(t('roman_script_label'),
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.35),
+                                  color: theme.inkAt(0.35),
                                   fontSize: 12)),
                         ],
                       ),
                     ),
                     Switch(
                       value: ref.watch(showTransliterationProvider),
-                      activeTrackColor: AppColors.primary,
+                      activeTrackColor: theme.brandFill,
                       onChanged: (v) async {
                         await storage.setShowTransliteration(v);
                         ref.read(showTransliterationProvider.notifier).state = v;
@@ -458,10 +449,34 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 28),
 
               // === DISPLAY GROUP ===
-              // Visual preferences: dates calendar, Arabic font + size.
-              // Anything that changes how content looks, not what
-              // content is loaded.
+              // Visual preferences: appearance, dates calendar, Arabic
+              // font + size. Anything that changes how content looks,
+              // not what content is loaded.
               _GroupHeader(t('group_display'), theme),
+
+              // === APPEARANCE ===
+              // Sits first in the group because it's the setting users
+              // arrive looking for. Defaults to Light: the app is
+              // designed around the warm-parchment palette, and users
+              // whose phone was in dark mode (often on a schedule they'd
+              // forgotten) had no way to get back to it.
+              _SectionLabel(t('section_appearance'), theme),
+              const SizedBox(height: 10),
+              _AppearancePicker(ref: ref, theme: theme, t: t),
+
+              const SizedBox(height: 28),
+
+              // === TEXT SIZE ===
+              // Applies to everything, not just the Arabic (which keeps
+              // its own point-size slider further down and stacks on
+              // top of this). Sits beside Appearance because the two
+              // are the settings someone struggling to read the app
+              // will come looking for.
+              _SectionLabel(t('section_text_size'), theme),
+              const SizedBox(height: 10),
+              _TextSizePicker(ref: ref, theme: theme, t: t),
+
+              const SizedBox(height: 28),
 
               // === JOURNAL DATES ===
               _SectionLabel(t('section_journal_dates'), theme),
@@ -471,10 +486,10 @@ class SettingsScreen extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: theme.cardSurface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                      color: AppColors.warmBorder, width: 0.5),
+                      color: theme.warmBorderInk, width: 0.5),
                 ),
                 child: Row(
                   children: [
@@ -488,8 +503,7 @@ class SettingsScreen extends ConsumerWidget {
                           Text(
                             t('hijri_months_hint'),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.35),
+                              color: theme.inkAt(0.35),
                               fontSize: 12,
                               height: 1.35,
                             ),
@@ -499,7 +513,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     Switch(
                       value: ref.watch(useHijriDatesProvider),
-                      activeTrackColor: AppColors.primary,
+                      activeTrackColor: theme.brandFill,
                       onChanged: (v) async {
                         await storage.setUseHijriDates(v);
                         ref.read(useHijriDatesProvider.notifier).state = v;
@@ -559,13 +573,13 @@ class SettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: currentFont == font.id
-                            ? AppColors.primary.withValues(alpha: 0.06)
-                            : Colors.white,
+                            ? theme.brandInk.withValues(alpha: 0.06)
+                            : theme.cardSurface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: currentFont == font.id
-                              ? AppColors.primary.withValues(alpha: 0.25)
-                              : AppColors.warmBorder.withValues(alpha: 0.5),
+                              ? theme.brandInk.withValues(alpha: 0.25)
+                              : theme.warmBorderInk.withValues(alpha: 0.5),
                           width: currentFont == font.id ? 1.5 : 0.5,
                         ),
                       ),
@@ -583,15 +597,14 @@ class SettingsScreen extends ConsumerWidget {
                                               ? FontWeight.w600
                                               : FontWeight.w400,
                                           color: currentFont == font.id
-                                              ? AppColors.primary
+                                              ? theme.brandInk
                                               : theme.colorScheme.onSurface,
                                           fontSize: 14,
                                         )),
                                     const SizedBox(width: 8),
                                     Text(t(font.descriptionKey),
                                         style: theme.textTheme.bodySmall?.copyWith(
-                                          color: theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.35),
+                                          color: theme.inkAt(0.35),
                                           fontSize: 11,
                                         )),
                                   ],
@@ -603,15 +616,15 @@ class SettingsScreen extends ConsumerWidget {
                                   textDirection: TextDirection.rtl,
                                   style: ArabicFonts.getStyle(font.id, fontSize: 22)
                                       .copyWith(
-                                    color: AppColors.textPrimaryLight,
+                                    color: theme.inkPrimary,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           if (currentFont == font.id)
-                            const Icon(Icons.check_circle_rounded,
-                                color: AppColors.primary, size: 20),
+                            Icon(Icons.check_circle_rounded,
+                                color: theme.brandInk, size: 20),
                         ],
                       ),
                     ),
@@ -645,15 +658,15 @@ class SettingsScreen extends ConsumerWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardSurface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppColors.warmBorder, width: 0.5),
+                      color: theme.warmBorderInk, width: 0.5),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.chat_bubble_outline_rounded,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          color: theme.inkAt(0.4),
                           size: 20),
                       const SizedBox(width: 14),
                       Expanded(
@@ -665,8 +678,7 @@ class SettingsScreen extends ConsumerWidget {
                                     ?.copyWith(fontWeight: FontWeight.w500)),
                             Text(t('help_improve'),
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.35),
+                                    color: theme.inkAt(0.35),
                                     fontSize: 12)),
                           ],
                         ),
@@ -696,19 +708,16 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     Text('Tadabbur', // brand name — not translated
                         style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.45),
+                            color: theme.inkAt(0.45),
                             fontWeight: FontWeight.w500)),
                     const SizedBox(height: 4),
                     Text(t('app_built_on'),
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.4))),
+                            color: theme.inkAt(0.4))),
                     const SizedBox(height: 2),
                     Text(t('app_free_forever'),
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.45),
+                            color: theme.inkAt(0.45),
                             fontStyle: FontStyle.italic,
                             fontWeight: FontWeight.w500)),
                   ],
@@ -803,13 +812,13 @@ class SettingsScreen extends ConsumerWidget {
                             horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           color: selected
-                              ? AppColors.primary.withValues(alpha: 0.08)
-                              : Colors.white,
+                              ? theme.brandInk.withValues(alpha: 0.08)
+                              : theme.cardSurface,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: selected
-                                ? AppColors.primary.withValues(alpha: 0.4)
-                                : AppColors.warmBorder
+                                ? theme.brandInk.withValues(alpha: 0.4)
+                                : theme.warmBorderInk
                                     .withValues(alpha: 0.5),
                             width: selected ? 1.5 : 0.5,
                           ),
@@ -827,7 +836,7 @@ class SettingsScreen extends ConsumerWidget {
                                           ? FontWeight.w600
                                           : FontWeight.w500,
                                       color: selected
-                                          ? AppColors.primary
+                                          ? theme.brandInk
                                           : theme.colorScheme.onSurface,
                                       fontSize: 15,
                                     ),
@@ -839,8 +848,7 @@ class SettingsScreen extends ConsumerWidget {
                                         r.style!,
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
-                                          color: theme.colorScheme.onSurface
-                                              .withValues(alpha: 0.4),
+                                          color: theme.inkAt(0.4),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -849,9 +857,9 @@ class SettingsScreen extends ConsumerWidget {
                               ),
                             ),
                             if (selected)
-                              const Icon(
+                              Icon(
                                 Icons.check_circle_rounded,
-                                color: AppColors.primary,
+                                color: theme.brandInk,
                                 size: 20,
                               ),
                           ],
@@ -919,29 +927,27 @@ class SettingsScreen extends ConsumerWidget {
                                   ? FontWeight.w600
                                   : FontWeight.w400,
                               color: isCurrent
-                                  ? AppColors.primary
+                                  ? theme.brandInk
                                   : null,
                               fontSize: 16,
                             )),
                         const SizedBox(width: 10),
                         Text(lang.name,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.35),
+                              color: theme.inkAt(0.35),
                             )),
                       ],
                     ),
                     subtitle: lang.code != 'ar'
                         ? Text(lang.translationAuthor,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.25),
+                              color: theme.inkAt(0.25),
                               fontSize: 11,
                             ))
                         : null,
                     trailing: isCurrent
-                        ? const Icon(Icons.check_circle_rounded,
-                            color: AppColors.primary, size: 20)
+                        ? Icon(Icons.check_circle_rounded,
+                            color: theme.brandInk, size: 20)
                         : null,
                     onTap: () async {
                       await storage.setLanguage(lang.code);
@@ -1016,17 +1022,17 @@ class SettingsScreen extends ConsumerWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         color: isCurrent
-                            ? AppColors.primary
+                            ? theme.brandInk
                                 .withValues(alpha: 0.1)
-                            : AppColors.warmSurface,
+                            : theme.warmSurfaceInk,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Center(
                         child: Text('$surahNum',
                             style: TextStyle(
                               color: isCurrent
-                                  ? AppColors.primary
-                                  : AppColors.warmBrown,
+                                  ? theme.brandInk
+                                  : theme.warmInk,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             )),
@@ -1038,12 +1044,12 @@ class SettingsScreen extends ConsumerWidget {
                               ? FontWeight.w600
                               : FontWeight.w400,
                           color: isCurrent
-                              ? AppColors.primary
+                              ? theme.brandInk
                               : null,
                         )),
                     trailing: isCurrent
-                        ? const Icon(Icons.place_rounded,
-                            color: AppColors.primary, size: 18)
+                        ? Icon(Icons.place_rounded,
+                            color: theme.brandInk, size: 18)
                         : null,
                     onTap: () async {
                       await ref
@@ -1205,17 +1211,17 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             ),
             const SizedBox(height: 48),
             Icon(Icons.check_circle_rounded,
-                color: AppColors.primary, size: 56),
+                color: theme.brandInk, size: 56),
             const SizedBox(height: 20),
             Text(t('feedback_thanks_title'),
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: theme.brandInk,
                   fontWeight: FontWeight.w600,
                 )),
             const SizedBox(height: 8),
             Text(t('feedback_thanks_subtitle'),
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  color: theme.inkAt(0.4),
                 )),
             const SizedBox(height: 48),
           ],
@@ -1250,7 +1256,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
           const SizedBox(height: 4),
           Text(t('feedback_we_read'),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
               )),
           const SizedBox(height: 20),
 
@@ -1268,13 +1274,13 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected
-                        ? AppColors.primary.withValues(alpha: 0.08)
-                        : Colors.white,
+                        ? theme.brandInk.withValues(alpha: 0.08)
+                        : theme.cardSurface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.3)
-                          : AppColors.warmBorder,
+                          ? theme.brandInk.withValues(alpha: 0.3)
+                          : theme.warmBorderInk,
                       width: selected ? 1.5 : 0.5,
                     ),
                   ),
@@ -1283,16 +1289,16 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                     children: [
                       Icon(icon, size: 16,
                           color: selected
-                              ? AppColors.primary
-                              : theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                              ? theme.brandInk
+                              : theme.inkAt(0.4)),
                       const SizedBox(width: 6),
                       Text(label,
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                             color: selected
-                                ? AppColors.primary
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                ? theme.brandInk
+                                : theme.inkAt(0.6),
                           )),
                     ],
                   ),
@@ -1318,23 +1324,23 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             decoration: InputDecoration(
               hintText: 'Tell us what you think...',
               hintStyle: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+                color: theme.inkAt(0.25),
                 fontSize: 14,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: theme.cardSurface,
               contentPadding: const EdgeInsets.all(16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.warmBorder, width: 0.5),
+                borderSide: BorderSide(color: theme.warmBorderInk, width: 0.5),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.warmBorder, width: 0.5),
+                borderSide: BorderSide(color: theme.warmBorderInk, width: 0.5),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                borderSide: BorderSide(color: theme.brandInk, width: 1.5),
               ),
             ),
           ),
@@ -1347,17 +1353,18 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             child: FilledButton(
               onPressed: _sending || _controller.text.trim().isEmpty ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.3),
+                backgroundColor: theme.brandFill,
+                foregroundColor: theme.onBrandInk,
+                disabledBackgroundColor: theme.brandFill.withValues(alpha: 0.3),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _sending
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20, height: 20,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2, color: theme.onBrandInk),
                     )
                   : Text(t('feedback_send_btn'),
                       style: const TextStyle(fontSize: 15)),
@@ -1379,7 +1386,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(text,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+          color: theme.inkAt(0.35),
           letterSpacing: 1.5,
           fontWeight: FontWeight.w600,
         ));
@@ -1431,9 +1438,9 @@ class _FontSizeSlider extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warmBorder, width: 0.5),
+        border: Border.all(color: theme.warmBorderInk, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1453,7 +1460,7 @@ class _FontSizeSlider extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'AmiriQuran',
                     fontSize: fontSizes[index].$2 * 0.6,
-                    color: AppColors.primary.withValues(alpha: 0.85),
+                    color: theme.brandInkAt(0.85),
                     height: 1.4,
                   ),
                 ),
@@ -1461,7 +1468,7 @@ class _FontSizeSlider extends StatelessWidget {
                 Text(
                   _localizedLabel(fontSizes[index].$1),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.primary.withValues(alpha: 0.7),
+                    color: theme.brandInkAt(0.7),
                     fontWeight: FontWeight.w600,
                     fontSize: 11,
                     letterSpacing: 0.3,
@@ -1473,19 +1480,19 @@ class _FontSizeSlider extends StatelessWidget {
           const SizedBox(height: 4),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppColors.primary,
+              activeTrackColor: theme.brandFill,
               inactiveTrackColor:
-                  AppColors.primary.withValues(alpha: 0.15),
-              thumbColor: AppColors.primary,
-              overlayColor: AppColors.primary.withValues(alpha: 0.12),
+                  theme.brandFill.withValues(alpha: 0.15),
+              thumbColor: theme.brandFill,
+              overlayColor: theme.brandInk.withValues(alpha: 0.12),
               trackHeight: 3,
               thumbShape:
                   const RoundSliderThumbShape(enabledThumbRadius: 9),
               tickMarkShape:
                   const RoundSliderTickMarkShape(tickMarkRadius: 2.5),
-              activeTickMarkColor: Colors.white,
+              activeTickMarkColor: theme.onBrandInk,
               inactiveTickMarkColor:
-                  AppColors.primary.withValues(alpha: 0.4),
+                  theme.brandInk.withValues(alpha: 0.4),
               showValueIndicator: ShowValueIndicator.never,
             ),
             child: Slider(
@@ -1509,16 +1516,14 @@ class _FontSizeSlider extends StatelessWidget {
                 Text(
                   _localizedLabel(fontSizes.first.$1),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.5),
+                    color: theme.inkAt(0.5),
                     fontSize: 11,
                   ),
                 ),
                 Text(
                   _localizedLabel(fontSizes.last.$1),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.5),
+                    color: theme.inkAt(0.5),
                     fontSize: 11,
                   ),
                 ),
@@ -1552,7 +1557,7 @@ class _GroupHeader extends StatelessWidget {
           Text(
             text,
             style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+              color: theme.inkAt(0.85),
               fontWeight: FontWeight.w700,
               fontSize: 17,
               letterSpacing: -0.2,
@@ -1563,6 +1568,223 @@ class _GroupHeader extends StatelessWidget {
             child: Container(
               height: 1,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Light / Dark / System selector.
+///
+/// A three-up segmented row rather than a bottom-sheet picker: there
+/// are only three options, and this is the setting a confused user is
+/// hunting for — it should be readable and switchable without a second
+/// tap. The choice applies immediately (the provider drives
+/// `MaterialApp.themeMode`) and is persisted so it survives relaunch.
+class _AppearancePicker extends StatelessWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+  final String Function(String) t;
+
+  const _AppearancePicker({
+    required this.ref,
+    required this.theme,
+    required this.t,
+  });
+
+  static const _options = <(ThemeMode, String, String, IconData)>[
+    (ThemeMode.light, 'light', 'appearance_light', Icons.light_mode_rounded),
+    (ThemeMode.dark, 'dark', 'appearance_dark', Icons.dark_mode_rounded),
+    (
+      ThemeMode.system,
+      'system',
+      'appearance_system',
+      Icons.brightness_auto_rounded,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final current = ref.watch(themeModeProvider);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: theme.cardSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.warmBorderInk, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          for (final (mode, pref, labelKey, icon) in _options)
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  ref.read(themeModeProvider.notifier).state = mode;
+                  await ref.read(localStorageProvider).setThemeMode(pref);
+                },
+                behavior: HitTestBehavior.opaque,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: current == mode
+                        ? theme.brandInk.withValues(alpha: 0.10)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 20,
+                        color: current == mode
+                            ? theme.brandInk
+                            : theme.inkAt(0.35),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        t(labelKey),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: current == mode
+                              ? theme.brandInk
+                              : theme.inkAt(0.55),
+                          fontWeight: current == mode
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// App-wide text size selector, with a live sample underneath.
+///
+/// The sample matters more than the labels: at a glance you can see
+/// what you are choosing, which is the whole point for someone who is
+/// here because the text is too small to read comfortably.
+class _TextSizePicker extends StatelessWidget {
+  final WidgetRef ref;
+  final ThemeData theme;
+  final String Function(String) t;
+
+  const _TextSizePicker({
+    required this.ref,
+    required this.theme,
+    required this.t,
+  });
+
+  // Kept modest at the top end — beyond ~1.3 the denser screens
+  // (journal rows, settings tiles) start to wrap awkwardly. Users who
+  // need more than this can stack the OS font setting on top, which
+  // the builder in main.dart multiplies in.
+  static const _steps = <(double, String, double)>[
+    (0.9, 'text_size_small', 13),
+    (1.0, 'text_size_default', 15),
+    (1.15, 'text_size_large', 17.5),
+    (1.3, 'text_size_larger', 20),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final current = ref.watch(textScaleProvider);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: theme.cardSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.warmBorderInk, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (final (scale, labelKey, glyphSize) in _steps)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      ref.read(textScaleProvider.notifier).state = scale;
+                      await ref.read(localStorageProvider).setTextScale(scale);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: current == scale
+                            ? theme.brandInk.withValues(alpha: 0.10)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        children: [
+                          // The "A" is drawn at a fixed point size and
+                          // opted out of scaling, so the row keeps its
+                          // shape as the rest of the app grows.
+                          Text(
+                            'A',
+                            textScaler: TextScaler.noScaling,
+                            style: TextStyle(
+                              fontSize: glyphSize,
+                              height: 1.4,
+                              fontWeight: current == scale
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: current == scale
+                                  ? theme.brandInk
+                                  : theme.inkAt(0.45),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            t(labelKey),
+                            textAlign: TextAlign.center,
+                            textScaler: TextScaler.noScaling,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 11,
+                              color: current == scale
+                                  ? theme.brandInk
+                                  : theme.inkAt(0.5),
+                              fontWeight: current == scale
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Divider(height: 1, color: theme.warmBorderInk.withValues(alpha: 0.6)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+            // Not opted out of scaling — this line is the preview, so
+            // it has to grow with the selection.
+            child: Text(
+              t('text_size_sample'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.inkAt(0.75),
+                fontStyle: FontStyle.italic,
+                height: 1.5,
+              ),
             ),
           ),
         ],
@@ -1607,13 +1829,13 @@ class _NotificationTile extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: isEnabled
-                  ? AppColors.primary.withValues(alpha: 0.04)
-                  : Colors.white,
+                  ? theme.brandInk.withValues(alpha: 0.04)
+                  : theme.cardSurface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isEnabled
-                    ? AppColors.primary.withValues(alpha: 0.15)
-                    : AppColors.warmBorder,
+                    ? theme.brandInk.withValues(alpha: 0.15)
+                    : theme.warmBorderInk,
                 width: isEnabled ? 1 : 0.5,
               ),
             ),
@@ -1624,8 +1846,8 @@ class _NotificationTile extends StatelessWidget {
                       ? Icons.notifications_active_rounded
                       : Icons.notifications_off_outlined,
                   color: isEnabled
-                      ? AppColors.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                      ? theme.brandInk
+                      : theme.inkAt(0.3),
                   size: 22,
                 ),
                 const SizedBox(width: 14),
@@ -1641,7 +1863,7 @@ class _NotificationTile extends StatelessWidget {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
                           color: isEnabled
-                              ? AppColors.primary
+                              ? theme.brandInk
                               : theme.colorScheme.onSurface,
                         ),
                       ),
@@ -1650,8 +1872,7 @@ class _NotificationTile extends StatelessWidget {
                             ? t('settings_ayah_waiting')
                             : t('set_daily_reminder_hint'),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.35),
+                          color: theme.inkAt(0.35),
                           fontStyle:
                               isEnabled ? FontStyle.italic : FontStyle.normal,
                           fontSize: 12,
@@ -1663,7 +1884,7 @@ class _NotificationTile extends StatelessWidget {
                 Text(
                   isEnabled ? t('change') : t('set_time'),
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: AppColors.primary.withValues(alpha: 0.5),
+                    color: theme.brandInkAt(0.5),
                   ),
                 ),
               ],
@@ -1722,7 +1943,7 @@ class _NotificationTile extends StatelessWidget {
                           Text(
                             t('notif_blocked_subtitle'),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.makkiText.withValues(alpha: 0.8),
+                              color: AppColors.makkiText,
                               fontSize: 12,
                             ),
                           ),
@@ -1732,7 +1953,7 @@ class _NotificationTile extends StatelessWidget {
                     Icon(
                       Icons.chevron_right,
                       size: 18,
-                      color: AppColors.makkiText.withValues(alpha: 0.7),
+                      color: AppColors.makkiText,
                     ),
                   ],
                 ),
@@ -1798,14 +2019,14 @@ class _AccountTile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.cardSurface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.warmBorder, width: 0.5),
+            border: Border.all(color: theme.warmBorderInk, width: 0.5),
           ),
           child: Row(
             children: [
               Icon(Icons.person_outline,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  color: theme.inkAt(0.3),
                   size: 22),
               const SizedBox(width: 14),
               Expanded(
@@ -1817,15 +2038,14 @@ class _AccountTile extends StatelessWidget {
                             ?.copyWith(fontWeight: FontWeight.w500)),
                     Text(t('sign_in_journey'),
                         style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.35),
+                            color: theme.inkAt(0.35),
                             fontSize: 12)),
                   ],
                 ),
               ),
               Text(t('sign_in_button'),
                   style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.primary.withValues(alpha: 0.6))),
+                      color: theme.brandInkAt(0.6))),
             ],
           ),
         ),
@@ -1836,25 +2056,25 @@ class _AccountTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.04),
+        color: theme.brandInk.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.1)),
+            color: theme.brandInk.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 18,
             backgroundColor:
-                AppColors.primary.withValues(alpha: 0.1),
+                theme.brandFill.withValues(alpha: 0.1),
             backgroundImage: authUser.photoUrl != null
                 ? NetworkImage(authUser.photoUrl!)
                 : null,
             child: authUser.photoUrl == null
                 ? Text(
                     authUser.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      color: theme.brandInk,
                       fontWeight: FontWeight.w600,
                     ),
                   )
@@ -1868,12 +2088,11 @@ class _AccountTile extends StatelessWidget {
                 Text(authUser.name,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: AppColors.primary,
+                      color: theme.brandInk,
                     )),
                 Text(authUser.email,
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.35),
+                        color: theme.inkAt(0.35),
                         fontSize: 12)),
               ],
             ),
@@ -1886,8 +2105,7 @@ class _AccountTile extends StatelessWidget {
             },
             child: Text(t('sign_out_button'),
                 style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.35))),
+                    color: theme.inkAt(0.35))),
           ),
         ],
       ),
@@ -1942,7 +2160,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
                 Icon(
                   Icons.delete_outline_rounded,
                   size: 20,
-                  color: theme.colorScheme.error.withValues(alpha: 0.7),
+                  color: theme.colorScheme.error,
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1954,15 +2172,14 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
                           color:
-                              theme.colorScheme.error.withValues(alpha: 0.85),
+                              theme.colorScheme.error,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         t('delete_account_hint'),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.4),
+                          color: theme.inkAt(0.4),
                           fontSize: 12,
                         ),
                       ),
@@ -1976,7 +2193,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color:
-                          theme.colorScheme.error.withValues(alpha: 0.6),
+                          theme.colorScheme.error,
                     ),
                   ),
               ],
@@ -2091,7 +2308,7 @@ class _DeleteAccountButtonState extends ConsumerState<_DeleteAccountButton> {
             child: Text(
               text,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                color: theme.inkAt(0.7),
               ),
             ),
           ),
@@ -2151,10 +2368,10 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.05),
+          color: theme.brandInk.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+            color: theme.brandInk.withValues(alpha: 0.12),
           ),
         ),
         child: Row(
@@ -2162,7 +2379,7 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
             CircleAvatar(
               radius: 18,
               backgroundColor:
-                  theme.colorScheme.primary.withValues(alpha: 0.15),
+                  theme.brandInk.withValues(alpha: 0.15),
               foregroundImage:
                   (avatarUrl != null && avatarUrl.isNotEmpty)
                       ? NetworkImage(avatarUrl)
@@ -2195,15 +2412,13 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
                       Icon(
                         Icons.link_rounded,
                         size: 12,
-                        color: theme.colorScheme.primary
-                            .withValues(alpha: 0.7),
+                        color: theme.brandInkAt(0.7),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Connected to quran.com',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary
-                              .withValues(alpha: 0.7),
+                          color: theme.brandInkAt(0.7),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -2220,7 +2435,7 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
               icon: Icon(
                 Icons.logout_rounded,
                 size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
               ),
               tooltip: 'Sign out',
               splashRadius: 18,
@@ -2245,7 +2460,7 @@ class _QfIdentityRowState extends ConsumerState<_QfIdentityRow> {
         content: Text(
           t('signout_confirm_body'),
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+            color: theme.inkAt(0.75),
             height: 1.5,
           ),
         ),
@@ -2309,14 +2524,14 @@ class _YearlyReviewsTile extends ConsumerWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.warmBorder, width: 0.5),
+          border: Border.all(color: theme.warmBorderInk, width: 0.5),
         ),
         child: Text(
           'Your first yearly review unlocks after your first reflection.',
           style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            color: theme.inkAt(0.5),
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -2374,16 +2589,16 @@ class _YearRow extends ConsumerWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.cardSurface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.warmBorder, width: 0.5),
+            border: Border.all(color: theme.warmBorderInk, width: 0.5),
           ),
           child: Row(
             children: [
               Icon(
                 Icons.auto_awesome_outlined,
                 size: 18,
-                color: AppColors.accentDark.withValues(alpha: 0.7),
+                color: theme.accentInk,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2407,7 +2622,7 @@ class _YearRow extends ConsumerWidget {
                           .replaceAll('{hijri}', hijriYearLabel(year)),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                            theme.inkAt(0.55),
                         fontSize: 12,
                       ),
                     ),
@@ -2417,7 +2632,7 @@ class _YearRow extends ConsumerWidget {
               Icon(
                 Icons.chevron_right_rounded,
                 size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                color: theme.inkAt(0.35),
               ),
             ],
           ),
@@ -2456,9 +2671,9 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
       padding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardSurface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warmBorder, width: 0.5),
+        border: Border.all(color: theme.warmBorderInk, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2482,12 +2697,12 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
                         horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: opt.slug == current.slug
-                          ? AppColors.primary.withValues(alpha: 0.1)
+                          ? theme.brandInk.withValues(alpha: 0.1)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: opt.slug == current.slug
-                            ? AppColors.primary.withValues(alpha: 0.55)
+                            ? theme.brandInk.withValues(alpha: 0.55)
                             : theme.colorScheme.onSurface
                                 .withValues(alpha: 0.15),
                         width: 1,
@@ -2505,9 +2720,8 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
                               opt.shortName,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: opt.slug == current.slug
-                                    ? AppColors.primary
-                                    : theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.75),
+                                    ? theme.brandInk
+                                    : theme.inkAt(0.75),
                                 fontWeight: opt.slug == current.slug
                                     ? FontWeight.w600
                                     : FontWeight.w500,
@@ -2518,8 +2732,7 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
                             Text(
                               opt.mufassir,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
+                                color: theme.inkAt(0.5),
                                 fontSize: 10.5,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -2532,9 +2745,9 @@ class _TafsirScholarTileState extends ConsumerState<_TafsirScholarTile> {
                         // "this one is active" pattern.
                         if (opt.slug == current.slug) ...[
                           const SizedBox(width: 8),
-                          const Icon(
+                          Icon(
                             Icons.check_circle_rounded,
-                            color: AppColors.primary,
+                            color: theme.brandInk,
                             size: 16,
                           ),
                         ],

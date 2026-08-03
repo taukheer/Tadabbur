@@ -215,7 +215,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           t('your_journal'),
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimaryLight,
+                            color: theme.inkPrimary,
                             fontSize: 22,
                           ),
                         ),
@@ -230,7 +230,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.06),
+                              color: theme.brandInk.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -244,7 +244,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                                 Text(
                                   '$streak ${streak == 1 ? t('day_showing_up') : t('days_showing_up')}',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color: AppColors.primary.withValues(alpha: 0.6),
+                                    color: theme.brandInkAt(0.6),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 11,
                                   ),
@@ -270,8 +270,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                       Text(
                         '${bookmarks.length} ${t('saved_count')}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.3),
+                          color: theme.inkAt(0.3),
                         ),
                       ),
                     ],
@@ -333,17 +332,15 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                     decoration: InputDecoration(
                       hintText: t('search_journal'),
                       hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.25),
+                        color: theme.inkAt(0.25),
                       ),
                       prefixIcon: Icon(
                         Icons.search_rounded,
                         size: 20,
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.25),
+                        color: theme.inkAt(0.25),
                       ),
                       filled: true,
-                      fillColor: AppColors.warmSurface.withValues(alpha: 0.5),
+                      fillColor: theme.warmSurfaceInk.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
@@ -372,12 +369,12 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.primary.withValues(alpha: 0.04),
+                            color: theme.brandInk.withValues(alpha: 0.04),
                           ),
                           child: Icon(
                             Icons.auto_stories_outlined,
                             size: 32,
-                            color: AppColors.primary.withValues(alpha: 0.45),
+                            color: theme.brandInkAt(0.45),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -387,8 +384,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                               : t('no_match'),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.55),
+                            color: theme.inkAt(0.55),
                             height: 1.5,
                           ),
                         ),
@@ -403,10 +399,9 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                                 size: 16),
                             label: Text(t('today')),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
+                              foregroundColor: theme.brandInk,
                               side: BorderSide(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.3),
+                                color: theme.brandInkAt(0.3),
                               ),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 12),
@@ -487,8 +482,7 @@ class _JournalScreenState extends ConsumerState<JournalScreen> {
                   child: Text(
                     'No entries in this filter yet.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.45),
+                      color: theme.inkAt(0.45),
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -617,27 +611,27 @@ class _SectionHeader extends StatelessWidget {
           Icon(
             icon,
             size: 18,
-            color: AppColors.warmBrown.withValues(alpha: 0.6),
+            color: theme.warmInkAt(0.6),
           ),
           const SizedBox(width: 8),
           Text(
             title,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimaryLight.withValues(alpha: 0.7),
+              color: theme.inkPrimary.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: AppColors.warmSurface,
+              color: theme.warmSurfaceInk,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               '$count',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.warmBrown.withValues(alpha: 0.6),
+                color: theme.warmInkAt(0.6),
                 fontSize: 11,
               ),
             ),
@@ -739,7 +733,7 @@ class _EntryDetailSheet extends ConsumerWidget {
               formatLongDate(entry.completedAt,
                   useHijri: useHijri, locale: lang),
               style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 letterSpacing: 0.3,
               ),
             ),
@@ -761,7 +755,7 @@ class _EntryDetailSheet extends ConsumerWidget {
                   width: 3,
                   height: 3,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                    color: theme.inkAt(0.3),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -769,7 +763,7 @@ class _EntryDetailSheet extends ConsumerWidget {
                 Text(
                   '${AppTranslations.get('ayah', lang)} $ayahNum',
                   style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    color: theme.inkAt(0.6),
                   ),
                 ),
               ],
@@ -804,7 +798,7 @@ class _EntryDetailSheet extends ConsumerWidget {
               '"${_cleanTranslation(entry.translationText)}"',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                color: theme.inkAt(0.6),
                 fontStyle: FontStyle.italic,
                 height: 1.7,
                 fontSize: 15,
@@ -898,7 +892,7 @@ class _DetailReflectionBlock extends StatelessWidget {
             Text(
               entry.responseText!,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                color: theme.inkAt(0.85),
                 height: 1.75,
                 fontSize: 15.5,
               ),
@@ -907,7 +901,7 @@ class _DetailReflectionBlock extends StatelessWidget {
             Text(
               AppTranslations.get('moment_of_presence', lang),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                color: theme.inkAt(0.55),
                 fontStyle: FontStyle.italic,
                 height: 1.6,
               ),
@@ -928,19 +922,19 @@ class _DetailReflectionBlock extends StatelessWidget {
         return (
           label.toUpperCase(),
           Icons.favorite_border_rounded,
-          AppColors.tier1,
+          theme.tierInk(1),
         );
       case ReflectionTier.respond:
         return (
           label.toUpperCase(),
           Icons.chat_bubble_outline_rounded,
-          AppColors.tier2,
+          theme.tierInk(2),
         );
       case ReflectionTier.reflect:
         return (
           label.toUpperCase(),
           Icons.auto_awesome_outlined,
-          AppColors.tier3,
+          theme.tierInk(3),
         );
     }
   }
@@ -967,13 +961,13 @@ class _PriorsStrip extends StatelessWidget {
             Icon(
               Icons.history_rounded,
               size: 14,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.inkAt(0.5),
             ),
             const SizedBox(width: 6),
             Text(
               "YOU'VE SAT WITH THIS AYAH BEFORE",
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                color: theme.inkAt(0.5),
                 letterSpacing: 1.2,
                 fontWeight: FontWeight.w600,
                 fontSize: 10.5,
@@ -994,7 +988,7 @@ class _PriorsStrip extends StatelessWidget {
             child: Text(
               '+ ${priors.length - 3} more in your journal',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.inkAt(0.4),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -1018,7 +1012,7 @@ class _PriorCard extends StatelessWidget {
             prior.responseText!.trim().isNotEmpty)
         ? prior.responseText!
         : 'Acknowledged this ayah';
-    final (_, tierIcon, tierColor) = _tierVisual(prior.tier);
+    final (_, tierIcon, tierColor) = _tierVisual(prior.tier, theme);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -1040,7 +1034,7 @@ class _PriorCard extends StatelessWidget {
               Text(
                 ago,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                  color: theme.inkAt(0.55),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1052,7 +1046,7 @@ class _PriorCard extends StatelessWidget {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+              color: theme.inkAt(0.75),
               height: 1.5,
               fontSize: 13,
             ),
@@ -1062,14 +1056,15 @@ class _PriorCard extends StatelessWidget {
     );
   }
 
-  static (String, IconData, Color) _tierVisual(ReflectionTier tier) {
+  static (String, IconData, Color) _tierVisual(
+      ReflectionTier tier, ThemeData theme) {
     switch (tier) {
       case ReflectionTier.acknowledge:
-        return ('Acknowledged', Icons.favorite_border_rounded, AppColors.tier1);
+        return ('Acknowledged', Icons.favorite_border_rounded, theme.tierInk(1));
       case ReflectionTier.respond:
-        return ('Responded', Icons.chat_bubble_outline_rounded, AppColors.tier2);
+        return ('Responded', Icons.chat_bubble_outline_rounded, theme.tierInk(2));
       case ReflectionTier.reflect:
-        return ('Reflected', Icons.auto_awesome_outlined, AppColors.tier3);
+        return ('Reflected', Icons.auto_awesome_outlined, theme.tierInk(3));
     }
   }
 
@@ -1129,7 +1124,7 @@ class _EntryActions extends ConsumerWidget {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               backgroundColor:
-                  theme.colorScheme.primary.withValues(alpha: 0.1),
+                  theme.brandInk.withValues(alpha: 0.1),
               foregroundColor: theme.colorScheme.primary,
             ),
             icon: const Icon(Icons.edit_note_rounded, size: 20),
@@ -1143,7 +1138,7 @@ class _EntryActions extends ConsumerWidget {
         Material(
           color: pinned
               ? AppColors.accent.withValues(alpha: 0.15)
-              : theme.colorScheme.primary.withValues(alpha: 0.08),
+              : theme.brandInk.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
@@ -1236,8 +1231,7 @@ void _openBookmarkDetail(
               formatMediumDate(bookmark.bookmarkedAt,
                   useHijri: useHijri, lang: lang),
               style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurface
-                    .withValues(alpha: 0.35),
+                color: theme.inkAt(0.35),
               ),
             ),
 
@@ -1253,7 +1247,7 @@ void _openBookmarkDetail(
                 fontFamily:
                     arabicFont == 'AmiriQuran' ? 'AmiriQuran' : null,
                 fontSize: arabicFontSize * 0.85,
-                color: AppColors.textPrimaryLight,
+                color: theme.inkPrimary,
                 height: 2.2,
               ),
             ),
@@ -1266,8 +1260,7 @@ void _openBookmarkDetail(
                 '"${_cleanTranslation(bookmark.translationText)}"',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface
-                      .withValues(alpha: 0.5),
+                  color: theme.inkAt(0.5),
                   fontStyle: FontStyle.italic,
                   height: 1.6,
                 ),
@@ -1280,13 +1273,13 @@ void _openBookmarkDetail(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: AppColors.warmSurface,
+                color: theme.warmSurfaceInk,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 bookmark.verseKey,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown,
+                  color: theme.warmInk,
                 ),
               ),
             ),
@@ -1306,13 +1299,13 @@ void _openBookmarkDetail(
                 icon: Icon(
                   Icons.bookmark_remove_rounded,
                   size: 18,
-                  color: theme.colorScheme.error.withValues(alpha: 0.6),
+                  color: theme.colorScheme.error,
                 ),
                 label: Text(
                   AppTranslations.get('remove_bookmark', ref.watch(languageProvider)),
                   style: TextStyle(
                     color:
-                        theme.colorScheme.error.withValues(alpha: 0.6),
+                        theme.colorScheme.error,
                     fontSize: 13,
                   ),
                 ),
@@ -1460,10 +1453,10 @@ class JournalCard extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardSurface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.warmBorder.withValues(alpha: 0.5),
+          color: theme.warmBorderInk.withValues(alpha: 0.5),
           width: 0.5,
         ),
         boxShadow: [
@@ -1487,7 +1480,7 @@ class JournalCard extends ConsumerWidget {
                 Text(
                   dateStr,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.inkAt(0.5),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1495,13 +1488,13 @@ class JournalCard extends ConsumerWidget {
               Icon(
                 _tierIcon,
                 size: 13,
-                color: AppColors.warmBrown.withValues(alpha: 0.5),
+                color: theme.warmInkAt(0.5),
               ),
               const SizedBox(width: 5),
               Text(
                 _tierLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.warmBrown.withValues(alpha: 0.55),
+                  color: theme.warmInkAt(0.55),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.3,
@@ -1578,7 +1571,7 @@ class _ReflectionBlock extends StatelessWidget {
             Text(
               promptText!.trim(),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.accentDark.withValues(alpha: 0.8),
+                color: theme.accentInk,
                 fontStyle: FontStyle.italic,
                 height: 1.4,
                 fontSize: 12,
@@ -1591,7 +1584,7 @@ class _ReflectionBlock extends StatelessWidget {
             maxLines: maxLines,
             overflow: maxLines != null ? TextOverflow.ellipsis : null,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
               height: 1.65,
               fontSize: 15,
             ),
@@ -1622,7 +1615,7 @@ class _AyahContext extends ConsumerWidget {
         // Thin warm divider signals: below = context.
         Container(
           height: 0.5,
-          color: AppColors.warmBorder.withValues(alpha: 0.6),
+          color: theme.warmBorderInk.withValues(alpha: 0.6),
         ),
         const SizedBox(height: 14),
         Text(
@@ -1630,10 +1623,10 @@ class _AyahContext extends ConsumerWidget {
           locale: const Locale('ar'),
           textDirection: TextDirection.rtl,
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'AmiriQuran',
             fontSize: 16,
-            color: AppColors.textPrimaryLight,
+            color: theme.inkPrimary,
             height: 1.9,
           ),
           maxLines: 1,
@@ -1644,7 +1637,7 @@ class _AyahContext extends ConsumerWidget {
           Text(
             '"$translation"',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              color: theme.inkAt(0.45),
               fontStyle: FontStyle.italic,
               fontSize: 12,
               height: 1.4,
@@ -1657,13 +1650,13 @@ class _AyahContext extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(
-            color: AppColors.warmSurface,
+            color: theme.warmSurfaceInk,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
             '${surahNameFromKey(entry.verseKey)} · ${entry.verseKey}',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.warmBrown,
+              color: theme.warmInk,
               fontSize: 10,
               letterSpacing: 0.2,
             ),
@@ -1697,10 +1690,10 @@ class _AyahHero extends ConsumerWidget {
             locale: const Locale('ar'),
             textDirection: TextDirection.rtl,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'AmiriQuran',
               fontSize: 20,
-              color: AppColors.textPrimaryLight,
+              color: theme.inkPrimary,
               height: 1.9,
             ),
             maxLines: 2,
@@ -1713,7 +1706,7 @@ class _AyahHero extends ConsumerWidget {
             '"$translation"',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
+              color: theme.inkAt(0.45),
               fontStyle: FontStyle.italic,
               height: 1.4,
             ),
@@ -1725,13 +1718,13 @@ class _AyahHero extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.warmSurface,
+            color: theme.warmSurfaceInk,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             '${surahNameFromKey(entry.verseKey)}  ·  ${entry.verseKey}',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.warmBrown,
+              color: theme.warmInk,
               fontSize: 11,
             ),
           ),
@@ -1760,10 +1753,10 @@ class _BookmarkCardCompact extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.warmSurfaceLight,
+        color: theme.warmSurfaceLightInk,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.warmBorder.withValues(alpha: 0.3),
+          color: theme.warmBorderInk.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -1780,7 +1773,7 @@ class _BookmarkCardCompact extends ConsumerWidget {
                 child: Icon(
                   Icons.bookmark_rounded,
                   size: 16,
-                  color: AppColors.primary.withValues(alpha: 0.7),
+                  color: theme.brandInkAt(0.7),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1794,8 +1787,7 @@ class _BookmarkCardCompact extends ConsumerWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.7),
+                    color: theme.inkAt(0.7),
                     height: 1.5,
                     fontSize: 13,
                   ),
@@ -1828,7 +1820,7 @@ class _BookmarkCardCompact extends ConsumerWidget {
             child: Text(
               '${surahNameFromKey(bookmark.verseKey)}  ·  ${bookmark.verseKey}',
               style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.warmBrown.withValues(alpha: 0.6),
+                color: theme.warmInkAt(0.6),
                 fontSize: 10,
               ),
             ),
@@ -1974,7 +1966,7 @@ class _MonthHeader extends ConsumerWidget {
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.inkAt(0.4),
               letterSpacing: 1.4,
               fontWeight: FontWeight.w600,
               fontSize: 10.5,
@@ -2063,12 +2055,12 @@ class _TierFilterChips extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 decoration: BoxDecoration(
                   color: selected
-                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      ? theme.brandInk.withValues(alpha: 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: selected
-                        ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                        ? theme.brandInkAt(0.3)
                         : theme.colorScheme.outline.withValues(alpha: 0.15),
                   ),
                 ),
@@ -2080,7 +2072,7 @@ class _TierFilterChips extends ConsumerWidget {
                       size: 13,
                       color: selected
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                          : theme.inkAt(0.5),
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -2088,8 +2080,7 @@ class _TierFilterChips extends ConsumerWidget {
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: selected
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.65),
+                            : theme.inkAt(0.65),
                         fontWeight: selected
                             ? FontWeight.w600
                             : FontWeight.w500,
@@ -2167,13 +2158,13 @@ class _OnThisDayBanner extends StatelessWidget {
                     Icon(
                       Icons.history_rounded,
                       size: 13,
-                      color: AppColors.accentDark.withValues(alpha: 0.8),
+                      color: theme.accentInk,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       agoLabel.toUpperCase(),
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.accentDark.withValues(alpha: 0.8),
+                        color: theme.accentInk,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1.2,
                         fontSize: 10.5,
@@ -2195,7 +2186,7 @@ class _OnThisDayBanner extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    color: theme.inkAt(0.7),
                     height: 1.45,
                     fontStyle: FontStyle.italic,
                   ),
@@ -2205,7 +2196,7 @@ class _OnThisDayBanner extends StatelessWidget {
                   Text(
                     '+ ${entries.length - 1} more from years past',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.accentDark.withValues(alpha: 0.65),
+                      color: theme.accentInk,
                       fontSize: 11,
                     ),
                   ),
@@ -2256,13 +2247,13 @@ class _PinnedSection extends StatelessWidget {
                 Icon(
                   Icons.push_pin_rounded,
                   size: 12,
-                  color: AppColors.accentDark.withValues(alpha: 0.8),
+                  color: theme.accentInk,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'PINNED',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.accentDark.withValues(alpha: 0.8),
+                    color: theme.accentInk,
                     letterSpacing: 1.4,
                     fontWeight: FontWeight.w600,
                     fontSize: 10.5,
@@ -2308,7 +2299,7 @@ class _PinnedSection extends StatelessWidget {
                       Text(
                         '+ $overflow more pinned',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.accentDark.withValues(alpha: 0.7),
+                          color: theme.accentInk,
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
                           fontWeight: FontWeight.w500,
@@ -2318,7 +2309,7 @@ class _PinnedSection extends StatelessWidget {
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 14,
-                        color: AppColors.accentDark.withValues(alpha: 0.6),
+                        color: theme.accentInk,
                       ),
                     ],
                   ),
@@ -2357,7 +2348,7 @@ class _SurahHeader extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              color: theme.inkAt(0.5),
               letterSpacing: 1.2,
               fontWeight: FontWeight.w600,
               fontSize: 10.5,
@@ -2367,7 +2358,7 @@ class _SurahHeader extends StatelessWidget {
           Text(
             count == 1 ? '1 reflection' : '$count reflections',
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              color: theme.inkAt(0.35),
               fontSize: 10,
               fontStyle: FontStyle.italic,
             ),
@@ -2405,7 +2396,7 @@ class _LensToggle extends ConsumerWidget {
           Text(
             t('group_by'),
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.inkAt(0.4),
               letterSpacing: 1.2,
               fontWeight: FontWeight.w600,
               fontSize: 10.5,
@@ -2459,12 +2450,12 @@ class _LensPill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: selected
-                ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                ? theme.brandInk.withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected
-                  ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                  ? theme.brandInkAt(0.3)
                   : theme.colorScheme.outline.withValues(alpha: 0.15),
             ),
           ),
@@ -2476,7 +2467,7 @@ class _LensPill extends StatelessWidget {
                 size: 12,
                 color: selected
                     ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    : theme.inkAt(0.5),
               ),
               const SizedBox(width: 5),
               Text(
@@ -2484,7 +2475,7 @@ class _LensPill extends StatelessWidget {
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: selected
                       ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                      : theme.inkAt(0.65),
                   fontWeight:
                       selected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 11.5,
