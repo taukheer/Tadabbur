@@ -8,13 +8,16 @@ import 'package:tadabbur/core/services/local_storage_service.dart';
 
 /// A journal entry stamped on [day]. Only `completedAt` matters to the
 /// rate-prompt rule; the rest is filler.
-JournalEntry _entryOn(DateTime day) {
+JournalEntry _entryOn(DateTime day, {String? wrote}) {
   return JournalEntry(
-    id: 'e-${day.toIso8601String()}',
+    id: 'e-${day.toIso8601String()}-${wrote ?? ''}',
     verseKey: '1:1',
     arabicText: '',
     translationText: '',
-    tier: ReflectionTier.acknowledge,
+    tier: wrote == null
+        ? ReflectionTier.acknowledge
+        : ReflectionTier.respond,
+    responseText: wrote,
     completedAt: day,
     streakDay: 1,
   );
@@ -63,10 +66,12 @@ void main() {
 
   group('RatePromptNotifier visibility', () {
     /// Three distinct days of practice — the eligibility threshold.
+    /// Just enough distinct practice days to clear the threshold,
+    /// derived from the constant rather than hardcoded — the value has
+    /// moved once already (3 -> 7) and silently broke these tests.
     List<JournalEntry> eligibleJournal() => [
-          _entryOn(DateTime.now().subtract(const Duration(days: 2))),
-          _entryOn(DateTime.now().subtract(const Duration(days: 1))),
-          _entryOn(DateTime.now()),
+          for (var i = 0; i < AppConstants.ratePromptMinActiveDays; i++)
+            _entryOn(DateTime.now().subtract(Duration(days: i))),
         ];
 
     test('hidden below the active-day threshold', () async {
@@ -135,6 +140,72 @@ void main() {
       });
 
       expect(RatePromptNotifier(storage, eligibleJournal()).state, isFalse);
+    });
+  });
+
+  group('RatePromptNotifier written-reflection path', () {
+    // The ask has two independent triggers. A week of practice shows
+    // the habit stuck; a written reflection shows the app got words out
+    // of someone, which is the stronger signal and doesn't wait a week.
+
+    test('one written reflection qualifies on day one', () async {
+      final storage = await _storage();
+      final entries = [_entryOn(DateTime.now(), wrote: 'This landed today.')];
+
+      expect(RatePromptNotifier.activeDayCount(entries), 1);
+      expect(RatePromptNotifier.writtenReflectionCount(entries), 1);
+      expect(RatePromptNotifier(storage, entries).state, isTrue);
+    });
+
+    test('tapping through is not reflecting, however many days', () async {
+      final storage = await _storage();
+      final entries = [
+        for (var i = 0; i < AppConstants.ratePromptMinActiveDays - 1; i++)
+          _entryOn(DateTime.now().subtract(Duration(days: i))),
+      ];
+
+      expect(RatePromptNotifier.writtenReflectionCount(entries), 0);
+      expect(RatePromptNotifier(storage, entries).state, isFalse);
+    });
+
+    test('an empty or whitespace body is not writing', () async {
+      final storage = await _storage();
+      for (final body in ['', '   ', '\n\t ']) {
+        final entries = [_entryOn(DateTime.now(), wrote: body)];
+        expect(RatePromptNotifier.writtenReflectionCount(entries), 0,
+            reason: 'body ${body.runes.toList()} should not count');
+        expect(RatePromptNotifier(storage, entries).state, isFalse);
+      }
+    });
+
+    test('a written reflection cannot reopen a retired prompt', () async {
+      final storage = await _storage({'rate_review_done': true});
+      final entries = [_entryOn(DateTime.now(), wrote: 'later thoughts')];
+
+      expect(RatePromptNotifier(storage, entries).state, isFalse);
+    });
+
+    test('a written reflection is still suppressed inside the snooze',
+        () async {
+      final storage = await _storage({
+        'rate_prompt_snoozed_at': DateTime.now().toIso8601String(),
+        'rate_prompt_ask_count': 1,
+      });
+      final entries = [_entryOn(DateTime.now(), wrote: 'something real')];
+
+      expect(RatePromptNotifier(storage, entries).state, isFalse);
+    });
+  });
+
+  group('rate-prompt configuration', () {
+    test('the tuning values are what the product intends', () {
+      expect(AppConstants.ratePromptMinActiveDays, 7);
+      expect(AppConstants.ratePromptMinWrittenReflections, 1);
+      expect(AppConstants.ratePromptSnooze, const Duration(days: 30));
+      expect(AppConstants.ratePromptMaxAsks, 2);
+      // iOS needs the numeric id to open the listing when the native
+      // sheet is unavailable; an empty one fails silently.
+      expect(AppConstants.appStoreId, isNotEmpty);
     });
   });
 }

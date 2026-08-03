@@ -68,7 +68,23 @@ abstract final class AppConstants {
   /// review. Counted as calendar days with at least one reflection —
   /// not days since install — so the ask only reaches people who have
   /// actually formed the habit and have something to rate.
-  static const int ratePromptMinActiveDays = 3;
+  ///
+  /// Raised from 3: three days is barely a habit, and asking that
+  /// early spends the one ask we get on lukewarm goodwill. Someone who
+  /// has written a reflection is a better signal than someone who has
+  /// tapped through a week — see [ratePromptMinWrittenReflections],
+  /// which short-circuits this wait entirely.
+  static const int ratePromptMinActiveDays = 7;
+
+  /// Written reflections that make the user eligible regardless of how
+  /// many days they have practised.
+  ///
+  /// Tapping "I felt this" is a nod; writing something is investment.
+  /// A person who has put words down has formed an opinion worth
+  /// asking for, whether that happened on day one or day thirty —
+  /// which is why this path bypasses [ratePromptMinActiveDays] rather
+  /// than adding to it.
+  static const int ratePromptMinWrittenReflections = 1;
 
   /// How long a "Not now" defers the ask.
   static const Duration ratePromptSnooze = Duration(days: 30);

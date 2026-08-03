@@ -770,6 +770,16 @@ class RatePromptNotifier extends StateNotifier<bool> {
         .length;
   }
 
+  /// Entries where the user actually wrote something.
+  ///
+  /// Tier alone isn't trusted here: what matters is whether words
+  /// exist, so a tier-2 entry saved with an empty body doesn't count.
+  static int writtenReflectionCount(List<JournalEntry> entries) {
+    return entries
+        .where((e) => (e.responseText ?? '').trim().isNotEmpty)
+        .length;
+  }
+
   static bool _isEligible(
     LocalStorageService storage,
     List<JournalEntry> entries,
@@ -790,7 +800,13 @@ class RatePromptNotifier extends StateNotifier<bool> {
       return false;
     }
 
-    return activeDayCount(entries) >= AppConstants.ratePromptMinActiveDays;
+    // Either signal is enough on its own. A week of practice shows the
+    // habit stuck; a written reflection shows the app earned words out
+    // of someone, which is the stronger signal and shouldn't have to
+    // wait a week to be acted on.
+    return activeDayCount(entries) >= AppConstants.ratePromptMinActiveDays ||
+        writtenReflectionCount(entries) >=
+            AppConstants.ratePromptMinWrittenReflections;
   }
 
   /// The user accepted the ask. Hide the card and never show it again.
